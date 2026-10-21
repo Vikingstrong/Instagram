@@ -1,0 +1,1 @@
+/usr/bin/postgres "-D" "/home/ehson/Learning/NextJS/instagram/.local/postgres/data" "-h" "127.0.0.1" "-p" "55432" "-k" "/home/ehson/Learning/NextJS/instagram/.local/postgres"
