@@ -1,8 +1,8 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client.js';
 
-// No singleton or Nest provider yet: FND-04 will own application lifecycle.
-// Callers own this client and must always disconnect it in a finally block.
+// The Nest provider owns the application client. Standalone CLI/test callers
+// own their clients and must disconnect them in a finally block.
 export function createDatabaseClient(connectionString: string): PrismaClient {
   const adapter = new PrismaPg({
     connectionString,

@@ -1,10 +1,12 @@
 # Database Foundation
 
-Срез готовит PostgreSQL и Prisma для дальнейшей работы. Подключение к NestJS,
-readiness и Swagger относятся к следующим задачам; общие контракты подготовлены
+Срез готовит PostgreSQL и Prisma. Подключение к NestJS, readiness и Swagger
+теперь реализованы в [FND-04](api-readiness.md); общие контракты подготовлены
 в [FND-02](foundation-contracts.md). Прикладных
 моделей и SQL-миграций пока нет. Это не завершение всего FND-01/FND-03/FND-04:
-согласование browser runner/origin и локальная почта остаются отдельной работой.
+Браузерный runner и локальная схема origin зафиксированы в
+[FND-01 baseline](foundation-baseline.md); их интеграционная проверка остаётся отдельной работой.
+Локальная почта Mailpit настроена в Compose: [FND-03](local-environment.md).
 
 ## Версии и размещение
 
@@ -18,7 +20,7 @@ readiness и Swagger относятся к следующим задачам; о
   Конфигурация читает корневой `.env`; переменные процесса имеют приоритет.
 - Запуск API (`start`, `start:dev`, `start:debug`, `start:prod`) читает тот же
   корневой `.env` через Node.js `--env-file-if-exists`; сейчас приложение
-  использует `PORT`, но не подключается к БД до FND-04. При отсутствии файла
+  использует `PORT` и `DATABASE_URL` для Prisma/readiness. При отсутствии файла
   можно передать переменные непосредственно процессу.
 - Генератор `prisma-client` создаёт TypeScript в
   `apps/api/src/generated/prisma/`. Каталог исключён из Git. ESM и `.js`-суффиксы
@@ -58,6 +60,9 @@ docker compose up -d --wait postgres
 
 Сервис доступен только на `127.0.0.1:${POSTGRES_PORT}`. Образ PostgreSQL 18
 использует versioned PGDATA, поэтому volume монтируется в `/var/lib/postgresql`.
+Bind mount init-скрипта использует `:ro,Z`: только чтение и приватная SELinux
+метка для доступа контейнера на enforcing-хостах. Не отключайте SELinux ради
+запуска БД.
 При первом запуске `scripts/database/init.sh` создаёт:
 
 | База | Роль-владелец | URL |
@@ -145,7 +150,7 @@ ESM Prisma Client**, выполняет `$connect()` и `SELECT 1`, закрыв
 даёт ненулевой exit code. При отсутствующем/некорректном URL сообщение называет
 переменную без её значения; ошибка подключения не раскрывает URL, пароль или
 driver error.
-Обычный NestJS пока не использует БД; его `GET /` не является readiness.
+NestJS использует БД в `GET /api/v1/readiness`; его старый `GET /` не является readiness.
 
 `test:integration` — отдельная явная команда, не часть стартовых `test` или
 `test:e2e`. Использует настоящий PostgreSQL, проверяет версию 18.6,
@@ -172,8 +177,8 @@ migration tooling на реальной БД, но не доказывает п�
 миграции не запускаются при старте каждого API-процесса. `db push` не заменяет
 версионируемые миграции.
 
-FND-02 подготовлен для review frontend-разработчиком. FND-04 позже подключит NestJS lifecycle,
-readiness и Swagger/OpenAPI с реальными ответами согласованного контракта.
+FND-02 [принят frontend-разработчиком](fnd-02-review.md). FND-04 подключает NestJS lifecycle,
+readiness и Swagger/OpenAPI: [описание и проверки](api-readiness.md).
 
 ## Результаты проверки этого среза — 2026-10-21
 
@@ -206,7 +211,7 @@ readiness и Swagger/OpenAPI с реальными ответами соглас
 | Docker Compose startup / healthcheck / volume initialization | **NOT RUN**: Docker отсутствует; установленный Podman не запускается в доступном окружении |
 
 Проверки стартового API не доказывают интеграцию NestJS с БД; она относится к
-FND-04. Frontend/browser тесты по-прежнему не настроены. Для совместной приёмки
+FND-04. На момент этого исторического отчёта frontend/browser harness ещё не был добавлен; сейчас он присутствует, но readiness smoke остаётся pending. Для совместной приёмки
 требуются запуск по этой инструкции вторым разработчиком и отдельная проверка
 Compose на машине с рабочим container runtime.
 

@@ -15,6 +15,7 @@ apps/api/src/generated/prisma/
 .turbo/
 
 # Environment
+.local/
 .env
 .env.*
 !.env.example
