@@ -81,22 +81,36 @@ describe('AppController (e2e)', () => {
         string,
         {
           get: {
+            operationId: string;
+            tags: string[];
             responses: Record<
               string,
-              { content: Record<string, { schema: unknown }> }
+              {
+                content: Record<string, { schema: unknown }>;
+                headers: Record<string, { schema: unknown }>;
+              }
             >;
           };
         }
       >;
     };
     expect(Object.keys(document.paths)).toEqual(['/api/v1/readiness']);
-    const responses = document.paths['/api/v1/readiness']!.get.responses;
+    const operation = document.paths['/api/v1/readiness']!.get;
+    expect(operation.operationId).toBe('getReadiness');
+    expect(operation.tags).toContain('Foundation');
+    const responses = operation.responses;
     expect(responses['200']!.content['application/json']!.schema).toEqual(
       ReadinessResponseSchema.toJSONSchema({ target: 'openapi-3.0' }),
     );
     expect(responses['503']!.content['application/json']!.schema).toEqual(
       ApiErrorResponseSchema.toJSONSchema({ target: 'openapi-3.0' }),
     );
+    for (const status of ['200', '503']) {
+      expect(responses[status]!.headers['Cache-Control']!.schema).toEqual({
+        type: 'string',
+        enum: ['no-store'],
+      });
+    }
     expect(database.checkConnection).not.toHaveBeenCalled();
   });
 
