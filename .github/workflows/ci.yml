@@ -1,0 +1,94 @@
+name: Foundation CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Workspace, PostgreSQL and browser checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      TURBO_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Activate pinned pnpm
+        run: |
+          corepack enable
+          pnpm --version
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare isolated CI databases
+        run: node scripts/ci/prepare-env.mjs
+
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait --wait-timeout 90 postgres
+
+      - name: Validate Prisma schema
+        run: pnpm --filter @instagram/api db:validate
+
+      # Keep steps sequential: API build/typecheck/lint generate the same client.
+      - name: Build all workspace packages
+        run: pnpm build
+
+      - name: Check types
+        run: pnpm check-types
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit and contract tests
+        run: pnpm test
+
+      - name: Apply development and test migration history
+        run: |
+          pnpm --filter @instagram/api db:migrate:deploy
+          pnpm --filter @instagram/api db:migrate:test
+
+      - name: PostgreSQL integration tests
+        run: pnpm --filter @instagram/api test:integration
+
+      - name: Install Playwright Chromium and system dependencies
+        run: pnpm --filter @instagram/web exec playwright install --with-deps chromium
+
+      - name: Compiled API smoke and API/browser E2E tests
+        run: |
+          node --env-file=.env apps/api/dist/main.js &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true; wait "$api_pid" 2>/dev/null || true' EXIT
+          node scripts/ci/check-api.mjs
+          pnpm test:e2e
+
+      - name: Upload browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop isolated CI services
+        if: always()
+        run: docker compose down --volumes
