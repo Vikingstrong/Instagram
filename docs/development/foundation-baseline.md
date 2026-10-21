@@ -55,7 +55,8 @@ review; auth, политики доступа и миграции требуют
 и `pnpm build`; реальные проверки PostgreSQL запускаются отдельно:
 `pnpm --filter @instagram/api test:integration`. Детальный выбор зависит от
 изменения. Root e2e включает API и Playwright web; отсутствующие или пропущенные
-проверки не засчитываются как PASS. CI будет добавлен в FND-07.
+проверки не засчитываются как PASS. Workflow FND-07 описан в [Foundation CI](ci.md);
+наличие конфигурации не подтверждает успешный GitHub run.
 
 ## Ожидаемый вертикальный smoke
 

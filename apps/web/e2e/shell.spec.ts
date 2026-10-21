@@ -18,12 +18,16 @@ test.describe("app shell", () => {
     await page.goto("/");
 
     const rail = page.locator("aside").first();
-    const collapsed = await rail.boundingBox();
+    // A browser's initial cursor can already hover the rail at the left edge.
+    // Establish the collapsed state and wait for its CSS transition first.
+    await page.mouse.move(720, 450);
+    await expect
+      .poll(async () => (await rail.boundingBox())?.width)
+      .toBeLessThan(80);
     await rail.hover();
     await expect
       .poll(async () => (await rail.boundingBox())?.width)
       .toBeGreaterThan(200);
-    expect(collapsed?.width).toBeLessThan(80);
   });
 
   test("mobile shows the bottom tab bar instead of the rail", async ({

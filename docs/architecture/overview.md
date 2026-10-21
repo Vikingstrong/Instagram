@@ -182,7 +182,7 @@ SSE-подключение авторизуется cookie-сессией и п�
 
 Обязательны отрицательные проверки: прямой URL приватного файла, чужой диалог, повторное чтение после потери подписки, смена пользователя без утечки кеша. Интеграционные тесты используют PostgreSQL, а не SQLite. Браузерные проверки используют Playwright согласно [FND-01 baseline](../development/foundation-baseline.md).
 
-Корневые `check-types`, `lint`, `build`, `test` и `test:e2e` уже существуют. Наличие команд не означает, что будущие функции покрыты тестами; у web есть явные scripts Vitest и Playwright, но readiness smoke пока помечен `fixme`. Автоматизация проверок в CI ещё не настроена.
+Корневые `check-types`, `lint`, `build`, `test` и `test:e2e` уже существуют. Наличие команд не означает, что будущие функции покрыты тестами; у web есть явные scripts Vitest и Playwright, но readiness smoke пока помечен `fixme`. Автоматизация определена в [Foundation CI](../development/ci.md); успешный GitHub run и совместная приёмка проверяются отдельно.
 
 ## 14. Deployment Constraints
 

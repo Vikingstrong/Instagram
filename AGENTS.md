@@ -74,8 +74,10 @@ it. See `docs/development/foundation-contracts.md` for the proposed wire format
 and `docs/development/fnd-02-review.md` for Developer 2 acceptance.
 Frontend/browser harnesses exist; the readiness browser test is still pending.
 Local Mailpit configuration and startup instructions are in
-`docs/development/local-environment.md`; API mail delivery and CI are not
-implemented yet. Root `test` / `test:e2e` do not run database integration tests.
+`docs/development/local-environment.md`; API mail delivery is not implemented yet.
+Foundation CI is defined in `.github/workflows/ci.yml`; see
+`docs/development/ci.md` for checks, service lifecycle and pending browser readiness.
+Root `test` / `test:e2e` do not run database integration tests; CI runs them explicitly.
 The repository-root `.env` is loaded by Prisma CLI configuration, API start
 scripts and database checks; it stays out of Git. Process environment values
 take precedence. The API consumes `PORT` and validates `DATABASE_URL` at startup.

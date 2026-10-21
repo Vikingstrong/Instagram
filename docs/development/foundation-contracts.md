@@ -78,35 +78,38 @@ pnpm --filter @instagram/contracts test
 
 Корневые `pnpm dev`, `pnpm dev:web`, `pnpm dev:api` учитывают эту сборку.
 
-## Передача Claude
+## Передача frontend и текущая интеграция
 
-1. Подтвердить этот контракт до зависимой UI-реализации; замечания к полям/ошибкам
-   согласовать с backend. Не копировать независимые типы.
-2. Использовать схемы/типы из `@instagram/contracts`; web entry уже есть в
-   `apps/web/lib/api/contracts.ts`. В `contracts.fixture.ts` — явные клиентские
-   fixtures для состояния ready/unavailable, без запросов к несуществующему API.
-3. После согласования контракт позволяет готовить FND-05/FND-06 на фикстурах.
-   При выборе browser runner/origin требуется оставшаяся координация FND-01.
-4. Переключение на реальный endpoint и сквозной smoke зависят от FND-04. Проверка
-   mock/fixture не подтверждает соединение NestJS с PostgreSQL.
+1. Контракт [принят Developer 2](fnd-02-review.md). Изменения полей, статусов и
+   ошибок согласуются с backend; независимые копии типов не создаются.
+2. Web использует схемы из `@instagram/contracts`; REST-клиент и явный
+   fixture-режим реализованы в `apps/web/lib/api/`. Fixtures проверяются теми же
+   схемами и не подтверждают соединение с настоящей БД.
+3. Backend readiness и Swagger реализованы в [FND-04](api-readiness.md).
+   Схема origin и browser runner определены в [FND-01](foundation-baseline.md).
+4. Для завершения FND-05/FND-06 остаются web proxy, серверный адрес API и
+   сквозной запрос браузера к настоящему readiness. Shell browser checks уже
+   существуют; readiness-тест в `apps/web/e2e/shell.spec.ts` остаётся `test.fixme`.
 
 Проверки пакета покрывают JSON round-trip, недопустимые состояния и утечку
 внутренних полей, безопасный текст ошибки и UUID, а также отсутствие Node/server
 импортов в транзитивном ESM-графе публичных exports (включая Zod).
-API-тест действительно импортирует compiled workspace package; web-модули
-проверяются существующим TypeScript 5.9 и сборкой Next.js. Browser smoke пока
-отсутствует, его прохождение здесь не заявляется.
+API-тест импортирует compiled workspace package; web использует те же схемы.
 
-## FND-03 остаётся отдельной задачей
+## Границы Foundation
 
-PostgreSQL/Prisma и изоляция dev/test уже подготовлены в
-[Database Foundation](database.md). **Локальная тестовая почта ещё не настроена**,
-а холодный старт Compose PostgreSQL остаётся NOT RUN в текущей среде.
-FND-02 не зависит от FND-03, поэтому контракт можно передать сейчас; FND-03
-целиком не закрывается. Полный Foundation требует также FND-04–FND-08 и
-совместной приёмки. Текущий срез не добавляет Auth, модели или миграции.
+PostgreSQL/Prisma и изоляция dev/test описаны в [Database Foundation](database.md).
+Mailpit настроен в Compose, инструкции и границы фактических проверок — в
+[FND-03](local-environment.md). Это не подтверждает чистый Compose-запуск обоими
+разработчиками или готовую отправку писем из NestJS.
+Полный Foundation требует frontend-интеграции, CI и совместной приёмки FND-08.
+Auth, прикладные модели и миграции пока отсутствуют.
 
 ## Проверки FND-02 — 2026-10-21
+
+Исторический отчёт на момент реализации FND-02, до добавления frontend harness
+и FND-04. Более поздние результаты: [frontend review](fnd-02-review.md),
+[локальное окружение](local-environment.md) и [readiness/Swagger](api-readiness.md).
 
 | Проверка | Результат |
 | --- | --- |
@@ -124,6 +127,7 @@ FND-02 не зависит от FND-03, поэтому контракт можн
 
 Успешный Webpack build не объявляется успешным штатным Turbopack build. Перед
 совместной приёмкой нужно повторить `pnpm build` на машине без этого ограничения.
-UI поведение и реальные запросы readiness не проверялись: маршрут будет в FND-04.
+В этом срезе UI-поведение и реальные запросы readiness не проверялись: маршрут
+был добавлен позднее в FND-04.
 Проверки настоящей PostgreSQL выполнены в предшествующем review Database Foundation;
 срез FND-02 не меняет код соединений, роли или схему БД.
