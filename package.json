@@ -1,0 +1,14 @@
+{
+  "name": "instagram",
+  "private": true,
+  "packageManager": "pnpm@12.14.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @instagram/web dev",
+    "dev:api": "pnpm --filter @instagram/api start:dev",
+    "build": "pnpm -r --if-present build",
+    "lint": "pnpm -r --if-present lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.9"
+  }
+}
