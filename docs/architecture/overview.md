@@ -11,7 +11,7 @@ PRD определяет продуктовое поведение. Этот д�
 
 PostgreSQL хранит прикладные данные и сессии. Изображения хранятся приватно и выдаются после серверной проверки доступа. Для MVP работает один экземпляр API; Redis, Kafka и микросервисы не используются.
 
-**Текущее состояние:** есть стартовые приложения web/API, общие команды Monorepo и тесты стартового API. PostgreSQL, Prisma, shared contracts, регистрация, приватность, media и Direct ещё не интегрированы. Далее описывается утверждённая архитектура к реализации, если явно не указано иное.
+**Текущее состояние:** есть стартовые приложения web/API, общие команды Monorepo и тесты стартового API. Подготовлены настройки PostgreSQL 18.6 / Prisma 7.10.1 и отдельные проверки БД без прикладных моделей; [запуск](../development/database.md). В FND-02 подготовлен `packages/contracts` с readiness/error схемами и фикстурами для review Developer 2. Подключение БД к NestJS, runtime readiness, регистрация, приватность, media и Direct ещё не реализованы. Далее описывается утверждённая архитектура к реализации, если явно не указано иное.
 
 ## 2. Architecture Diagram
 
@@ -48,16 +48,16 @@ flowchart TD
 | Frontend          | Next.js 16.4.2, React 19.3.0, Tailwind CSS, конфигурация shadcn/ui | Сохраняются                                              |
 | Backend           | NestJS 12.2.0 с Express, RxJS                                      | Предметные модули внутри одного API                      |
 | TypeScript        | Web 5.9.3, API 6.0.3                                               | Общий пакет проверяется обоими приложениями              |
-| Данные            | Интеграции нет                                                     | PostgreSQL + Prisma                                      |
-| Контракты         | Общего пакета нет                                                  | Zod-схемы в `packages/contracts`                         |
+| Данные            | PostgreSQL 18.6 / Prisma 7.10.1: конфигурация и отдельные проверки БД | Подключение к NestJS и прикладная схема                   |
+| Контракты         | `packages/contracts`: Zod readiness/error, fixtures, импорты API/web | Совместное review и расширение по прикладным срезам       |
 | Сессии и realtime | Не реализованы                                                     | Cookie-сессии в PostgreSQL; REST + SSE                   |
 | Тестирование      | Vitest и Supertest в API                                           | Интеграционные и браузерные проверки сценариев PRD       |
 
-Источники версий и команд: [корневой package.json](../../package.json), [web/package.json](../../apps/web/package.json), [api/package.json](../../apps/api/package.json) и [lockfile](../../pnpm-lock.yaml). Версии Prisma/PostgreSQL и конкретные провайдеры storage/email ещё не выбраны; их фиксация не меняет утверждённый стек.
+Источники версий и команд: [корневой package.json](../../package.json), [web/package.json](../../apps/web/package.json), [api/package.json](../../apps/api/package.json), [lockfile](../../pnpm-lock.yaml) и [Compose](../../compose.yaml). PostgreSQL/Prisma закреплены для Database Foundation; конкретные провайдеры storage/email ещё не выбраны.
 
 ## 4. Monorepo Structure
 
-Существуют `apps/web`, `apps/api`, пустой `packages/` и документация в `docs/`. Workspace включает `apps/*` и `packages/*`; зависимости управляются единым корневым lockfile.
+Существуют `apps/web`, `apps/api`, `packages/contracts` и документация в `docs/`. Workspace включает `apps/*` и `packages/*`; зависимости управляются единым корневым lockfile.
 
 Предметный код размещается по мере реализации:
 
@@ -72,7 +72,7 @@ apps/api/
   src/modules/<module>/        # предметные модули
   src/infrastructure/          # database и внешние адаптеры
   test/                        # интеграционные и API e2e-тесты
-packages/contracts/            # планируемые общие Zod-контракты
+packages/contracts/            # FND-02 readiness/error, развитие по срезам
 docs/product/PRD.md
 docs/architecture/overview.md
 ```
@@ -163,13 +163,13 @@ SSE-подключение авторизуется cookie-сессией и п�
 
 ## 12. Shared API Contracts
 
-Планируемый `packages/contracts` содержит browser-safe Zod-схемы запросов, ответов и SSE-событий; TypeScript-типы выводятся из них. API проверяет входные данные во время выполнения, web использует те же ограничения для форм. Контракт проверяет формат, но не заменяет авторизацию или ограничения БД.
+`packages/contracts` содержит browser-safe Zod-схемы readiness/error и валидируемые fixtures; TypeScript-типы выводятся из них. [Контракт FND-02 и передача Developer 2](../development/foundation-contracts.md) требуют совместного review до зависимой реализации. Схемы запросов, остальных ответов и SSE-событий добавляются по мере согласования срезов. API проверяет входные данные во время выполнения, web использует те же ограничения для форм. Контракт проверяет формат, но не заменяет авторизацию или ограничения БД.
 
 Контракты включают безопасные поля ответа, ошибки с машинным `code`, ограниченную пагинацию, курсоры и сериализуемые даты. Prisma-модели, NestJS-сервисы, секреты и внутренние поля пользователя не экспортируются. Изменение API сопровождается изменением схем и тестов, а не независимым копированием типов в web.
 
 ## 13. Testing Strategy
 
-Сейчас есть стартовые unit/API e2e-тесты на Vitest и Supertest. Прикладное покрытие и браузерный runner ещё не настроены.
+Сейчас есть стартовые unit/API e2e-тесты на Vitest и Supertest, unit-проверки безопасной dev/test конфигурации и отдельные integration checks Database Foundation на PostgreSQL. Прикладное покрытие и браузерный runner ещё не настроены.
 
 | Уровень                  | Проверяемая гарантия                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------- |
