@@ -1,28 +1,32 @@
-
 {
   "$schema": "https://turborepo.dev/schema.json",
   "tasks": {
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [
-        "dist/**",
-        ".next/**",
-        "!.next/cache/**"
-      ]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
-    "lint": {},
+    "lint": {
+      "dependsOn": ["^build"]
+    },
     "check-types": {
       "cache": false,
       "dependsOn": ["^build"]
     },
     "test": {
+      "dependsOn": ["^build"],
       "cache": false
     },
     "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "@instagram/contracts#test": {
+      "dependsOn": ["build"],
       "cache": false
     }
   }

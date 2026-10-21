@@ -11,11 +11,11 @@
 | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `apps/web`: Next.js, Tailwind, конфигурация shadcn/ui; главная страница пока пустая      | Прикладной UI, формы, REST-клиент, SSE-клиент и frontend-тесты |
 | `apps/api`: стартовый NestJS с `GET /` и ответом `Hello World!`                          | Предметные модули, авторизация, media и Direct                 |
-| Единый pnpm workspace/lockfile, Turborepo, Node.js в `.nvmrc`                            | Локальная PostgreSQL, Prisma и процесс миграций                |
-| Корневые `dev`, `dev:web`, `dev:api`, `check-types`, `lint`, `build`, `test`, `test:e2e` | `packages/contracts`, Zod-интеграция и контрактные проверки    |
-| Vitest/Supertest: один стартовый unit-тест и один API e2e-тест                           | Прикладные интеграционные, security и браузерные тесты         |
+| Единый pnpm workspace/lockfile, Turborepo, Node.js в `.nvmrc`; настройки PostgreSQL 18.6 / Prisma 7.10.1 | Подключение БД к NestJS, readiness и первые прикладные миграции |
+| Корневые команды; `packages/contracts` с FND-02 readiness/error и контрактными тестами | Совместное review контракта, runtime readiness и интеграция |
+| Vitest/Supertest: стартовые unit/API e2e, проверки dev/test конфигурации и Database Foundation integration | Прикладные интеграционные, security и браузерные тесты |
 
-CI configuration не обнаружена; у web нет test-script. Пустой `packages/` не означает наличие shared packages. Результаты прошлых проверок инфраструктуры не заменяют проверку нового функционального среза.
+CI configuration не обнаружена; у web нет test-script. FND-02 подготовлен backend для review Developer 2; [wire contract и передача](development/foundation-contracts.md). Database Foundation добавляет отдельные PostgreSQL integration checks; инструкции и границы среза — в [database.md](development/database.md). Это не закрывает FND-01/FND-03/FND-04 целиком: локальная почта, browser runner/origin и runtime readiness остаются впереди. Результаты прошлых проверок инфраструктуры не заменяют проверку нового функционального среза.
 
 Сохраняются утверждённые решения: модульный монолит, PostgreSQL + Prisma, REST, Zod, cookie-сессии в БД, приватное media, REST + SSE и один процесс API. Обязательные `AccessModule`/`JobsModule`, Redis, брокер сообщений и микросервисы в план не добавляются.
 
@@ -159,6 +159,8 @@ CI configuration не обнаружена; у web нет test-script. Пуст�
 | **FND-06 — Frontend и сквозной test harness**               | Developer 2                                             | Подключить выбранные тестовые инструменты и явные scripts: компонентная проверка shell/ошибки и browser smoke. Тест открывает web и получает readiness через тот же origin; специальная продуктовая страница диагностики не нужна. Fixture-режим и настоящий API различимы                                                                                            | FND-01, FND-02, FND-05; интегрированный smoke после FND-04 |
 | **FND-07 — CI с настоящими проверками workspace**           | Developer 1; Developer 2 предоставляет frontend scripts | Добавить GitHub Actions: закреплённые Node/pnpm, frozen lockfile, PostgreSQL для integration, build/typecheck/lint, стартовые API и новые contract/frontend/browser тесты. Поднять/дождаться нужных процессов; failure теста делает job красным. Не считать пропущенный Turbo task frontend-проверкой                                                                 | FND-02–FND-06; каркас можно готовить раньше                |
 | **FND-08 — Интеграционная приёмка Foundation**              | Developer 1; совместно с Developer 2                    | Проверить запуск обоими разработчиками из чистого checkout, реальные запросы web/API/DB, отказ readiness без БД и безопасные сообщения. Зафиксировать команды и результаты, пройти критерии раздела 6. На момент приёмки mock не участвует в сквозном smoke                                                                                                           | FND-04–FND-07                                              |
+
+По согласованию команды в **FND-04** также входит рабочая Swagger UI и OpenAPI JSON для первого readiness endpoint. Документация описывает реальные ответы согласованного FND-02 контракта; далее обновляется вместе с каждым API-срезом. Database Foundation не реализует Swagger, readiness или FND-02.
 
 ### Порядок работы внутри Foundation
 

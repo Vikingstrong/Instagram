@@ -46,19 +46,33 @@ recheck them when changing scripts and update this section in the same task.
 | Start API | `pnpm dev:api` | Nest watch; `PORT` or default 4000 |
 | Typecheck | `pnpm check-types` | Both apps; web runs Next type generation first |
 | Lint | `pnpm lint` | Web ESLint; API type-aware Oxlint |
-| Unit tests | `pnpm test` | Currently only API Vitest starter test |
+| Unit / contract tests | `pnpm test` | API Vitest tests plus contracts using node:test; no frontend tests |
 | API e2e tests | `pnpm test:e2e` | Currently API Vitest + Supertest; not browser e2e |
-| Build | `pnpm build` | Both apps through Turbo |
+| Database integration | `pnpm --filter @instagram/api test:integration` | Explicit real PostgreSQL 18.6 checks; requires distinct dev/test URLs and roles |
+| Validate / generate Prisma | `pnpm --filter @instagram/api db:validate` / `pnpm --filter @instagram/api db:generate` | Prisma 7.10.1; generation also runs before API dev/build/typecheck/lint |
+| Check database connection | `pnpm --filter @instagram/api db:check` (append `--test` for test DB) | Builds API, imports compiled ESM client, connects and executes SQL |
+| Apply migration history | `pnpm --filter @instagram/api db:migrate:deploy` / `pnpm --filter @instagram/api db:migrate:test` | Dev/test respectively; currently no application migrations |
+| Build | `pnpm build` | Contracts first, then both apps through Turbo |
 
 For a single app use `pnpm --filter @instagram/web <script>` or
 `pnpm --filter @instagram/api <script>` with a script present in its manifest.
+Build `@instagram/contracts` first when calling app scripts directly; root Turbo
+commands and root `dev:web` / `dev:api` already handle that dependency.
 Web currently has no `test` or `test:e2e` script. Turbo can skip missing tasks;
 a successful root test command does not establish frontend test coverage.
 
-The apps are scaffolds. PostgreSQL/Prisma, `packages/contracts`, Zod integration,
-frontend/browser tests, CI and infrastructure startup/migration scripts are not
-implemented yet. Do not invent commands or claim these are available. `/api/v1`
-is the planned API prefix; the current starter endpoint is `GET /`.
+The apps remain scaffolds. PostgreSQL 18.6 / Prisma 7.10.1 configuration,
+Compose/native setup, compiled-client checks and isolated database integration
+tests exist; see `docs/development/database.md`. NestJS does not use the database
+yet. There are no application models or SQL migrations. `packages/contracts`
+contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
+it. See `docs/development/foundation-contracts.md` for the proposed wire format
+and pending Developer 2 review. Frontend/browser tests, CI and local test mail
+are not implemented yet. Root `test` / `test:e2e` do not run database integration tests.
+The repository-root `.env` is loaded by Prisma CLI configuration, API start
+scripts and database checks; it stays out of Git. Process environment values
+take precedence. The API currently consumes `PORT` but no database URL.
+`/api/v1` is the planned API prefix; the current starter endpoint is `GET /`.
 Do not install dependencies or change infrastructure outside the assigned scope.
 
 ## API contracts and coordination
