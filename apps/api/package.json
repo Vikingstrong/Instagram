@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
+    "dev": "nest start --watch",
     "build": "nest build",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -15,6 +16,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "oxlint --type-aware src/ test/",
+    "check-types": "tsc --noEmit --incremental false",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
