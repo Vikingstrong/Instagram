@@ -9,6 +9,7 @@ out/
 # NestJS
 dist/
 coverage/
+apps/api/src/generated/prisma/
 
 # Turborepo
 .turbo/

@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "dev:web": "pnpm --filter @instagram/web dev",
-    "dev:api": "pnpm --filter @instagram/api start:dev",
+    "dev:web": "pnpm --filter @instagram/contracts build && pnpm --filter @instagram/web dev",
+    "dev:api": "pnpm --filter @instagram/contracts build && pnpm --filter @instagram/api start:dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
