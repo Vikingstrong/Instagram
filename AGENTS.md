@@ -60,21 +60,28 @@ Build `@instagram/contracts` first when calling app scripts directly; root Turbo
 commands and root `dev:web` / `dev:api` already handle that dependency.
 Web Playwright runs the locally installed Google Chrome (`PLAYWRIGHT_CHANNEL`
 overrides, e.g. `msedge`); CI uses bundled Chromium from `playwright install chromium`.
-The readiness browser smoke is `test.fixme` until FND-04 and the FND-01 origin
-scheme exist; a green web run does not prove web → API → DB connectivity.
+The readiness browser smoke is `test.fixme` until the FND-01 origin
+scheme is implemented and the browser test calls the real FND-04 endpoint; the agreed scheme is in `docs/development/foundation-baseline.md`.
+A green web run does not prove web → API → DB connectivity.
 
 The apps remain scaffolds. PostgreSQL 18.6 / Prisma 7.10.1 configuration,
 Compose/native setup, compiled-client checks and isolated database integration
-tests exist; see `docs/development/database.md`. NestJS does not use the database
-yet. There are no application models or SQL migrations. `packages/contracts`
+tests exist; see `docs/development/database.md`. NestJS uses Prisma for
+`GET /api/v1/readiness`; Swagger UI is at `/api/docs/` and OpenAPI JSON at
+`/api/docs/openapi.json`. See `docs/development/api-readiness.md`. There are no application models or SQL migrations. `packages/contracts`
 contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
 it. See `docs/development/foundation-contracts.md` for the proposed wire format
-and pending Developer 2 review. Frontend/browser tests, CI and local test mail
-are not implemented yet. Root `test` / `test:e2e` do not run database integration tests.
+and `docs/development/fnd-02-review.md` for Developer 2 acceptance.
+Frontend/browser harnesses exist; the readiness browser test is still pending.
+Local Mailpit configuration and startup instructions are in
+`docs/development/local-environment.md`; API mail delivery and CI are not
+implemented yet. Root `test` / `test:e2e` do not run database integration tests.
 The repository-root `.env` is loaded by Prisma CLI configuration, API start
 scripts and database checks; it stays out of Git. Process environment values
-take precedence. The API currently consumes `PORT` but no database URL.
-`/api/v1` is the planned API prefix; the current starter endpoint is `GET /`.
+take precedence. The API consumes `PORT` and validates `DATABASE_URL` at startup.
+`/api/v1` is the API prefix; the legacy `GET /` remains outside it and does not
+check the database. Only readiness 503 uses the agreed error envelope so far;
+global 400/404/500 codes require contract agreement.
 Do not install dependencies or change infrastructure outside the assigned scope.
 
 ## API contracts and coordination

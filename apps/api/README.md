@@ -18,6 +18,13 @@ pnpm --filter @instagram/api test:integration
 ```
 
 Database integration tests require configured dev/test databases and are separate
-from the starter unit/API e2e tests. The current `GET /` returns `Hello World!`;
-NestJS does not yet connect to PostgreSQL. Shared readiness/error contracts are
-implemented for review; the readiness endpoint, Swagger and auth remain later tasks.
+from the unit/API e2e tests. NestJS queries PostgreSQL through Prisma for
+`GET /api/v1/readiness`; it returns the agreed 200/503 contract without caching.
+Set `DATABASE_URL` before starting the API. The scaffold `GET /` is preserved
+but is not readiness.
+
+Swagger UI: `http://localhost:4000/api/docs/`.
+OpenAPI JSON: `http://localhost:4000/api/docs/openapi.json`.
+Implementation, checks and remaining integration work:
+[FND-04](../../docs/development/api-readiness.md).
+Auth and application models are not implemented yet.

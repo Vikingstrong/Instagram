@@ -9,13 +9,13 @@
 
 | Уже существует                                                                           | Ещё предстоит реализовать                                      |
 | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `apps/web`: Next.js, Tailwind, конфигурация shadcn/ui; главная страница пока пустая      | Прикладной UI, формы, REST-клиент, SSE-клиент и frontend-тесты |
+| `apps/web`: responsive shell, главная на mock-данных, REST-клиент и frontend/browser harness      | Прикладные формы, реальная API-интеграция, SSE и функциональные тесты |
 | `apps/api`: стартовый NestJS с `GET /` и ответом `Hello World!`                          | Предметные модули, авторизация, media и Direct                 |
-| Единый pnpm workspace/lockfile, Turborepo, Node.js в `.nvmrc`; настройки PostgreSQL 18.6 / Prisma 7.10.1 | Подключение БД к NestJS, readiness и первые прикладные миграции |
-| Корневые команды; `packages/contracts` с FND-02 readiness/error и контрактными тестами | Совместное review контракта, runtime readiness и интеграция |
-| Vitest/Supertest: стартовые unit/API e2e, проверки dev/test конфигурации и Database Foundation integration | Прикладные интеграционные, security и браузерные тесты |
+| Единый pnpm workspace/lockfile, Turborepo, Node.js в `.nvmrc`; настройки PostgreSQL 18.6 / Prisma 7.10.1 | Первые прикладные модели/миграции; NestJS readiness уже подключён к БД |
+| Корневые команды; `packages/contracts` с FND-02 readiness/error и контрактными тестами | Frontend-интеграция; runtime readiness и frontend review контракта выполнены |
+| Vitest/Supertest: стартовые unit/API e2e, проверки dev/test конфигурации и Database Foundation integration | Прикладные integration/security и сквозной browser/API/DB smoke |
 
-CI configuration не обнаружена; у web нет test-script. FND-02 подготовлен backend для review Developer 2; [wire contract и передача](development/foundation-contracts.md). Database Foundation добавляет отдельные PostgreSQL integration checks; инструкции и границы среза — в [database.md](development/database.md). Это не закрывает FND-01/FND-03/FND-04 целиком: локальная почта, browser runner/origin и runtime readiness остаются впереди. Результаты прошлых проверок инфраструктуры не заменяют проверку нового функционального среза.
+CI configuration отсутствует. Web имеет явные Vitest/Playwright scripts, но readiness smoke помечен `fixme` до реализации API и proxy. FND-02 [принят Developer 2](development/fnd-02-review.md); [wire contract](development/foundation-contracts.md). PostgreSQL integration checks описаны в [database.md](development/database.md), Mailpit — в [local-environment.md](development/local-environment.md). FND-01/FND-03 требуют review и проверки окружения; runtime readiness и Swagger реализованы в [FND-04](development/api-readiness.md), frontend proxy/browser smoke ещё предстоят. Результаты прошлых проверок не заменяют проверку нового среза.
 
 Сохраняются утверждённые решения: модульный монолит, PostgreSQL + Prisma, REST, Zod, cookie-сессии в БД, приватное media, REST + SSE и один процесс API. Обязательные `AccessModule`/`JobsModule`, Redis, брокер сообщений и микросервисы в план не добавляются.
 
@@ -53,6 +53,16 @@ CI configuration не обнаружена; у web нет test-script. FND-02 п
 | 8. Проверка MVP и deployment         | Все обязательные сценарии работают в выбранной демосреде                          | Все Must Have и NFR                    | Этапы 1–7 и закрытие release-блокеров                                      |
 
 ### Этап 1. Foundation
+
+Согласованный локальный baseline FND-01: [версии, порты 3000/4000,
+маршрутизация `/api/v1/*`, workflow и ожидаемый smoke](development/foundation-baseline.md).
+Это запись решения, а не подтверждение реализации proxy/readiness или приёмки
+этапа. Review Developer 2 для FND-01 ещё требуется.
+Backend FND-04: [readiness, Swagger и результаты проверки](development/api-readiness.md).
+Ожидающий review FND-01/FND-03 не заменён автоматическими тестами и не мешает
+продолжить backend-срез по согласованному контракту.
+Локальное окружение FND-03: [PostgreSQL и Mailpit](development/local-environment.md).
+Mailpit и PostgreSQL проверены в отдельных контейнерах Podman; прямой запуск Docker Compose и приёмка на второй машине ещё требуются. [Результаты](development/local-environment.md#результаты-проверки--2026-10-21).
 
 - **Цель:** минимальная техническая вертикаль с реальным API и БД, пригодная для независимой работы над auth.
 - **Backend / Developer 1:** закрепить технические версии, поднять PostgreSQL и тестовую почту, подготовить Prisma, конфигурацию окружения, readiness и общие контракты; настроить CI.

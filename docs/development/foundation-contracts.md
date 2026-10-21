@@ -3,14 +3,13 @@
 Основание: [roadmap FND-02](../roadmap.md#5-foundation-предлагаемые-github-issues),
 [Architecture §12](../architecture/overview.md#12-shared-api-contracts).
 
-Реализован минимальный пакет `@instagram/contracts`. Это предложение backend
-для совместного review с Developer 2 (Claude). Его согласование вторым
-разработчиком не объявляется состоявшимся автоматически. До зависимой реализации
-FND-04/FND-05 необходимо подтвердить путь, поля, статусы и примеры ниже.
+Реализован минимальный пакет `@instagram/contracts`. Контракт
+[принят Developer 2](fnd-02-review.md); runtime readiness и Swagger
+реализованы в [FND-04](api-readiness.md). Wire format не изменён.
 
 ## HTTP-контракт
 
-Планируемый endpoint: **GET `/api/v1/readiness`**, без body и query parameters.
+Реализованный endpoint: **GET `/api/v1/readiness`**, без body и query parameters.
 Он не требует сессии, не раскрывает пользовательские данные и не определяет
 правила гостевого доступа к профилям. Ответы должны иметь `Cache-Control: no-store`.
 
@@ -42,8 +41,8 @@ FND-04/FND-05 необходимо подтвердить путь, поля, с
 - Readiness **200** в FND-04 должен зависеть от реального успешного запроса к БД.
   Ошибка/таймаут зависимости даёт безопасный **503**, а не fixture-успех.
 
-Маршрута пока нет: стартовый API продолжает обслуживать `GET /` с `Hello World!`.
-Swagger и runtime readiness относятся к FND-04.
+Маршрут и Swagger реализованы в [FND-04](api-readiness.md). Стартовый `GET /`
+с `Hello World!` сохранён отдельно; он не проверяет БД.
 
 ## Пакет и команды
 
