@@ -46,8 +46,8 @@ recheck them when changing scripts and update this section in the same task.
 | Start API | `pnpm dev:api` | Nest watch; `PORT` or default 4000 |
 | Typecheck | `pnpm check-types` | Both apps; web runs Next type generation first |
 | Lint | `pnpm lint` | Web ESLint; API type-aware Oxlint |
-| Unit / contract tests | `pnpm test` | API Vitest tests plus contracts using node:test; no frontend tests |
-| API e2e tests | `pnpm test:e2e` | Currently API Vitest + Supertest; not browser e2e |
+| Unit / contract tests | `pnpm test` | API Vitest, contracts node:test, web Vitest + Testing Library (jsdom) |
+| E2E tests | `pnpm test:e2e` | API Vitest + Supertest; web Playwright browser smoke (desktop + mobile), starts `next dev` itself |
 | Database integration | `pnpm --filter @instagram/api test:integration` | Explicit real PostgreSQL 18.6 checks; requires distinct dev/test URLs and roles |
 | Validate / generate Prisma | `pnpm --filter @instagram/api db:validate` / `pnpm --filter @instagram/api db:generate` | Prisma 7.10.1; generation also runs before API dev/build/typecheck/lint |
 | Check database connection | `pnpm --filter @instagram/api db:check` (append `--test` for test DB) | Builds API, imports compiled ESM client, connects and executes SQL |
@@ -58,8 +58,10 @@ For a single app use `pnpm --filter @instagram/web <script>` or
 `pnpm --filter @instagram/api <script>` with a script present in its manifest.
 Build `@instagram/contracts` first when calling app scripts directly; root Turbo
 commands and root `dev:web` / `dev:api` already handle that dependency.
-Web currently has no `test` or `test:e2e` script. Turbo can skip missing tasks;
-a successful root test command does not establish frontend test coverage.
+Web Playwright runs the locally installed Google Chrome (`PLAYWRIGHT_CHANNEL`
+overrides, e.g. `msedge`); CI uses bundled Chromium from `playwright install chromium`.
+The readiness browser smoke is `test.fixme` until FND-04 and the FND-01 origin
+scheme exist; a green web run does not prove web → API → DB connectivity.
 
 The apps remain scaffolds. PostgreSQL 18.6 / Prisma 7.10.1 configuration,
 Compose/native setup, compiled-client checks and isolated database integration
