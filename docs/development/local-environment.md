@@ -27,7 +27,7 @@ pnpm dev
 
 Web ожидается на `http://localhost:3000`, API — на `http://localhost:4000`.
 Readiness и Swagger реализованы в [FND-04](api-readiness.md).
-Proxy `/api/v1/*` в web ещё предстоит реализовать в FND-05.
+Proxy `/api/v1/*` и серверный web-клиент реализованы в [FND-05](web-api.md).
 Для native PostgreSQL следуйте отдельной инструкции, а почту запускайте через
 `docker compose up -d --wait mailpit` с тем же подготовленным `.env`.
 

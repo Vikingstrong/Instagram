@@ -33,8 +33,8 @@ export type ApiMode = "live" | "fixture";
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
 export type ApiClientOptions = {
-  // "" = same origin (browser). Server-side calls need an absolute origin;
-  // its configuration is decided with the origin scheme in FND-01.
+  // "" = same origin (browser). Server Components use createServerApiClient()
+  // from ./server, which supplies the configured origin and request context.
   baseUrl?: string;
   fetchImpl?: FetchLike;
   mode?: ApiMode;

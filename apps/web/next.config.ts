@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
+import { getApiOrigin } from "./config/api-origin";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${getApiOrigin()}/api/v1/:path*`,
+      },
+    ];
+  },
   experimental: {
     agentFeedback: true,
   },

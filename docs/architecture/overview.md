@@ -169,7 +169,7 @@ SSE-подключение авторизуется cookie-сессией и п�
 
 ## 13. Testing Strategy
 
-Сейчас есть стартовые unit/API e2e-тесты на Vitest и Supertest, unit-проверки безопасной dev/test конфигурации и отдельные integration checks Database Foundation на PostgreSQL. Web имеет Vitest/Testing Library и Playwright harness; браузерный readiness smoke ещё не реализован. Прикладное покрытие добавляется по срезам.
+Сейчас есть стартовые unit/API e2e-тесты на Vitest и Supertest, unit-проверки безопасной dev/test конфигурации и отдельные integration checks Database Foundation на PostgreSQL. Web имеет Vitest/Testing Library и Playwright harness; браузерный readiness smoke обращается к настоящему API через web proxy. Прикладное покрытие добавляется по срезам.
 
 | Уровень                  | Проверяемая гарантия                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------- |
@@ -182,7 +182,7 @@ SSE-подключение авторизуется cookie-сессией и п�
 
 Обязательны отрицательные проверки: прямой URL приватного файла, чужой диалог, повторное чтение после потери подписки, смена пользователя без утечки кеша. Интеграционные тесты используют PostgreSQL, а не SQLite. Браузерные проверки используют Playwright согласно [FND-01 baseline](../development/foundation-baseline.md).
 
-Корневые `check-types`, `lint`, `build`, `test` и `test:e2e` уже существуют. Наличие команд не означает, что будущие функции покрыты тестами; у web есть явные scripts Vitest и Playwright, но readiness smoke пока помечен `fixme`. Автоматизация определена в [Foundation CI](../development/ci.md); успешный GitHub run и совместная приёмка проверяются отдельно.
+Корневые `check-types`, `lint`, `build`, `test` и `test:e2e` уже существуют. Наличие команд не означает, что будущие функции покрыты тестами; у web есть явные scripts Vitest и Playwright, а readiness smoke использует настоящий API/БД через общий origin web. Автоматизация определена в [Foundation CI](../development/ci.md); успешный GitHub run и совместная приёмка проверяются отдельно.
 
 ## 14. Deployment Constraints
 

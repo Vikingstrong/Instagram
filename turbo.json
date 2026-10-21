@@ -1,5 +1,6 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
+  "globalEnv": ["API_INTERNAL_ORIGIN"],
   "tasks": {
     "dev": {
       "dependsOn": ["^build"],
@@ -8,6 +9,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "lint": {

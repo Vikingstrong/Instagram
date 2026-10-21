@@ -43,8 +43,3 @@ test.describe("app shell", () => {
     ).toHaveCount(1);
   });
 });
-
-// Roadmap FND-06: the browser must reach GET /api/v1/readiness through the
-// shared origin. Blocked until FND-04 ships the endpoint and FND-01 agrees
-// the origin scheme; kept visible as a pending test, never as a pass.
-test.fixme("readiness is reachable through the shared origin", async () => {});
