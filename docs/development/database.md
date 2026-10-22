@@ -3,7 +3,9 @@
 Срез готовит PostgreSQL и Prisma. Подключение к NestJS, readiness и Swagger
 теперь реализованы в [FND-04](api-readiness.md); общие контракты подготовлены
 в [FND-02](foundation-contracts.md). Первые прикладные Auth-модели и миграция
-описаны в [Auth database](auth-database.md). Это не завершение всего FND-01/FND-03/FND-04:
+описаны в [Auth database](auth-database.md).
+Дополнительная additive migration создаёт mail outbox; конфигурация и проверки
+настоящей SMTP-доставки описаны в [Auth email](auth-email.md).
 Браузерный runner и локальная схема origin зафиксированы в
 [FND-01 baseline](foundation-baseline.md); их интеграционная проверка остаётся отдельной работой.
 Локальная почта Mailpit настроена в Compose: [FND-03](local-environment.md).

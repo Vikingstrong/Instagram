@@ -98,8 +98,12 @@ describe('AppController (e2e)', () => {
       '/api/v1/auth/csrf',
       '/api/v1/auth/login',
       '/api/v1/auth/logout',
+      '/api/v1/auth/password/request',
+      '/api/v1/auth/password/reset',
       '/api/v1/auth/register',
       '/api/v1/auth/session',
+      '/api/v1/auth/verification/confirm',
+      '/api/v1/auth/verification/request',
       '/api/v1/readiness',
     ]);
     const operation = document.paths['/api/v1/readiness']!.get;

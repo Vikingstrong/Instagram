@@ -78,8 +78,19 @@ export const AuthLogoutResponseSchema = z.strictObject({
   status: z.literal("signed_out"),
 });
 export const AuthLogoutRequestSchema = z.strictObject({});
+export const AuthEmailRequestSchema = z.strictObject({ email: AuthEmailSchema });
+export const AuthLinkTokenSchema = z.string().length(43).regex(/^[A-Za-z0-9_-]{43}$/);
+export const AuthVerifyRequestSchema = z.strictObject({ token: AuthLinkTokenSchema });
+export const AuthResetPasswordRequestSchema = z.strictObject({
+  token: AuthLinkTokenSchema,
+  password: AuthPasswordSchema,
+});
+export const AuthEmailAcceptedResponseSchema = z.strictObject({ status: z.literal("accepted") });
+export const AuthVerifiedResponseSchema = z.strictObject({ status: z.literal("verified") });
+export const AuthPasswordResetResponseSchema = z.strictObject({ status: z.literal("password_reset") });
 
 export const authErrors = {
+  INVALID_OR_EXPIRED_TOKEN: { status: 400, message: "Invalid or expired token." },
   INVALID_REQUEST: { status: 400, message: "Invalid request." },
   INVALID_CREDENTIALS: { status: 401, message: "Invalid email or password." },
   AUTHENTICATION_REQUIRED: {
@@ -115,6 +126,7 @@ function errorVariant<C extends AuthErrorCode>(code: C) {
 }
 export const AuthApiErrorResponseSchema = z.strictObject({
   error: z.discriminatedUnion("code", [
+    errorVariant("INVALID_OR_EXPIRED_TOKEN"),
     errorVariant("INVALID_REQUEST"),
     errorVariant("INVALID_CREDENTIALS"),
     errorVariant("AUTHENTICATION_REQUIRED"),
@@ -128,6 +140,10 @@ export const AuthApiErrorResponseSchema = z.strictObject({
 });
 
 export const authEndpoints = {
+  requestVerification: { method: "POST", path: "/api/v1/auth/verification/request", successStatus: 202 },
+  verify: { method: "POST", path: "/api/v1/auth/verification/confirm", successStatus: 200 },
+  requestPasswordReset: { method: "POST", path: "/api/v1/auth/password/request", successStatus: 202 },
+  resetPassword: { method: "POST", path: "/api/v1/auth/password/reset", successStatus: 200 },
   csrf: { method: "GET", path: "/api/v1/auth/csrf", successStatus: 200 },
   register: {
     method: "POST",
