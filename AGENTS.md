@@ -51,7 +51,7 @@ recheck them when changing scripts and update this section in the same task.
 | Database integration | `pnpm --filter @instagram/api test:integration` | Explicit real PostgreSQL 18.6 checks; requires distinct dev/test URLs and roles |
 | Validate / generate Prisma | `pnpm --filter @instagram/api db:validate` / `pnpm --filter @instagram/api db:generate` | Prisma 7.10.1; generation also runs before API dev/build/typecheck/lint |
 | Check database connection | `pnpm --filter @instagram/api db:check` (append `--test` for test DB) | Builds API, imports compiled ESM client, connects and executes SQL |
-| Apply migration history | `pnpm --filter @instagram/api db:migrate:deploy` / `pnpm --filter @instagram/api db:migrate:test` | Dev/test respectively; currently no application migrations |
+| Apply migration history | `pnpm --filter @instagram/api db:migrate:deploy` / `pnpm --filter @instagram/api db:migrate:test` | Dev/test respectively; first Auth migration is versioned SQL |
 | Build | `pnpm build` | Contracts first, then both apps through Turbo |
 
 For a single app use `pnpm --filter @instagram/web <script>` or
@@ -75,12 +75,14 @@ The apps remain scaffolds. PostgreSQL 18.6 / Prisma 7.10.1 configuration,
 Compose/native setup, compiled-client checks and isolated database integration
 tests exist; see `docs/development/database.md`. NestJS uses Prisma for
 `GET /api/v1/readiness`; Swagger UI is at `/api/docs/` and OpenAPI JSON at
-`/api/docs/openapi.json`. See `docs/development/api-readiness.md`. There are no application models or SQL migrations. `packages/contracts`
+`/api/docs/openapi.json`. See `docs/development/api-readiness.md`. The first Auth persistence models and migration are in `apps/api/prisma`; see
+`docs/development/auth-database.md`. Auth HTTP routes are not implemented. `packages/contracts`
 contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
 it. Draft Auth input schemas are exported for review but are not integrated into
-API/UI; see `docs/development/auth-preparation.md`. Before dependent Auth work,
-complete the real-machine checks and joint acceptance recorded in
-`docs/development/foundation-acceptance.md`; cloud CI is not a substitute.
+API/UI; see `docs/development/auth-preparation.md`. The owner authorized stage 2
+implementation before FND-08 on 2026-10-22. Real-machine checks and joint
+acceptance in `docs/development/foundation-acceptance.md` remain required before
+final stage 2 acceptance; cloud CI is not a substitute.
 See `docs/development/foundation-contracts.md` for the proposed wire format
 and `docs/development/fnd-02-review.md` for Developer 2 acceptance.
 Frontend/browser harnesses include real readiness through the web origin;

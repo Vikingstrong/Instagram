@@ -10,4 +10,56 @@ datasource db {
   provider = "postgresql"
 }
 
-// Foundation intentionally has no application models or migrations.
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String        @db.VarChar(254)
+  emailKey          String        @unique @db.VarChar(254)
+  username          String        @db.VarChar(30)
+  usernameKey       String        @unique @db.VarChar(30)
+  passwordHash      String        @db.Text
+  emailVerifiedAt   DateTime?     @db.Timestamptz(3)
+  credentialVersion Int           @default(0)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
+  sessions          AuthSession[]
+  tokens            AuthToken[]
+
+  @@map("auth_users")
+}
+
+model AuthSession {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @db.Uuid
+  tokenHash         String    @unique @db.VarChar(64)
+  credentialVersion Int
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt         DateTime  @db.Timestamptz(3)
+  revokedAt         DateTime? @db.Timestamptz(3)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model AuthToken {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String           @db.Uuid
+  purpose           AuthTokenPurpose
+  tokenHash         String           @unique @db.VarChar(64)
+  credentialVersion Int
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  expiresAt         DateTime         @db.Timestamptz(3)
+  consumedAt        DateTime?        @db.Timestamptz(3)
+  revokedAt         DateTime?        @db.Timestamptz(3)
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("auth_tokens")
+}

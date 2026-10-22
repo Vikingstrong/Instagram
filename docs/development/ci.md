@@ -20,7 +20,7 @@ Node берётся из `.nvmrc`, Corepack выбирает pnpm из корн�
    генерируют Prisma Client в один каталог. Turbo cache между запусками CI
    не сохраняется; сборка и проверки выполняются в свежем checkout.
 4. `db:migrate:deploy` и `db:migrate:test` применяют существующую историю к
-   отдельным CI-базам. Сейчас миграций нет. `test:integration` проверяет настоящую
+   отдельным CI-базам, включая первую Auth-миграцию. `test:integration` проверяет настоящую
    PostgreSQL, изоляцию ролей, HTTP readiness 200 и безопасный 503 при отказе БД.
 5. CI устанавливает Chromium Playwright и его системные зависимости. Запускается
    скомпилированный API; `scripts/ci/check-api.mjs` ожидает контрактный readiness

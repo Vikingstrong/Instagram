@@ -78,11 +78,16 @@ describe('Database Foundation (real PostgreSQL)', () => {
     }
   });
 
-  it('has no application tables in the fresh Foundation test database', async () => {
+  it('has the versioned Auth tables after migration deploy', async () => {
     const rows = await client.$queryRaw<{ name: string }[]>`
       SELECT tablename AS name FROM pg_tables
       WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
+      ORDER BY tablename
     `;
-    expect(rows).toEqual([]);
+    expect(rows).toEqual([
+      { name: 'auth_sessions' },
+      { name: 'auth_tokens' },
+      { name: 'auth_users' },
+    ]);
   });
 });
