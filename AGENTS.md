@@ -71,15 +71,16 @@ The internal API origin is configured by server-only `API_INTERNAL_ORIGIN`
 Use `createServerApiClient` per request for Server Components; it forwards cookie
 and origin context without shared caching. Browser calls stay same-origin.
 
-The apps remain scaffolds. PostgreSQL 18.6 / Prisma 7.10.1 configuration,
+The web feed remains a design scaffold. PostgreSQL 18.6 / Prisma 7.10.1 configuration,
 Compose/native setup, compiled-client checks and isolated database integration
 tests exist; see `docs/development/database.md`. NestJS uses Prisma for
 `GET /api/v1/readiness`; Swagger UI is at `/api/docs/` and OpenAPI JSON at
 `/api/docs/openapi.json`. See `docs/development/api-readiness.md`. The first Auth persistence models and migration are in `apps/api/prisma`; see
-`docs/development/auth-database.md`. Auth HTTP routes are not implemented. `packages/contracts`
+`docs/development/auth-database.md`. Auth register/login/session/logout/CSRF routes are implemented; verification,
+recovery and SMTP are still pending. See `docs/development/auth-api.md`. `packages/contracts`
 contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
-it. Draft Auth input schemas are exported for review but are not integrated into
-API/UI; see `docs/development/auth-preparation.md`. The owner authorized stage 2
+it. Shared Auth input/output/error schemas are used by the API and web transport;
+auth forms remain pending. See `docs/development/auth-api.md`. The owner authorized stage 2
 implementation before FND-08 on 2026-10-22. Real-machine checks and joint
 acceptance in `docs/development/foundation-acceptance.md` remain required before
 final stage 2 acceptance; cloud CI is not a substitute.
@@ -87,6 +88,9 @@ See `docs/development/foundation-contracts.md` for the proposed wire format
 and `docs/development/fnd-02-review.md` for Developer 2 acceptance.
 Frontend/browser harnesses include real readiness through the web origin;
 product scenarios and joint Foundation acceptance remain pending.
+All future protected product routes must enforce verified sessions server-side
+(e.g. `VerifiedSessionGuard` exported by AuthModule); auth mutations additionally
+require Origin/CSRF validation. Cookie/session fields never enter public DTOs.
 Local Mailpit configuration and startup instructions are in
 `docs/development/local-environment.md`; API mail delivery is not implemented yet.
 Foundation CI is defined in `.github/workflows/ci.yml`; see
@@ -96,8 +100,10 @@ The repository-root `.env` is loaded by Prisma CLI configuration, API start
 scripts and database checks; it stays out of Git. Process environment values
 take precedence. The API consumes `PORT` and validates `DATABASE_URL` at startup.
 `/api/v1` is the API prefix; the legacy `GET /` remains outside it and does not
-check the database. Only readiness 503 uses the agreed error envelope so far;
-global 400/404/500 codes require contract agreement.
+check the database. Readiness keeps its exact 503 envelope; Auth routes use the shared Auth error
+contract with safe 400/401/403/409/413/429/500/503 responses. Other legacy routes
+keep their existing behavior. Production Auth requires AUTH_PUBLIC_ORIGIN
+(HTTPS) and AUTH_CSRF_SECRET with NODE_ENV=production; do not log their values.
 Do not install dependencies or change infrastructure outside the assigned scope.
 
 ## API contracts and coordination

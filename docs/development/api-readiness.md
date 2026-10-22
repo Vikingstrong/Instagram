@@ -121,3 +121,12 @@ Docker Compose, браузерные тесты и review второго раз�
 не выполнены и не засчитываются как PASS. Для полного закрытия Foundation
 нужна совместная приёмка. Более поздняя web-интеграция описана в
 [FND-05](web-api.md), автоматизация — в [CI](ci.md).
+
+## Продолжение Swagger для Auth
+
+В [Auth API](auth-api.md) добавлены реальные операции register/login/session/logout
+и CSRF. Они используют общий контракт и cookie jar браузера; Swagger получает
+подписанный CSRF для same-origin mutations автоматически. Используйте
+`http://localhost:4000/api/docs/` для Auth, чтобы совпал разрешённый dev-origin.
+Точный readiness endpoint/503-контракт сохранён; verification/recovery и SMTP
+ещё не реализованы и не показаны как готовые endpoints.

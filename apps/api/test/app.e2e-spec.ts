@@ -94,7 +94,14 @@ describe('AppController (e2e)', () => {
         }
       >;
     };
-    expect(Object.keys(document.paths)).toEqual(['/api/v1/readiness']);
+    expect(Object.keys(document.paths).sort()).toEqual([
+      '/api/v1/auth/csrf',
+      '/api/v1/auth/login',
+      '/api/v1/auth/logout',
+      '/api/v1/auth/register',
+      '/api/v1/auth/session',
+      '/api/v1/readiness',
+    ]);
     const operation = document.paths['/api/v1/readiness']!.get;
     expect(operation.operationId).toBe('getReadiness');
     expect(operation.tags).toContain('Foundation');

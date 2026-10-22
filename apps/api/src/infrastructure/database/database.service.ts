@@ -9,6 +9,11 @@ export class DatabaseService implements OnApplicationShutdown {
     this.client = createDatabaseClient(connectionUrl);
   }
 
+  // Internal API services only. Controllers expose explicit public projections.
+  get prisma(): ReturnType<typeof createDatabaseClient> {
+    return this.client;
+  }
+
   // Connect lazily: an unavailable database must produce readiness 503 rather
   // than prevent the HTTP server (and its diagnostics) from starting.
   async checkConnection(): Promise<void> {
