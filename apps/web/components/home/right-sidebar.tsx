@@ -1,12 +1,11 @@
 "use client";
 
-import { useHomeIdentity } from "@/features/auth/home-access";
 import Link from "next/link";
 
-import { VerifiedBadge } from "@/components/icons/ig-icons";
+import { useHomeIdentity } from "@/features/auth/home-access";
 import { Avatar, DefaultAvatar } from "@/components/ui-ig/avatar";
-
-import type { MockUser } from "./mock-data";
+import { FollowButton } from "@/features/social/follow-button";
+import { useSuggestions } from "@/features/social/suggestions";
 
 const footerLinks = [
   "Информация",
@@ -23,18 +22,23 @@ const linkButtonClass =
   "shrink-0 text-xs font-semibold text-ig-link hover:text-foreground";
 
 // Right column of the home page on wide screens: account and suggestions.
-export function RightSidebar({
-  suggestions,
-}: {
-  suggestions: MockUser[];
-}) {
+// The suggestions block disappears when the API has no accounts to offer.
+export function RightSidebar() {
   const currentUser = useHomeIdentity();
+  const suggestions = useSuggestions();
   return (
     <aside className="hidden w-95.75 shrink-0 pt-6 pl-16 min-[1160px]:block">
       {currentUser && <div className="flex items-center gap-3">
-        <DefaultAvatar size={44} />
+        <Link href={`/${currentUser.username}`} aria-label="Ваш профиль">
+          <DefaultAvatar size={44} />
+        </Link>
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-sm font-semibold">{currentUser.username}</p>
+          <Link
+            href={`/${currentUser.username}`}
+            className="block truncate text-sm font-semibold"
+          >
+            {currentUser.username}
+          </Link>
           <p className="truncate text-sm text-muted-foreground">
             {currentUser.email}
           </p>
@@ -42,37 +46,44 @@ export function RightSidebar({
         <Link href="/auth/session" className={linkButtonClass}>Аккаунт</Link>
       </div>}
 
-      <div className="mt-6 mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-muted-foreground">
-          Рекомендации для вас
-        </h2>
-        <Link
-          href="/explore/people"
-          className="text-xs font-semibold hover:text-muted-foreground"
-        >
-          Все
-        </Link>
-      </div>
-
-      <ul className="flex flex-col">
-        {suggestions.map((user) => (
-          <li key={user.username} className="flex items-center gap-3 py-2">
-            <Avatar name={user.username} size={44} />
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="flex items-center gap-1 text-sm font-semibold">
-                <Link href={`/${user.username}`} className="truncate">
-                  {user.username}
+      {suggestions && (
+        <section aria-labelledby="sidebar-suggestions-title">
+          <h2
+            id="sidebar-suggestions-title"
+            className="mt-6 mb-2 text-sm font-semibold text-muted-foreground"
+          >
+            Рекомендации для вас
+          </h2>
+          <ul className="flex flex-col">
+            {suggestions.items.slice(0, 5).map((user) => (
+              <li key={user.id} className="flex items-center gap-3 py-2">
+                <Link href={`/${user.username}`} aria-hidden tabIndex={-1}>
+                  <Avatar name={user.username} size={44} />
                 </Link>
-                {user.verified && <VerifiedBadge />}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">Популярное</p>
-            </div>
-            <button data-auth-required type="button" className={linkButtonClass}>
-              Подписаться
-            </button>
-          </li>
-        ))}
-      </ul>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <Link
+                    href={`/${user.username}`}
+                    className="block truncate text-sm font-semibold"
+                  >
+                    {user.username}
+                  </Link>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user.displayName || "Рекомендации для вас"}
+                  </p>
+                </div>
+                <FollowButton
+                  key={suggestions.follow[user.id] ?? "none"}
+                  variant="link"
+                  userId={user.id}
+                  username={user.username}
+                  initial={suggestions.follow[user.id] ?? "none"}
+                  onChange={(state) => suggestions.setFollow(user.id, state)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <footer className="mt-8 text-xs text-muted-foreground/70">
         <ul className="flex flex-wrap gap-x-1 leading-5">

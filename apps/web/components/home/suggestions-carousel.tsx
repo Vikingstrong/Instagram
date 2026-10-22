@@ -1,27 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
-import {
-  ChevronRightIcon,
-  CloseIcon,
-  VerifiedBadge,
-} from "@/components/icons/ig-icons";
+import { ChevronRightIcon, CloseIcon } from "@/components/icons/ig-icons";
 import { Avatar } from "@/components/ui-ig/avatar";
-
-import type { MockUser } from "./mock-data";
+import { FollowButton } from "@/features/social/follow-button";
+import { useSuggestions } from "@/features/social/suggestions";
 
 const CARD_STEP = 164; // card width 152 + gap 12
 
-// Horizontal "Рекомендации для вас" strip at the top of the feed.
-export function SuggestionsCarousel({ users }: { users: MockUser[] }) {
+// Horizontal "Рекомендации для вас" strip at the top of the feed. Real
+// accounts from the API; the strip disappears when there is nothing to show.
+export function SuggestionsCarousel() {
   const scroller = useRef<HTMLUListElement>(null);
-  const [visible, setVisible] = useState(users);
+  const suggestions = useSuggestions();
 
-  if (visible.length === 0) {
+  if (!suggestions) {
     return null;
   }
+  const { items, follow, setFollow, dismiss } = suggestions;
 
   const scrollNext = () =>
     scroller.current?.scrollBy({ left: CARD_STEP * 2, behavior: "smooth" });
@@ -32,12 +30,6 @@ export function SuggestionsCarousel({ users }: { users: MockUser[] }) {
         <h2 id="suggestions-title" className="text-base font-semibold">
           Рекомендации для вас
         </h2>
-        <Link
-          href="/explore/people"
-          className="text-sm font-semibold text-ig-link hover:text-foreground"
-        >
-          Смотреть все
-        </Link>
       </div>
 
       <div className="relative">
@@ -45,43 +37,43 @@ export function SuggestionsCarousel({ users }: { users: MockUser[] }) {
           ref={scroller}
           className="scrollbar-none flex snap-x gap-3 overflow-x-auto px-4 md:px-0"
         >
-          {visible.map((user) => (
+          {items.map((user) => (
             <li
-              key={user.username}
+              key={user.id}
               className="relative flex w-38 shrink-0 snap-start flex-col items-center rounded-lg border bg-card px-3 pt-6 pb-3"
             >
               <button
                 type="button"
                 aria-label={`Скрыть ${user.username}`}
-                onClick={() =>
-                  setVisible((list) =>
-                    list.filter((u) => u.username !== user.username),
-                  )
-                }
+                onClick={() => dismiss(user.id)}
                 className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
               >
                 <CloseIcon className="size-4" />
               </button>
 
-              <Avatar name={user.username} size={92} />
-
-              <p className="mt-3 flex w-full items-center justify-center gap-1 text-sm font-semibold">
-                <span className="truncate">{user.displayName}</span>
-                {user.verified && <VerifiedBadge />}
+              <Link href={`/${user.username}`} className="flex flex-col items-center">
+                <Avatar name={user.username} size={92} />
+                <span className="mt-3 w-full truncate text-center text-sm font-semibold">
+                  {user.displayName || user.username}
+                </span>
+              </Link>
+              <p className="mt-1 w-full truncate text-center text-xs text-muted-foreground">
+                {user.displayName ? user.username : "Рекомендации для вас"}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">Популярное</p>
 
-              <button data-auth-required
-                type="button"
-                className="mt-6 h-8 w-full rounded-lg bg-ig-blue text-sm font-semibold text-white transition-colors hover:bg-ig-blue-hover"
-              >
-                Подписаться
-              </button>
+              <FollowButton
+                key={follow[user.id] ?? "none"}
+                userId={user.id}
+                username={user.username}
+                initial={follow[user.id] ?? "none"}
+                onChange={(state) => setFollow(user.id, state)}
+                className="mt-6 w-full"
+              />
             </li>
           ))}
         </ul>
 
-        {visible.length > 3 && (
+        {items.length > 3 && (
           <button
             type="button"
             aria-label="Показать ещё"

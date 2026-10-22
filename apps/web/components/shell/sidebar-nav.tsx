@@ -11,7 +11,9 @@ import {
 } from "@/components/icons/ig-icons";
 import { cn } from "@/lib/utils";
 
-import { isNavItemActive, navItems } from "./nav-items";
+import { useHomeIdentity } from "@/features/auth/home-access";
+
+import { isNavItemActive, navHref, navItems } from "./nav-items";
 
 const rowClass =
   "flex h-12 w-full items-center gap-4 rounded-lg px-3 transition-colors hover:bg-secondary active:opacity-60";
@@ -34,6 +36,7 @@ function RowLabel({ children, bold }: { children: ReactNode; bold?: boolean }) {
 // Desktop rail: 72px of icons, expands over the content on hover or focus.
 export function SidebarNav() {
   const pathname = usePathname();
+  const username = useHomeIdentity()?.username;
 
   return (
     <aside className="group/rail fixed inset-y-0 left-0 z-50 hidden w-18 flex-col overflow-hidden border-r bg-background px-3 pt-6 pb-5 transition-[width,box-shadow] duration-200 ease-out hover:w-61 hover:shadow-[4px_0_24px_rgb(0_0_0/0.45)] focus-within:w-61 md:flex">
@@ -50,7 +53,9 @@ export function SidebarNav() {
 
       <nav aria-label="Основная навигация" className="flex flex-1 items-center">
         <ul className="flex w-full flex-col gap-2">
-          {navItems.map(({ id, href, label, icon: Icon }) => {
+          {navItems.map((item) => {
+            const { id, label, icon: Icon } = item;
+            const href = navHref(item, username);
             const active = isNavItemActive(pathname, href);
             return (
               <li key={id}>

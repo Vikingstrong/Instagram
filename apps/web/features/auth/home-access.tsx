@@ -9,6 +9,10 @@ import { AuthBrand, authButtonClass } from "./auth-design";
 
 const HomeIdentity = createContext<AuthUser | null>(null);
 export const useHomeIdentity = () => useContext(HomeIdentity);
+// True while an already shown page rechecks the session (identity is null
+// then). Pages use it to tell a guest from a brief focus recheck.
+const HomeChecking = createContext(false);
+export const useHomeChecking = () => useContext(HomeChecking);
 type Access = { state: "loading" } | { state: "error"; failure: ApiFailure } | { state: "ready"; user: AuthUser | null };
 
 // Guest selection changes presentation only. Protected API routes still require
@@ -105,7 +109,7 @@ export function HomeAccess({ children }: { children: ReactNode }) {
 
   if (access.state === "loading") return <main className="grid min-h-dvh place-content-center gap-6 text-center"><AuthBrand /><p role="status" className="text-sm text-muted-foreground">Проверяем сессию…</p></main>;
   if (access.state === "error") return <main className="mx-auto grid min-h-dvh max-w-sm place-content-center gap-6 px-6"><AuthBrand /><ApiErrorNotice failure={access.failure} onRetry={() => setRevision(value => value + 1)} /><Link href="/auth/login" className="text-ig-link">Перейти ко входу</Link></main>;
-  return <HomeIdentity value={checking ? null : access.user}>
+  return <HomeIdentity value={checking ? null : access.user}><HomeChecking value={checking}>
     <div key={access.user?.id ?? "guest"} onClickCapture={interact}>{children}</div>
     <dialog ref={modal} onCancel={() => setPrompt(false)} onClose={() => setPrompt(false)} aria-labelledby="guest-prompt-title" className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-3xl border bg-[#1b1e24] p-7 text-center text-white shadow-2xl backdrop:bg-black/70">
       <h2 id="guest-prompt-title" className="text-2xl font-semibold">Будьте частью момента</h2>
@@ -114,5 +118,5 @@ export function HomeAccess({ children }: { children: ReactNode }) {
       <Link href="/auth/register" className="mt-4 block text-sm font-semibold text-[#adb8ff]">Создать аккаунт</Link>
       <button type="button" onClick={() => setPrompt(false)} className="mt-6 text-sm text-muted-foreground">Продолжить просмотр</button>
     </dialog>
-  </HomeIdentity>;
+  </HomeChecking></HomeIdentity>;
 }

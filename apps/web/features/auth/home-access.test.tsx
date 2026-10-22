@@ -6,7 +6,9 @@ import { HomeAccess, useHomeIdentity } from "./home-access";
 const account = { id: "4f70d2ab-d6d6-4243-b0d3-f7b767434789", email: "person@example.test", username: "person", emailVerified: true };
 function Feed() {
   const user = useHomeIdentity();
-  return <><p>{user?.email ?? "Публикации"}</p><button data-auth-required>Нравится</button><a href="/direct">Сообщения</a></>;
+  return <><p>{user?.email ?? "Публикации"}</p><button data-auth-required>Нравится</button>
+    {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- the guest gate must also intercept plain anchors */}
+    <a href="/direct">Сообщения</a></>;
 }
 beforeEach(() => {
   window.history.replaceState(null, "", "/?guest=1");

@@ -1,5 +1,5 @@
-// Design-only placeholder content. Not an API contract: replaced by real
-// data from the API in stages 3 (profiles), 4 (media) and 5 (feed).
+// Design-only placeholder posts. Not an API contract: replaced by real data
+// from the API in stages 4 (media) and 5 (feed).
 
 export type MockUser = {
   username: string;
@@ -17,28 +17,6 @@ export type MockPost = {
   comments: number;
   mediaClassName: string;
 };
-
-export const mockCurrentUser: MockUser = {
-  username: "your.username",
-  displayName: "Ваше имя",
-};
-
-export const mockSuggestedCards: MockUser[] = [
-  { username: "nature.frames", displayName: "Nature Frames", verified: true },
-  { username: "daily.cafe", displayName: "Дневник кофейни", verified: true },
-  { username: "urban.lines", displayName: "Urban Lines", verified: true },
-  { username: "mountain.walks", displayName: "Горные тропы" },
-  { username: "ink.and.paper", displayName: "Ink & Paper", verified: true },
-  { username: "studio.light", displayName: "Studio Light" },
-];
-
-export const mockSuggestedList: MockUser[] = [
-  { username: "lens.club", displayName: "Lens Club" },
-  { username: "sunset.notes", displayName: "Sunset Notes" },
-  { username: "weekend.trip", displayName: "Weekend Trip" },
-  { username: "street.food", displayName: "Street Food", verified: true },
-  { username: "quiet.mornings", displayName: "Quiet Mornings", verified: true },
-];
 
 export const mockPosts: MockPost[] = [
   {
