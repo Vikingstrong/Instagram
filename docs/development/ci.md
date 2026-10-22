@@ -12,18 +12,20 @@ Node берётся из `.nvmrc`, Corepack выбирает pnpm из корн�
 1. `scripts/ci/prepare-env.mjs` создаёт новый приватный `.env` со случайными
    локальными паролями и отдельными dev/test ролями и базами. Существующий файл
    не перезаписывается; значения не печатаются. GitHub Secrets для этого не нужны.
-2. `docker compose up -d --wait --wait-timeout 90 postgres` запускает закреплённый
-   PostgreSQL 18.6. Init-скрипт создаёт изолированные БД и права, healthcheck
+2. `docker compose up -d --wait --wait-timeout 90 postgres mailpit` запускает
+   PostgreSQL 18.6 и Mailpit. Init-скрипт создаёт изолированные БД и права, healthcheck
    ожидает готовность сервера. Затем проверяется Prisma schema.
 3. `pnpm build`, `pnpm check-types`, `pnpm lint`, `pnpm test` выполняют явные
    задачи API, web и contracts. Шаги последовательны: несколько API-команд
    генерируют Prisma Client в один каталог. Turbo cache между запусками CI
    не сохраняется; сборка и проверки выполняются в свежем checkout.
 4. `db:migrate:deploy` и `db:migrate:test` применяют существующую историю к
-   отдельным CI-базам, включая первую Auth-миграцию. `test:integration` проверяет настоящую
+   отдельным CI-базам, включая Auth и mail outbox. `test:integration` проверяет настоящую
    PostgreSQL, изоляцию ролей, HTTP readiness 200 и безопасный 503 при отказе БД.
 5. CI устанавливает Chromium Playwright и его системные зависимости. Запускается
-   скомпилированный API; `scripts/ci/check-api.mjs` ожидает контрактный readiness
+   скомпилированный API через `scripts/ci/start-test-api.mjs` против изолированной
+   TEST-базы; fixture-конфигурация dev/test остаётся раздельной.
+   `scripts/ci/check-api.mjs` ожидает контрактный readiness
    с реальным SQL-запросом, проверяет `Cache-Control: no-store`, Swagger UI и
    OpenAPI JSON. После этого API остаётся запущенным на время `pnpm test:e2e`.
 6. Корневой E2E запускает API Vitest/Supertest и web Playwright. Playwright при
@@ -46,8 +48,11 @@ Auth HTTP integration теперь проверяет регистрацию, co
 Origin/CSRF, лимиты и запрет неподтверждённым пользователям. Browser smoke
 `auth-swagger.spec.mts` выполняет register/login/session/logout через Swagger
 с отдельным API-процессом и test-БД, затем очищает только свои записи.
-Verification/recovery/SMTP и формы не считаются проверенными этим срезом;
-совместная приёмка Foundation остаётся FND-08.
+Следующий [email-срез](auth-email.md) добавляет реальные SMTP integration и
+browser-flow двух пользователей через письма Mailpit, resend, verification и
+recovery. `prepare-env.mjs` создаёт также временный MAIL_OUTBOX_KEY; отдельный
+SMTP-провайдер и публичная доставка не проверяются. Совместная приёмка
+Foundation остаётся FND-08.
 
 В hover-тесте rail курсор явно отводится от панели, затем проверяется завершение
 перехода в свёрнутое состояние. Это устраняет зависимость от начальной позиции

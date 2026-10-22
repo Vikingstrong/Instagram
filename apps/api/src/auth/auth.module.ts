@@ -9,9 +9,10 @@ import { AuthSecurity, AuthMutationGuard } from './auth-security.js';
 import { AuthRateLimiter } from './auth-rate-limiter.js';
 import { AuthErrorFilter } from './auth-error.filter.js';
 import { VerifiedSessionGuard } from './auth-session.guard.js';
+import { MailModule } from '../mail/mail.module.js';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, MailModule],
   controllers: [AuthController],
   providers: [
     {

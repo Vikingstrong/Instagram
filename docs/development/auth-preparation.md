@@ -1,7 +1,9 @@
 # Подготовка этапа 2 — Auth и email
 
 Первоначальная подготовка контракта (PR #10). Актуальный backend регистрации
-и сессий описан в [Auth API](auth-api.md); verification/recovery и формы ещё впереди.
+и сессий описан в [Auth API](auth-api.md); формы регистрации/входа и состояние
+сессии — в [Auth web](auth-web.md). Verification/recovery, SMTP и email-формы
+добавлены в [Auth email](auth-email.md). Ниже сохранён план первоначальной подготовки.
 Решения владельца проекта: [PRD FR-01](../product/PRD.md#fr-01--authentication--email-verification),
 P-01/P-02/P-03 и auth-часть P-09. PR #9 объединён в `main`.
 
@@ -10,7 +12,8 @@ P-01/P-02/P-03 и auth-часть P-09. PR #9 объединён в `main`.
 `packages/contracts/src/auth.ts` содержит browser-safe Zod-схемы полей,
 строгих запросов регистрации и входа, а также выведенные TypeScript-типы.
 Схемы экспортируются из `@instagram/contracts`; [Auth API](auth-api.md) уже
-использует их вместе со схемами ответов/ошибок. Формы ещё не реализованы.
+использует их вместе со схемами ответов/ошибок. Формы регистрации/входа
+используют те же схемы; см. [Auth web](auth-web.md).
 Точный Foundation readiness/error контракт сохраняется. Auth HTTP routes
 реализованы отдельным срезом; SMTP-адаптера и независимой Next.js auth-системы нет. Отдельный срез
 [БД Auth](auth-database.md) добавляет первые Prisma-модели и миграцию.

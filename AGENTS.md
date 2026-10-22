@@ -48,7 +48,7 @@ recheck them when changing scripts and update this section in the same task.
 | Lint | `pnpm lint` | Web ESLint; API type-aware Oxlint |
 | Unit / contract tests | `pnpm test` | API Vitest, contracts node:test, web Vitest + Testing Library (jsdom) |
 | E2E tests | `pnpm test:e2e` | API Vitest + Supertest; web Playwright browser smoke (desktop + mobile), starts `next dev` itself |
-| Database integration | `pnpm --filter @instagram/api test:integration` | Explicit real PostgreSQL 18.6 checks; requires distinct dev/test URLs and roles |
+| Database integration | `pnpm --filter @instagram/api test:integration` | Real PostgreSQL 18.6 and Mailpit SMTP checks; requires distinct dev/test URLs and roles |
 | Validate / generate Prisma | `pnpm --filter @instagram/api db:validate` / `pnpm --filter @instagram/api db:generate` | Prisma 7.10.1; generation also runs before API dev/build/typecheck/lint |
 | Check database connection | `pnpm --filter @instagram/api db:check` (append `--test` for test DB) | Builds API, imports compiled ESM client, connects and executes SQL |
 | Apply migration history | `pnpm --filter @instagram/api db:migrate:deploy` / `pnpm --filter @instagram/api db:migrate:test` | Dev/test respectively; first Auth migration is versioned SQL |
@@ -76,11 +76,18 @@ Compose/native setup, compiled-client checks and isolated database integration
 tests exist; see `docs/development/database.md`. NestJS uses Prisma for
 `GET /api/v1/readiness`; Swagger UI is at `/api/docs/` and OpenAPI JSON at
 `/api/docs/openapi.json`. See `docs/development/api-readiness.md`. The first Auth persistence models and migration are in `apps/api/prisma`; see
-`docs/development/auth-database.md`. Auth register/login/session/logout/CSRF routes are implemented; verification,
-recovery and SMTP are still pending. See `docs/development/auth-api.md`. `packages/contracts`
+`docs/development/auth-database.md`. Auth registration, cookie sessions, CSRF,
+email verification, recovery and durable SMTP delivery are implemented; see
+`docs/development/auth-api.md` and `docs/development/auth-email.md`. The additive
+mail outbox migration must be applied to both dev and test databases. `packages/contracts`
 contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
-it. Shared Auth input/output/error schemas are used by the API and web transport;
-auth forms remain pending. See `docs/development/auth-api.md`. The owner authorized stage 2
+it. Shared Auth input/output/error schemas are used by the API and web transport.
+Register/login/session/logout web pages use the existing Auth contract; see
+`docs/development/auth-web.md`. Verification/recovery forms use the same API;
+see `docs/development/auth-email.md`. Their browser test requires Mailpit and
+an API started against the isolated TEST database with
+`node --env-file=.env scripts/ci/start-test-api.mjs`; CI uses this launcher too.
+The owner authorized stage 2
 implementation before FND-08 on 2026-10-22. Real-machine checks and joint
 acceptance in `docs/development/foundation-acceptance.md` remain required before
 final stage 2 acceptance; cloud CI is not a substitute.
@@ -92,7 +99,12 @@ All future protected product routes must enforce verified sessions server-side
 (e.g. `VerifiedSessionGuard` exported by AuthModule); auth mutations additionally
 require Origin/CSRF validation. Cookie/session fields never enter public DTOs.
 Local Mailpit configuration and startup instructions are in
-`docs/development/local-environment.md`; API mail delivery is not implemented yet.
+`docs/development/local-environment.md`; API mail delivery uses MailModule and
+Nodemailer. Configure a persistent server-only MAIL_OUTBOX_KEY, SMTP_HOST,
+SMTP_PORT and SMTP_FROM; SMTP_USER/SMTP_PASSWORD are optional and paired.
+Missing development key causes mail-producing transactions to fail safely with
+503; production requires it at startup and enforces SMTP TLS. Preserve this key
+across restarts; never print it or use NEXT_PUBLIC. See auth-email.md.
 Foundation CI is defined in `.github/workflows/ci.yml`; see
 `docs/development/ci.md` for checks and service lifecycle.
 Root `test` / `test:e2e` do not run database integration tests; CI runs them explicitly.
@@ -107,6 +119,13 @@ keep their existing behavior. Production Auth requires AUTH_PUBLIC_ORIGIN
 Do not install dependencies or change infrastructure outside the assigned scope.
 
 ## API contracts and coordination
+
+Temporary owner instruction, 2026-10-22: while Developer 2 is unavailable,
+the owner acts as team lead and is the sole approver of contracts, migrations
+and implementation. Developer 2 approval is not a prerequisite during this
+period. Present concrete proposals to the team lead; their authorization takes
+precedence over the two-developer review wording below. Technical/security
+checks and the separate FND-08 real-machine acceptance remain required.
 
 - Developer 1 (Codex) primarily owns backend, infrastructure and architecture;
   Developer 2 (Claude Code) primarily owns frontend and frontend tests. These are

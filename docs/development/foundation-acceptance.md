@@ -50,13 +50,22 @@
 
 | Подтверждение | Developer 1 — реальный ПК | Developer 2 — реальный ПК |
 | --- | --- | --- |
-| ОС, Node/pnpm, commit SHA, дата | Не подтверждено | Не подтверждено |
-| Чистая установка и `pnpm dev` | Не подтверждено | Не подтверждено |
-| PostgreSQL dev/test и Mailpit SMTP | Не подтверждено | Не подтверждено |
-| Build/types/lint/unit/contracts/integration | Не подтверждено | Не подтверждено |
-| Browser readiness, Swagger и E2E | Не подтверждено | Не подтверждено |
-| Отказ БД и восстановление | Не подтверждено | Не подтверждено |
+| ОС, Node/pnpm, commit SHA, дата | Fedora 44, Node 24.19.0, pnpm 12.14.0, `034bc98`, 2026-10-22; [отчёт](foundation-pc-2026-10-22.md) | Не подтверждено |
+| Чистая установка и `pnpm dev` | Frozen install PASS; обе dev-команды PASS на 3100/4100; общий `pnpm dev` не запускался | Не подтверждено |
+| PostgreSQL dev/test и Mailpit SMTP | PASS native PostgreSQL + отдельный Mailpit; Compose не проверен | Не подтверждено |
+| Build/types/lint/unit/contracts/integration | PASS; [команды и числа тестов](foundation-pc-2026-10-22.md) | Не подтверждено |
+| Browser readiness, Swagger и E2E | PASS: 4 API, 14 browser; 2 viewport skips | Не подтверждено |
+| Отказ БД и восстановление | PASS: 200 → 503 → 200, без перезапуска API | Не подтверждено |
 | Совместное review и остаточные дефекты | Не подтверждено | Не подтверждено |
+
+Ограничения проверки Developer 1 и отличия портов приведены в
+[отчёте ПК](foundation-pc-2026-10-22.md). Владелец сообщил, что предоставит
+результаты второго ПК и SHA; до получения это не PASS. Compose и совместная
+приёмка остаются неподтверждёнными.
+
+Docker позже установлен на ПК Developer 1; Compose config прошёл. Запуск
+контейнеров ещё ожидает sudo в терминале владельца; см.
+[дополнение к отчёту](foundation-pc-2026-10-22.md#дополнение-установка-docker-на-этом-пк).
 
 Ранее подтверждённый объединённый Foundation CI:
 [run 39708648475](https://github.com/Vikingstrong/Instagram/actions/runs/39708648475).

@@ -11,6 +11,13 @@ export {
   type AuthRegisterRequest,
 } from "./auth.js";
 export {
+  AuthEmailRequestSchema,
+  AuthLinkTokenSchema,
+  AuthVerifyRequestSchema,
+  AuthResetPasswordRequestSchema,
+  AuthEmailAcceptedResponseSchema,
+  AuthVerifiedResponseSchema,
+  AuthPasswordResetResponseSchema,
   AuthUserSchema,
   AuthUserResponseSchema,
   AuthSessionResponseSchema,

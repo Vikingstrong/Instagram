@@ -7,6 +7,8 @@ export function describeFailure(failure: ApiFailure): string {
   switch (failure.kind) {
     case "api":
       switch (failure.error.code) {
+        case "INVALID_OR_EXPIRED_TOKEN":
+          return "Ссылка недействительна или срок её действия истёк. Запросите новое письмо.";
         case "SERVICE_UNAVAILABLE":
           return "Сервис временно недоступен. Попробуйте позже.";
         case "INVALID_REQUEST":

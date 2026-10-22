@@ -58,8 +58,26 @@ model AuthToken {
   consumedAt        DateTime?        @db.Timestamptz(3)
   revokedAt         DateTime?        @db.Timestamptz(3)
   user              User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  delivery          MailDelivery?
 
   @@index([userId, purpose])
   @@index([expiresAt])
   @@map("auth_tokens")
+}
+
+model MailDelivery {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenId        String    @unique @db.Uuid
+  payload        String?   @db.Text
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now()) @db.Timestamptz(3)
+  leaseUntil     DateTime? @db.Timestamptz(3)
+  claimId        String?   @db.Uuid
+  sentAt         DateTime? @db.Timestamptz(3)
+  cancelledAt    DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  token          AuthToken @relation(fields: [tokenId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([sentAt, cancelledAt, nextAttemptAt])
+  @@map("mail_deliveries")
 }

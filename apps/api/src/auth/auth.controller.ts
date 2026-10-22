@@ -28,6 +28,12 @@ import {
   AuthCsrfResponseSchema,
   AuthLogoutResponseSchema,
   AuthApiErrorResponseSchema,
+  AuthEmailRequestSchema,
+  AuthVerifyRequestSchema,
+  AuthResetPasswordRequestSchema,
+  AuthEmailAcceptedResponseSchema,
+  AuthVerifiedResponseSchema,
+  AuthPasswordResetResponseSchema,
 } from '@instagram/contracts';
 import type { Request, Response } from 'express';
 import { AuthService, SESSION_TTL_MS } from './auth.service.js';
@@ -95,6 +101,103 @@ export class AuthController {
       300,
       300_000,
     );
+  }
+
+  private emailLimit(email: string): void {
+    // Charge all addresses, including nonexistent/verified accounts, equally.
+    this.limiter.consume('mail-minute', email.toLowerCase(), 1, 60_000);
+    this.limiter.consume('mail-hour', email.toLowerCase(), 3, 3600_000);
+  }
+
+  @Post('verification/request')
+  @HttpCode(202)
+  @Header('Cache-Control', 'no-store')
+  @mutationBody(AuthEmailRequestSchema, { email: 'person@example.test' })
+  @ApiOperation({
+    operationId: 'requestEmailVerification',
+    summary: 'Request an email verification link',
+    description:
+      'Same accepted response for unknown, verified and unverified addresses. Recipient limits apply to all addresses. SMTP delivery is queued durably.',
+  })
+  @ApiResponse({
+    status: 202,
+    headers: noStore,
+    schema: schema(AuthEmailAcceptedResponseSchema),
+  })
+  async requestVerification(@Body() body: unknown) {
+    const input = parse(body, AuthEmailRequestSchema);
+    this.emailLimit(input.email);
+    await this.auth.requestEmail(input.email, 'EMAIL_VERIFICATION');
+    return AuthEmailAcceptedResponseSchema.parse({ status: 'accepted' });
+  }
+
+  @Post('verification/confirm')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(200)
+  @mutationBody(AuthVerifyRequestSchema, { token: 'a'.repeat(43) })
+  @ApiOperation({
+    operationId: 'confirmEmailVerification',
+    summary: 'Consume an email verification token',
+    description:
+      'Explicit POST, not a link GET. Single-use, purpose-bound, 24-hour expiry. Does not sign in.',
+  })
+  @ApiResponse({
+    status: 200,
+    headers: noStore,
+    schema: schema(AuthVerifiedResponseSchema),
+  })
+  async verifyEmail(@Body() body: unknown) {
+    const input = parse(body, AuthVerifyRequestSchema);
+    await this.auth.verifyEmail(input.token);
+    return AuthVerifiedResponseSchema.parse({ status: 'verified' });
+  }
+
+  @Post('password/request')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(202)
+  @mutationBody(AuthEmailRequestSchema, { email: 'person@example.test' })
+  @ApiOperation({
+    operationId: 'requestPasswordReset',
+    summary: 'Request a password recovery link',
+    description:
+      'Same accepted response for existing and nonexistent accounts. Does not expose account existence or SMTP delivery status.',
+  })
+  @ApiResponse({
+    status: 202,
+    headers: noStore,
+    schema: schema(AuthEmailAcceptedResponseSchema),
+  })
+  async requestPasswordReset(@Body() body: unknown) {
+    const input = parse(body, AuthEmailRequestSchema);
+    this.emailLimit(input.email);
+    await this.auth.requestEmail(input.email, 'PASSWORD_RESET');
+    return AuthEmailAcceptedResponseSchema.parse({ status: 'accepted' });
+  }
+
+  @Post('password/reset')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(200)
+  @mutationBody(AuthResetPasswordRequestSchema, {
+    token: 'a'.repeat(43),
+    password: 'new synthetic password 🔐',
+  })
+  @ApiOperation({
+    operationId: 'resetAuthPassword',
+    summary: 'Consume a password recovery token',
+    description:
+      '30-minute single-use token. Atomically changes the password and revokes all existing sessions and outstanding tokens. Requires a fresh login; does not sign in.',
+  })
+  @ApiResponse({
+    status: 200,
+    headers: noStore,
+    schema: schema(AuthPasswordResetResponseSchema),
+  })
+  async resetPassword(@Body() body: unknown) {
+    const input = parse(body, AuthResetPasswordRequestSchema);
+    await this.auth.resetPassword(input.token, input.password);
+    // The current browser may belong to another account; do not clear its cookie.
+    // Reset-account sessions are rejected by the API's credential-version check.
+    return AuthPasswordResetResponseSchema.parse({ status: 'password_reset' });
   }
 
   @Get('csrf')
