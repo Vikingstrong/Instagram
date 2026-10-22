@@ -15,6 +15,10 @@ import type { Request, Response } from 'express';
 import { AuthError } from './auth.error.js';
 import { Prisma } from '../generated/prisma/client.js';
 
+// Route groups that answer with the Auth error contract, including Nest's own
+// 404/400 for unknown or malformed requests under them.
+const contractPath = /^\/api\/v1\/(?:auth|users|me)(?:\/|$)/;
+
 @Catch()
 export class AuthErrorFilter {
   constructor(
@@ -22,11 +26,7 @@ export class AuthErrorFilter {
   ) {}
   catch(exception: unknown, host: ArgumentsHost): void {
     const request = host.switchToHttp().getRequest<Request>();
-    if (
-      request.path !== '/api/v1/auth' &&
-      !request.path.startsWith('/api/v1/auth/') &&
-      !(exception instanceof AuthError)
-    )
+    if (!contractPath.test(request.path) && !(exception instanceof AuthError))
       return new BaseExceptionFilter(this.adapter.httpAdapter).catch(
         exception,
         host,

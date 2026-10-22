@@ -21,6 +21,10 @@ export function describeFailure(failure: ApiFailure): string {
           return "Подтвердите email для продолжения.";
         case "REQUEST_FORBIDDEN":
           return "Обновите страницу и повторите запрос.";
+        case "USER_NOT_FOUND":
+          return "Пользователь не найден.";
+        case "USERNAME_TAKEN":
+          return "Это имя пользователя уже занято.";
         case "ACCOUNT_UNAVAILABLE":
           return "Не удалось зарегистрировать аккаунт с указанными данными.";
         case "TOO_MANY_REQUESTS":

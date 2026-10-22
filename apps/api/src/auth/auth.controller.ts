@@ -8,17 +8,8 @@ import {
   Post,
   Req,
   Res,
-  UseGuards,
-  applyDecorators,
 } from '@nestjs/common';
-import {
-  ApiBody,
-  ApiOperation,
-  ApiResponse,
-  ApiSecurity,
-  ApiTags,
-  type SchemaObject,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
   AuthRegisterRequestSchema,
   AuthLoginRequestSchema,
@@ -27,7 +18,6 @@ import {
   AuthSessionResponseSchema,
   AuthCsrfResponseSchema,
   AuthLogoutResponseSchema,
-  AuthApiErrorResponseSchema,
   AuthEmailRequestSchema,
   AuthVerifyRequestSchema,
   AuthResetPasswordRequestSchema,
@@ -37,51 +27,15 @@ import {
 } from '@instagram/contracts';
 import type { Request, Response } from 'express';
 import { AuthService, SESSION_TTL_MS } from './auth.service.js';
-import {
-  AuthSecurity,
-  AuthMutationGuard,
-  cookieValue,
-} from './auth-security.js';
+import { AuthSecurity, cookieValue } from './auth-security.js';
 import { AuthRateLimiter } from './auth-rate-limiter.js';
-import { AuthError } from './auth.error.js';
-
-const schema = (value: {
-  toJSONSchema(options: { target: 'openapi-3.0' }): unknown;
-}): SchemaObject =>
-  value.toJSONSchema({ target: 'openapi-3.0' }) as SchemaObject;
-const noStore = {
-  'Cache-Control': { schema: { type: 'string' as const, enum: ['no-store'] } },
-};
-function errorResponse(status: number) {
-  return ApiResponse({
-    status,
-    headers: noStore,
-    schema: schema(AuthApiErrorResponseSchema),
-  });
-}
-function mutationBody(
-  value: Parameters<typeof schema>[0],
-  example: Record<string, string>,
-) {
-  return applyDecorators(
-    UseGuards(AuthMutationGuard),
-    ApiSecurity('csrfToken'),
-    ApiBody({ schema: schema(value), examples: { demo: { value: example } } }),
-    errorResponse(400),
-    errorResponse(403),
-    errorResponse(413),
-  );
-}
-function parse<T>(
-  value: unknown,
-  validator: {
-    safeParse(value: unknown): { success: true; data: T } | { success: false };
-  },
-): T {
-  const parsed = validator.safeParse(value);
-  if (!parsed.success) throw new AuthError('INVALID_REQUEST');
-  return parsed.data;
-}
+import {
+  errorResponse,
+  mutationBody,
+  noStore,
+  parse,
+  schema,
+} from './auth-http.js';
 
 @ApiTags('Auth')
 @Controller('auth')

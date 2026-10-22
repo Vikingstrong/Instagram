@@ -27,6 +27,12 @@ import { MailModule } from '../mail/mail.module.js';
     VerifiedSessionGuard,
     { provide: APP_FILTER, useClass: AuthErrorFilter },
   ],
-  exports: [AuthService, AuthSecurity, AuthMutationGuard, VerifiedSessionGuard],
+  exports: [
+    AuthService,
+    AuthSecurity,
+    AuthMutationGuard,
+    AuthRateLimiter,
+    VerifiedSessionGuard,
+  ],
 })
 export class AuthModule {}
