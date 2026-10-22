@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export {
+  AuthEmailSchema,
+  AuthLoginRequestSchema,
+  AuthPasswordSchema,
+  AuthRegisterRequestSchema,
+  AuthUsernameSchema,
+  type AuthLoginRequest,
+  type AuthRegisterRequest,
+} from "./auth.js";
+
 // This describes the future FND-04 endpoint; FND-02 does not expose an HTTP route.
 export const readinessEndpoint = {
   method: "GET",

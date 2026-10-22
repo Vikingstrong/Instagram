@@ -77,7 +77,11 @@ tests exist; see `docs/development/database.md`. NestJS uses Prisma for
 `GET /api/v1/readiness`; Swagger UI is at `/api/docs/` and OpenAPI JSON at
 `/api/docs/openapi.json`. See `docs/development/api-readiness.md`. There are no application models or SQL migrations. `packages/contracts`
 contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
-it. See `docs/development/foundation-contracts.md` for the proposed wire format
+it. Draft Auth input schemas are exported for review but are not integrated into
+API/UI; see `docs/development/auth-preparation.md`. Before dependent Auth work,
+complete the real-machine checks and joint acceptance recorded in
+`docs/development/foundation-acceptance.md`; cloud CI is not a substitute.
+See `docs/development/foundation-contracts.md` for the proposed wire format
 and `docs/development/fnd-02-review.md` for Developer 2 acceptance.
 Frontend/browser harnesses include real readiness through the web origin;
 product scenarios and joint Foundation acceptance remain pending.

@@ -2,8 +2,11 @@
 
 Browser-safe Zod schemas and inferred types shared by NestJS and Next.js.
 
-Scope: only the Foundation readiness response and its safe error envelope.
+Runtime scope: Foundation readiness response and its safe error envelope.
 See [the contract and frontend handoff](../../docs/development/foundation-contracts.md).
+Draft Auth input schemas are also exported for review; they are not used by API
+routes or web forms yet. See [Auth preparation](../../docs/development/auth-preparation.md)
+for field rules, Unicode password length, pending decisions and integration gates.
 
 ```ts
 import {
