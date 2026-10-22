@@ -14,7 +14,7 @@
     "start": "pnpm db:generate && node --env-file-if-exists=../../.env ./node_modules/@nestjs/cli/bin/nest.js start",
     "start:dev": "pnpm db:generate && node --env-file-if-exists=../../.env ./node_modules/@nestjs/cli/bin/nest.js start --watch",
     "start:debug": "pnpm db:generate && node --env-file-if-exists=../../.env ./node_modules/@nestjs/cli/bin/nest.js start --debug --watch",
-    "start:prod": "node --env-file-if-exists=../../.env dist/main.js",
+    "start:prod": "node --env-file-if-exists=../../.env scripts/start-production.mjs",
     "lint": "pnpm db:generate && oxlint --type-aware src/ test/ prisma.config.ts prisma.test.config.ts vitest.config.integration.ts",
     "check-types": "pnpm db:generate && tsc --noEmit --incremental false",
     "db:validate": "prisma validate",

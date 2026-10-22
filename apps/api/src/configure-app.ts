@@ -1,5 +1,6 @@
 import { type INestApplication, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AuthSecurity } from './auth/auth-security.js';
 
 // Used by production bootstrap and HTTP tests so prefixes/docs cannot drift.
 export function configureApp(app: INestApplication): void {
@@ -9,9 +10,29 @@ export function configureApp(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('Instagram API')
     .setDescription(
-      'Implemented API endpoints. Foundation readiness uses the shared Zod contract.',
+      'Implemented readiness and Auth endpoints. Registration creates an unverified account; email delivery/verification/recovery are not implemented yet. Swagger obtains CSRF automatically for same-origin JSON Auth mutations. Local Swagger: http://localhost:4000/api/docs/.',
     )
     .setVersion('1.0')
+    .addCookieAuth(
+      app.get(AuthSecurity).sessionCookie,
+      {
+        type: 'apiKey',
+        in: 'cookie',
+        description:
+          'Browser-managed HttpOnly cookie; __Host-instagram-session in production.',
+      },
+      'session',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-Token',
+        description:
+          'Signed token from GET /api/v1/auth/csrf; also requires its cookie and allowed Origin.',
+      },
+      'csrfToken',
+    )
     .build();
   SwaggerModule.setup(
     'api/docs',
@@ -20,7 +41,40 @@ export function configureApp(app: INestApplication): void {
     {
       jsonDocumentUrl: '/api/docs/openapi.json',
       raw: ['json'],
-      swaggerOptions: { validatorUrl: null },
+      swaggerOptions: {
+        validatorUrl: null,
+        requestInterceptor: async (request: {
+          url: string;
+          method: string;
+          headers: Record<string, string>;
+          credentials?: string;
+        }) => {
+          const target = new URL(request.url, window.location.href);
+          if (
+            target.origin === window.location.origin &&
+            target.pathname.startsWith('/api/v1/auth/') &&
+            request.method.toUpperCase() === 'POST'
+          ) {
+            const response = await fetch('/api/v1/auth/csrf', {
+              credentials: 'same-origin',
+              cache: 'no-store',
+            });
+            if (!response.ok)
+              throw new Error('Unable to prepare CSRF protection.');
+            const body: unknown = await response.json();
+            if (
+              !body ||
+              typeof body !== 'object' ||
+              !('csrfToken' in body) ||
+              typeof body.csrfToken !== 'string'
+            )
+              throw new Error('Invalid CSRF response.');
+            request.headers['X-CSRF-Token'] = body.csrfToken;
+          }
+          request.credentials = 'same-origin';
+          return request;
+        },
+      },
     },
   );
 }

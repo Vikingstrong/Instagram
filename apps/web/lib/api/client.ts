@@ -14,8 +14,7 @@ export type ApiFailure =
   | { kind: "invalid_response"; status: number };
 
 export type ApiResult<T> =
-  | { ok: true; status: number; data: T }
-  | { ok: false; failure: ApiFailure };
+  { ok: true; status: number; data: T } | { ok: false; failure: ApiFailure };
 
 // Structural subset of a Zod schema, so web needs no direct zod dependency.
 export type ResponseSchema<T> = {
@@ -43,6 +42,7 @@ export type ApiClientOptions = {
 export type RequestOptions = {
   body?: unknown;
   signal?: AbortSignal;
+  csrfToken?: string;
 };
 
 export type ApiClient = {
@@ -75,11 +75,12 @@ export function createApiClient({
 }: ApiClientOptions = {}): ApiClient {
   return {
     mode,
-    async request(endpoint, schema, { body, signal } = {}) {
+    async request(endpoint, schema, { body, signal, csrfToken } = {}) {
       const headers: Record<string, string> = { Accept: "application/json" };
       if (body !== undefined) {
         headers["Content-Type"] = "application/json";
       }
+      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
       let response: Response;
       try {
@@ -90,6 +91,8 @@ export function createApiClient({
           // Personalized responses must never land in a shared cache.
           cache: "no-store",
           credentials: "same-origin",
+          // Auth bodies must never follow a redirect to another destination.
+          redirect: "error",
           signal,
         });
       } catch {

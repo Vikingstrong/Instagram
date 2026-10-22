@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AuthApiErrorResponseSchema } from "./auth.js";
 
 export {
   AuthEmailSchema,
@@ -8,6 +9,20 @@ export {
   AuthUsernameSchema,
   type AuthLoginRequest,
   type AuthRegisterRequest,
+} from "./auth.js";
+export {
+  AuthUserSchema,
+  AuthUserResponseSchema,
+  AuthSessionResponseSchema,
+  AuthCsrfResponseSchema,
+  AuthLogoutResponseSchema,
+  AuthLogoutRequestSchema,
+  AuthApiErrorResponseSchema,
+  authEndpoints,
+  authErrors,
+  type AuthUser,
+  type AuthErrorCode,
+  type AuthApiErrorResponse,
 } from "./auth.js";
 
 // This describes the future FND-04 endpoint; FND-02 does not expose an HTTP route.
@@ -34,3 +49,12 @@ export const ApiErrorResponseSchema = z.strictObject({
 
 export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>;
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
+
+// Foundation's exact 503 schema stays stable; web transport understands both slices.
+export const ApiTransportErrorResponseSchema = z.union([
+  ApiErrorResponseSchema,
+  AuthApiErrorResponseSchema,
+]);
+export type ApiTransportErrorResponse = z.infer<
+  typeof ApiTransportErrorResponseSchema
+>;

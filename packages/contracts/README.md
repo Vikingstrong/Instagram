@@ -2,11 +2,13 @@
 
 Browser-safe Zod schemas and inferred types shared by NestJS and Next.js.
 
-Runtime scope: Foundation readiness response and its safe error envelope.
+Runtime scope: Foundation readiness plus Auth registration/cookie-session contracts.
 See [the contract and frontend handoff](../../docs/development/foundation-contracts.md).
-Draft Auth input schemas are also exported for review; they are not used by API
-routes or web forms yet. See [Auth preparation](../../docs/development/auth-preparation.md)
-for field rules, Unicode password length, pending decisions and integration gates.
+Auth request/response/error schemas and endpoint constants are used by the API
+and web transport. See [Auth API](../../docs/development/auth-api.md) for cookie/CSRF
+semantics, Unicode password length and remaining email/frontend work. The exact
+Foundation error schema stays stable; ApiTransportErrorResponseSchema accepts
+both implemented slices.
 
 ```ts
 import {

@@ -6,7 +6,12 @@ import {
   AuthPasswordSchema,
   AuthRegisterRequestSchema,
   AuthUsernameSchema,
+  AuthUserResponseSchema,
+  AuthApiErrorResponseSchema,
+  AuthSessionResponseSchema,
+  authErrors,
 } from "@instagram/contracts";
+import { randomUUID } from "node:crypto";
 
 // Public synthetic values; never use a real account or credential in fixtures.
 const registration = {
@@ -97,4 +102,66 @@ test("password preserves spaces and Unicode representation and rejects lone surr
   for (const value of ["x".repeat(12) + "\ud800", "\udc00" + "x".repeat(12)]) {
     assert.equal(AuthPasswordSchema.safeParse(value).success, false);
   }
+});
+
+test("public auth responses reject internal fields and false session success", () => {
+  const user = {
+    id: randomUUID(),
+    email: registration.email,
+    username: registration.username,
+    emailVerified: false,
+  };
+  assert.deepEqual(AuthUserResponseSchema.parse({ user }), { user });
+  assert.deepEqual(AuthSessionResponseSchema.parse({ user: null }), {
+    user: null,
+  });
+  for (const key of [
+    "passwordHash",
+    "credentialVersion",
+    "tokenHash",
+    "token",
+  ]) {
+    assert.equal(
+      AuthUserResponseSchema.safeParse({ user: { ...user, [key]: "private" } })
+        .success,
+      false,
+    );
+    assert.equal(
+      AuthUserResponseSchema.safeParse({ user, [key]: "private" }).success,
+      false,
+    );
+  }
+  assert.equal(AuthUserResponseSchema.safeParse({ user: null }).success, false);
+});
+
+test("auth errors bind each approved code to a safe message and UUID", () => {
+  for (const [code, value] of Object.entries(authErrors)) {
+    const error = { code, message: value.message, requestId: randomUUID() };
+    assert.equal(AuthApiErrorResponseSchema.safeParse({ error }).success, true);
+    assert.equal(
+      AuthApiErrorResponseSchema.safeParse({
+        error: { ...error, message: "private database details" },
+      }).success,
+      false,
+    );
+    assert.equal(
+      AuthApiErrorResponseSchema.safeParse({
+        error: { ...error, password: "private" },
+      }).success,
+      false,
+    );
+  }
+});
+
+test("OpenAPI preserves password code-point limits and strict request fields", () => {
+  const schema = AuthRegisterRequestSchema.toJSONSchema({
+    target: "openapi-3.0",
+  });
+  assert.equal(schema.additionalProperties, false);
+  assert.equal(schema.properties.password.minLength, 12);
+  assert.equal(schema.properties.password.maxLength, 128);
+  assert.equal(
+    new RegExp(schema.properties.username.pattern).test("abc\n"),
+    false,
+  );
 });

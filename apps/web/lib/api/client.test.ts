@@ -6,8 +6,52 @@ import { readyFixture, unavailableFixture } from "./contracts.fixture";
 import { createFixtureClient, readinessFixtureRoutes } from "./fixture-client";
 import { describeFailure } from "./messages";
 import { getReadiness } from "./readiness";
+import {
+  AuthUserResponseSchema,
+  authEndpoints,
+  authErrors,
+} from "@instagram/contracts";
 
 const readinessPath = "GET /api/v1/readiness";
+
+it("forwards per-request CSRF and decodes/localizes the Auth error contract", async () => {
+  const fetchImpl = vi.fn(
+    async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: authErrors.INVALID_CREDENTIALS.message,
+            requestId: "8d159934-81b2-4adc-a0b2-a685945138c0",
+          },
+        }),
+        { status: 401 },
+      ),
+  );
+  const client = createApiClient({ fetchImpl });
+  const result = await client.request(
+    authEndpoints.login,
+    AuthUserResponseSchema,
+    {
+      body: { email: "demo@example.test", password: "example password" },
+      csrfToken: "synthetic-csrf",
+    },
+  );
+  expect(fetchImpl).toHaveBeenCalledWith(
+    authEndpoints.login.path,
+    expect.objectContaining({
+      headers: expect.objectContaining({ "X-CSRF-Token": "synthetic-csrf" }),
+      credentials: "same-origin",
+      redirect: "error",
+      cache: "no-store",
+    }),
+  );
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    expect(result.failure.kind).toBe("api");
+    expect(describeFailure(result.failure)).toBe("Неверный email или пароль.");
+  }
+});
 
 describe("api client", () => {
   it("returns parsed data for the contract success status", async () => {
@@ -88,9 +132,9 @@ describe("api client", () => {
   });
 
   it("sends same-origin, uncached JSON requests", async () => {
-    const fetchImpl = vi.fn<(input: string, init: RequestInit) => Promise<Response>>(
-      async () => new Response(JSON.stringify(readyFixture), { status: 200 }),
-    );
+    const fetchImpl = vi.fn<
+      (input: string, init: RequestInit) => Promise<Response>
+    >(async () => new Response(JSON.stringify(readyFixture), { status: 200 }));
     const client = createApiClient({ baseUrl: "http://api.test", fetchImpl });
 
     await client.request(
