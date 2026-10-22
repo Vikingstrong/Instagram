@@ -15,6 +15,11 @@ enum AuthTokenPurpose {
   PASSWORD_RESET
 }
 
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+}
+
 model User {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email             String        @db.VarChar(254)
@@ -24,10 +29,15 @@ model User {
   passwordHash      String        @db.Text
   emailVerifiedAt   DateTime?     @db.Timestamptz(3)
   credentialVersion Int           @default(0)
+  displayName       String        @default("") @db.VarChar(30)
+  bio               String        @default("") @db.VarChar(150)
+  isPrivate         Boolean       @default(false)
   createdAt         DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
   sessions          AuthSession[]
   tokens            AuthToken[]
+  following         Follow[]      @relation("follower")
+  followers         Follow[]      @relation("followee")
 
   @@map("auth_users")
 }
@@ -80,4 +90,22 @@ model MailDelivery {
 
   @@index([sentAt, cancelledAt, nextAttemptAt])
   @@map("mail_deliveries")
+}
+
+// One row per ordered pair. PENDING is a request to a private profile;
+// ACCEPTED grants access. Self-follow and the status/acceptedAt pairing are
+// enforced by CHECK constraints in the migration SQL.
+model Follow {
+  followerId String       @db.Uuid
+  followeeId String       @db.Uuid
+  status     FollowStatus
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
+  acceptedAt DateTime?    @db.Timestamptz(3)
+  follower   User         @relation("follower", fields: [followerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  followee   User         @relation("followee", fields: [followeeId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([followerId, followeeId])
+  @@index([followeeId, status])
+  @@index([followerId, status])
+  @@map("follows")
 }

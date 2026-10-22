@@ -102,6 +102,8 @@ export const authErrors = {
     message: "Email verification is required.",
   },
   REQUEST_FORBIDDEN: { status: 403, message: "Request is forbidden." },
+  USER_NOT_FOUND: { status: 404, message: "User not found." },
+  USERNAME_TAKEN: { status: 409, message: "Username is already taken." },
   ACCOUNT_UNAVAILABLE: {
     status: 409,
     message: "Account details are unavailable.",
@@ -132,6 +134,8 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("AUTHENTICATION_REQUIRED"),
     errorVariant("EMAIL_VERIFICATION_REQUIRED"),
     errorVariant("REQUEST_FORBIDDEN"),
+    errorVariant("USER_NOT_FOUND"),
+    errorVariant("USERNAME_TAKEN"),
     errorVariant("ACCOUNT_UNAVAILABLE"),
     errorVariant("TOO_MANY_REQUESTS"),
     errorVariant("SERVICE_UNAVAILABLE"),

@@ -32,6 +32,22 @@ export {
   type AuthApiErrorResponse,
 } from "./auth.js";
 
+export {
+  ProfileDisplayNameSchema,
+  ProfileBioSchema,
+  ProfileRelationshipSchema,
+  UserProfileSchema,
+  UserProfileResponseSchema,
+  OwnProfileSchema,
+  OwnProfileResponseSchema,
+  UpdateOwnProfileRequestSchema,
+  usersEndpoints,
+  type ProfileRelationship,
+  type UserProfile,
+  type OwnProfile,
+  type UpdateOwnProfileRequest,
+} from "./users.js";
+
 // This describes the future FND-04 endpoint; FND-02 does not expose an HTTP route.
 export const readinessEndpoint = {
   method: "GET",
