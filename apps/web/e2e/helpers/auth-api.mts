@@ -63,6 +63,11 @@ export async function startAuthApi() {
     "const origin = await app.getUrl(); app.get(AUTH_CONFIG).allowedOrigins.add(origin);",
     // Cleanup is requested over IPC, not SIGTERM: Windows has no catchable
     // SIGTERM, so a signal would kill the process before deleting the account.
+    // 'verify' confirms the fixture email directly, for flows that are not
+    // about mail; the email flow itself is covered by auth-email.spec.
+    "process.on('message', async (message) => { if (message !== 'verify') return;",
+    `await app.get(DatabaseService).prisma.user.updateMany({ where: { emailKey: ${JSON.stringify(account.email)} }, data: { emailVerifiedAt: new Date() } });`,
+    "process.send({ verified: true }); });",
     "process.on('message', async (message) => { if (message !== 'stop') return; let status = 0; try {",
     `await app.get(DatabaseService).prisma.user.deleteMany({ where: { emailKey: ${JSON.stringify(account.email)}, usernameKey: ${JSON.stringify(account.username)} } });`,
     "} catch { status = 1; } finally { await app.close(); process.exit(status); } });",
@@ -126,7 +131,18 @@ export async function startAuthApi() {
         resolve(payload.origin);
       });
     });
-    return { origin, account, stop };
+    async function verify() {
+      await new Promise<void>((resolve) => {
+        const listener = (payload: { verified?: unknown }) => {
+          if (payload.verified !== true) return;
+          child.off("message", listener);
+          resolve();
+        };
+        child.on("message", listener);
+        child.send("verify");
+      });
+    }
+    return { origin, account, stop, verify };
   } catch (error) {
     await stop();
     throw error;
