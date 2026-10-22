@@ -95,9 +95,10 @@ See `docs/development/foundation-contracts.md` for the proposed wire format
 and `docs/development/fnd-02-review.md` for Developer 2 acceptance.
 Frontend/browser harnesses include real readiness through the web origin;
 product scenarios and joint Foundation acceptance remain pending.
-Stage 3 started with text profiles: `GET /api/v1/users/{username}`,
-`GET/PATCH /api/v1/me/profile` and the `follows` table; decisions P-04–P-09 and
-contracts are in `docs/development/users-api.md`.
+Stage 3 backend (UsersModule, SocialModule): profiles, follows and requests,
+follower lists, suggestions (`/api/v1/me/suggestions`) and search
+(`/api/v1/search/users`); decisions P-04–P-09, routes and race rules are in
+`docs/development/users-api.md`.
 All future protected product routes must enforce verified sessions server-side
 (e.g. `VerifiedSessionGuard` exported by AuthModule); auth mutations additionally
 require Origin/CSRF validation. Cookie/session fields never enter public DTOs.
