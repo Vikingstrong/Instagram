@@ -87,9 +87,9 @@ pnpm --filter @instagram/contracts test
    схемами и не подтверждают соединение с настоящей БД.
 3. Backend readiness и Swagger реализованы в [FND-04](api-readiness.md).
    Схема origin и browser runner определены в [FND-01](foundation-baseline.md).
-4. Для завершения FND-05/FND-06 остаются web proxy, серверный адрес API и
-   сквозной запрос браузера к настоящему readiness. Shell browser checks уже
-   существуют; readiness-тест в `apps/web/e2e/shell.spec.ts` остаётся `test.fixme`.
+4. Web proxy и request-scoped серверный клиент реализованы в [FND-05](web-api.md).
+   `apps/web/e2e/readiness.spec.mts` запрашивает настоящий readiness через origin
+   web; mock не заменяет БД. Review и совместная приёмка остаются отдельными шагами.
 
 Проверки пакета покрывают JSON round-trip, недопустимые состояния и утечку
 внутренних полей, безопасный текст ошибки и UUID, а также отсутствие Node/server
@@ -102,7 +102,8 @@ PostgreSQL/Prisma и изоляция dev/test описаны в [Database Found
 Mailpit настроен в Compose, инструкции и границы фактических проверок — в
 [FND-03](local-environment.md). Это не подтверждает чистый Compose-запуск обоими
 разработчиками или готовую отправку писем из NestJS.
-Полный Foundation требует frontend-интеграции, CI и совместной приёмки FND-08.
+Web-интеграция и CI реализованы; полный Foundation требует их review и
+совместной приёмки FND-08.
 Auth, прикладные модели и миграции пока отсутствуют.
 
 ## Проверки FND-02 — 2026-10-21

@@ -9,33 +9,33 @@
 
 | Уже существует                                                                           | Ещё предстоит реализовать                                      |
 | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `apps/web`: responsive shell, главная на mock-данных, REST-клиент и frontend/browser harness      | Прикладные формы, реальная API-интеграция, SSE и функциональные тесты |
+| `apps/web`: responsive shell, главная на mock-данных, REST-клиент и frontend/browser harness      | Прикладные формы, интеграция продуктовых API, SSE и функциональные тесты |
 | `apps/api`: NestJS, Prisma lifecycle, `GET /api/v1/readiness`, Swagger UI и OpenAPI JSON; legacy `GET /` сохранён | Предметные модули, авторизация, media и Direct |
 | Единый pnpm workspace/lockfile, Turborepo, Node.js в `.nvmrc`; настройки PostgreSQL 18.6 / Prisma 7.10.1 | Первые прикладные модели/миграции; NestJS readiness уже подключён к БД |
-| Корневые команды; `packages/contracts` с FND-02 readiness/error и контрактными тестами | Frontend-интеграция; runtime readiness и frontend review контракта выполнены |
-| Vitest/Supertest: стартовые unit/API e2e, проверки dev/test конфигурации и Database Foundation integration | Прикладные integration/security и сквозной browser/API/DB smoke |
+| Корневые команды; `packages/contracts` с FND-02 readiness/error и контрактными тестами | Контракты следующих срезов; readiness, web-интеграция и frontend review выполнены |
+| Vitest/Supertest: стартовые unit/API e2e, проверки dev/test конфигурации и Database Foundation integration | Прикладные integration/security и дальнейшие пользовательские browser-сценарии |
 
-CI configuration определена в [Foundation CI](development/ci.md); успешный запуск GitHub Actions требует отдельного подтверждения. Web имеет явные Vitest/Playwright scripts, но readiness smoke помечен `fixme` до реализации web proxy и подключения теста к настоящему API. FND-02 [принят Developer 2](development/fnd-02-review.md); [wire contract](development/foundation-contracts.md). PostgreSQL integration checks описаны в [database.md](development/database.md), Mailpit — в [local-environment.md](development/local-environment.md). FND-01/FND-03 требуют review и проверки окружения; runtime readiness и Swagger реализованы в [FND-04](development/api-readiness.md), frontend proxy/browser smoke ещё предстоят. Результаты прошлых проверок не заменяют проверку нового среза.
+CI configuration определена в [Foundation CI](development/ci.md); первый GitHub run FND-07 прошёл. Новые изменения требуют собственных проверок. Web имеет явные Vitest/Playwright scripts, readiness smoke использует настоящий API через web proxy. FND-02 [принят Developer 2](development/fnd-02-review.md); [wire contract](development/foundation-contracts.md). PostgreSQL integration checks описаны в [database.md](development/database.md), Mailpit — в [local-environment.md](development/local-environment.md). FND-01/FND-03 требуют review и проверки окружения; runtime readiness и Swagger реализованы в [FND-04](development/api-readiness.md), web proxy и browser readiness реализованы в [FND-05](development/web-api.md), совместная приёмка ещё предстоит. Результаты прошлых проверок не заменяют проверку нового среза.
 
 ### Текущее состояние Foundation
 
-Сводка по коду и документам после PR #4 и #5; наличие реализации не заменяет
+Сводка по коду этой ветки, включая FND-05/FND-06 и слитые PR #4–#6; наличие реализации не заменяет
 review и совместную приёмку. Исторические отчёты проверок относятся к указанным
 в них срезам и средам.
 
 | Задача | Реализовано | Что остаётся до закрытия |
 | --- | --- | --- |
-| FND-01 | Закреплены версии, Playwright и локальная схема origin; [baseline](development/foundation-baseline.md) согласован владельцем проекта | Отдельное review Developer 2 и проверка маршрутизации |
+| FND-01 | Закреплены версии, Playwright и локальная схема origin; [baseline](development/foundation-baseline.md) согласован владельцем проекта | Отдельное review Developer 2 и воспроизведение запуска обоими разработчиками |
 | FND-02 | Общие Zod-схемы и fixtures, импорты обоими приложениями; [frontend review](development/fnd-02-review.md) принят | Контракт готов для текущего readiness-среза; расширения согласуются отдельно |
 | FND-03 | PostgreSQL, изолированные dev/test БД, Mailpit и инструкции запуска | Проверка Compose на машинах разработчиков по [инструкции](development/local-environment.md) |
 | FND-04 | Prisma lifecycle, readiness с реальной БД и безопасным 503, Swagger/OpenAPI; API HTTP и DB integration tests | Review Developer 2; сквозная frontend-интеграция принимается в FND-08 |
-| FND-05 | Responsive shell и REST-клиент с проверкой контрактов; главная использует mock-данные | Proxy `/api/v1/*`, серверный адрес API и реальный запрос через общий origin |
-| FND-06 | Vitest, Testing Library и Playwright desktop/mobile shell checks | Включить настоящий browser → API → DB smoke вместо `test.fixme` |
-| FND-07 | [GitHub Actions workflow](development/ci.md): workspace, PostgreSQL, compiled API smoke и Playwright | Первый реальный GitHub run и review; сквозной browser readiness остаётся в FND-06 |
+| FND-05 | Responsive shell, REST-клиент, web proxy и request-scoped серверный клиент; readiness через общий origin | Review и совместная приёмка; главная использует design mock-данные до продуктовых API |
+| FND-06 | [Frontend harness](development/frontend-testing.md): shell/error component tests, Vitest и настоящий Playwright browser → API → DB readiness | Review и совместная приёмка; прикладные security-сценарии добавляются по срезам |
+| FND-07 | [GitHub Actions workflow](development/ci.md): workspace, PostgreSQL, compiled API smoke и Playwright; первый GitHub run прошёл | Проверка новых изменений и совместное review |
 | FND-08 | Критерии приёмки определены в разделе 6 | Чистый запуск обоими разработчиками и совместная сквозная приёмка |
 
-Ближайшая работа: завершить web origin/proxy и сквозной smoke FND-05/FND-06,
-подтвердить GitHub run FND-07 и пройти FND-08. Auth остаётся этапом 2 и требует также
+Ближайшая работа: review web-интеграции FND-05/FND-06, подтверждение её в CI
+и совместная приёмка FND-08. Auth остаётся этапом 2 и требует также
 согласования применимых продуктовых решений из раздела 7.
 
 Сохраняются утверждённые решения: модульный монолит, PostgreSQL + Prisma, REST, Zod, cookie-сессии в БД, приватное media, REST + SSE и один процесс API. Обязательные `AccessModule`/`JobsModule`, Redis, брокер сообщений и микросервисы в план не добавляются.

@@ -211,7 +211,7 @@ readiness и Swagger/OpenAPI: [описание и проверки](api-readine
 | Docker Compose startup / healthcheck / volume initialization | **NOT RUN**: Docker отсутствует; установленный Podman не запускается в доступном окружении |
 
 Проверки стартового API не доказывают интеграцию NestJS с БД; она относится к
-FND-04. На момент этого исторического отчёта frontend/browser harness ещё не был добавлен; сейчас он присутствует, но readiness smoke остаётся pending. Для совместной приёмки
+FND-04. На момент этого исторического отчёта frontend/browser harness ещё не был добавлен; сейчас он присутствует, а настоящий readiness smoke реализован в [FND-05](web-api.md). Для совместной приёмки
 требуются запуск по этой инструкции вторым разработчиком и отдельная проверка
 Compose на машине с рабочим container runtime.
 

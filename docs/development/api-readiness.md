@@ -119,4 +119,5 @@ pnpm --filter @instagram/web exec playwright test swagger.spec.mts
 Контейнер, временные данные и credentials после проверки удалены.
 Docker Compose, браузерные тесты и review второго разработчика в этом срезе
 не выполнены и не засчитываются как PASS. Для полного закрытия Foundation
-по-прежнему нужны общий origin/browser smoke, CI и совместная приёмка.
+нужна совместная приёмка. Более поздняя web-интеграция описана в
+[FND-05](web-api.md), автоматизация — в [CI](ci.md).

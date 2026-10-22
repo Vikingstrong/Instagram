@@ -60,9 +60,16 @@ Build `@instagram/contracts` first when calling app scripts directly; root Turbo
 commands and root `dev:web` / `dev:api` already handle that dependency.
 Web Playwright runs the locally installed Google Chrome (`PLAYWRIGHT_CHANNEL`
 overrides, e.g. `msedge`); CI uses bundled Chromium from `playwright install chromium`.
-The readiness browser smoke is `test.fixme` until the FND-01 origin
-scheme is implemented and the browser test calls the real FND-04 endpoint; the agreed scheme is in `docs/development/foundation-baseline.md`.
-A green web run does not prove web → API → DB connectivity.
+The readiness browser smoke calls the real API through the web rewrite; it
+requires PostgreSQL and API to be running. CI starts both before E2E. See
+`docs/development/web-api.md` for routing, server/client usage and validation;
+`docs/development/frontend-testing.md` describes FND-06, error component tests
+and the distinction between fixtures and live browser checks.
+The internal API origin is configured by server-only `API_INTERNAL_ORIGIN`
+(default `http://127.0.0.1:4000`), exported in the process or set in
+`apps/web/.env.local`. Root `.env` is not automatically loaded by Next.
+Use `createServerApiClient` per request for Server Components; it forwards cookie
+and origin context without shared caching. Browser calls stay same-origin.
 
 The apps remain scaffolds. PostgreSQL 18.6 / Prisma 7.10.1 configuration,
 Compose/native setup, compiled-client checks and isolated database integration
@@ -72,11 +79,12 @@ tests exist; see `docs/development/database.md`. NestJS uses Prisma for
 contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
 it. See `docs/development/foundation-contracts.md` for the proposed wire format
 and `docs/development/fnd-02-review.md` for Developer 2 acceptance.
-Frontend/browser harnesses exist; the readiness browser test is still pending.
+Frontend/browser harnesses include real readiness through the web origin;
+product scenarios and joint Foundation acceptance remain pending.
 Local Mailpit configuration and startup instructions are in
 `docs/development/local-environment.md`; API mail delivery is not implemented yet.
 Foundation CI is defined in `.github/workflows/ci.yml`; see
-`docs/development/ci.md` for checks, service lifecycle and pending browser readiness.
+`docs/development/ci.md` for checks and service lifecycle.
 Root `test` / `test:e2e` do not run database integration tests; CI runs them explicitly.
 The repository-root `.env` is loaded by Prisma CLI configuration, API start
 scripts and database checks; it stays out of Git. Process environment values
