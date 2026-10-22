@@ -36,7 +36,7 @@ const testUrl = readDatabaseUrl(process.env, 'test');
 const origin = 'http://localhost:3000';
 const password = '  synthetic auth password 🔐  ';
 type Agent = ReturnType<typeof request.agent>;
-@Controller('auth/test-protected')
+@Controller('__test/protected')
 class ProtectedFixture {
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -221,7 +221,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
     const { input, user } = await register(client);
     expect(
       AuthApiErrorResponseSchema.parse(
-        (await client.get('/api/v1/auth/test-protected').expect(401)).body,
+        (await client.get('/api/v1/__test/protected').expect(401)).body,
       ).error.code,
     ).toBe('AUTHENTICATION_REQUIRED');
     expect(
@@ -234,7 +234,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
     ).toBe(200);
     expect(
       AuthApiErrorResponseSchema.parse(
-        (await client.get('/api/v1/auth/test-protected').expect(403)).body,
+        (await client.get('/api/v1/__test/protected').expect(403)).body,
       ).error.code,
     ).toBe('EMAIL_VERIFICATION_REQUIRED');
     // Verification is fixture setup, not a fake production verification endpoint.
@@ -242,7 +242,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
       where: { id: user.id },
       data: { emailVerifiedAt: new Date() },
     });
-    await client.get('/api/v1/auth/test-protected').expect(200);
+    await client.get('/api/v1/__test/protected').expect(200);
   });
 
   it('rejects expired, revoked and outdated-credential sessions', async () => {
@@ -278,7 +278,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
       expect(
         (await client.get(authEndpoints.session.path).expect(200)).body,
       ).toEqual({ user: null });
-      await client.get('/api/v1/auth/test-protected').expect(401);
+      await client.get('/api/v1/__test/protected').expect(401);
     }
   });
 
