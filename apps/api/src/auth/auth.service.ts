@@ -46,8 +46,14 @@ export class AuthService {
     @Inject(MailService) private readonly mail: MailService,
     @Inject(AUTH_CONFIG) private readonly config: AuthConfiguration,
   ) {}
-  async register(input: AuthRegisterRequest): Promise<AuthUser> {
+  // Registration signs the new account in atomically: the session is created in
+  // the same transaction as the account and its verification mail. Protected
+  // features stay closed by the verified guard until the email is confirmed.
+  async register(
+    input: AuthRegisterRequest,
+  ): Promise<{ user: AuthUser; token: string }> {
     const passwordHash = await this.hasher.hash(input.password);
+    const token = randomBytes(32).toString('base64url');
     try {
       const account = await this.database.prisma.$transaction(async (tx) => {
         const created = await tx.user.create({
@@ -58,12 +64,25 @@ export class AuthService {
             usernameKey: input.username.toLowerCase(),
             passwordHash,
           },
-          select: publicSelect,
+          select: { ...publicSelect, credentialVersion: true },
         });
-        await this.issueToken(tx, created.id, 0, 'EMAIL_VERIFICATION');
+        await this.issueToken(
+          tx,
+          created.id,
+          created.credentialVersion,
+          'EMAIL_VERIFICATION',
+        );
+        await tx.authSession.create({
+          data: {
+            userId: created.id,
+            tokenHash: sessionHash(token),
+            credentialVersion: created.credentialVersion,
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+          },
+        });
         return created;
       });
-      return publicUser(account);
+      return { user: publicUser(account), token };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

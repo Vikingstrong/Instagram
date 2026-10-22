@@ -55,7 +55,7 @@ test('two users verify, resend and recover through real forms and SMTP mail', as
     // The guest URL is a browse preference, never an unverified-session bypass.
     await page.goto('/?guest=1');
     await expect(page).toHaveURL(/\/auth\/session$/);
-    await expect(page.getByText('Подтвердите email, чтобы пользоваться основными функциями.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Подтвердите email' })).toBeVisible();
 
     second = await startAuthApi();
     otherContext = await browser.newContext({ baseURL, viewport: info.project.use.viewport });
@@ -65,11 +65,11 @@ test('two users verify, resend and recover through real forms and SMTP mail', as
     await other.getByLabel('Имя пользователя', { exact: true }).fill(second.account.username);
     await other.getByLabel('Пароль', { exact: true }).fill(second.account.password);
     await other.getByRole('button', { name: 'Создать аккаунт', exact: true }).click();
+    // Registration signs in and goes straight to the confirmation page.
+    await expect(other).toHaveURL(/\/auth\/session$/);
     await expect(other.getByRole('heading', { name: 'Подтвердите email' })).toBeVisible();
     const registeredAt = Date.now();
-    expect((await (await other.request.get('/api/v1/auth/session')).json()).user).toBeNull();
-    await login(other, second.account.email, second.account.password);
-    await expect(other).toHaveURL(/\/auth\/session$/);
+    expect((await (await other.request.get('/api/v1/auth/session')).json()).user.email).toBe(second.account.email);
 
     const firstLink = await mailLink(page, first.account.email, 'verify');
     const oldSecondLink = await mailLink(other, second.account.email, 'verify');
@@ -78,22 +78,24 @@ test('two users verify, resend and recover through real forms and SMTP mail', as
     expect(page.url().includes('#')).toBe(false);
     expect((await (await page.request.get('/api/v1/auth/session')).json()).user.emailVerified).toBe(false);
     await page.getByRole('button', { name: 'Подтвердить email', exact: true }).click();
-    await expect(page.getByRole('status')).toContainText('Email подтверждён');
+    // Confirmed in the signed-in browser: straight to the feed.
+    await expect(page).toHaveURL(new URL('/', baseURL).href);
+    await expect(page.getByRole('heading', { name: 'Главная', exact: true })).toBeAttached();
 
     // Exercise the actual recipient cooldown; no fixture changes or fake timers.
     const remaining = Math.max(0, 62_000 - (Date.now() - registeredAt));
     if (remaining) await new Promise(resolve => setTimeout(resolve, remaining));
-    await other.goto('/auth/request-verification');
-    await other.getByLabel('Email', { exact: true }).fill(second.account.email);
-    await other.getByRole('button', { name: 'Отправить письмо', exact: true }).click();
-    await expect(other.getByRole('status')).toContainText('Если для этого адреса');
+    // Resend uses the signed-in address: no separate email form.
+    await other.goto('/auth/session');
+    await other.getByRole('button', { name: 'Отправить письмо повторно', exact: true }).click();
+    await expect(other.getByText(/Письмо отправлено повторно/)).toBeVisible();
     const newSecondLink = await mailLink(other, second.account.email, 'verify', oldSecondLink);
     await other.goto(oldSecondLink);
     await other.getByRole('button', { name: 'Подтвердить email', exact: true }).click();
     await expect(other.getByRole('region', { name: 'Аккаунт', exact: true }).getByRole('alert')).toContainText('Ссылка недействительна');
     await other.goto(newSecondLink);
     await other.getByRole('button', { name: 'Подтвердить email', exact: true }).click();
-    await expect(other.getByRole('status')).toContainText('Email подтверждён');
+    await expect(other).toHaveURL(new URL('/', baseURL).href);
 
     await page.goto('/auth/forgot-password');
     await page.getByLabel('Email', { exact: true }).fill(first.account.email);

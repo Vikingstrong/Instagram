@@ -61,7 +61,9 @@ export async function startAuthApi() {
     "const app = await NestFactory.create(AppModule, { logger: false });",
     "configureApp(app); await app.listen(0, '127.0.0.1');",
     "const origin = await app.getUrl(); app.get(AUTH_CONFIG).allowedOrigins.add(origin);",
-    "process.once('SIGTERM', async () => { let status = 0; try {",
+    // Cleanup is requested over IPC, not SIGTERM: Windows has no catchable
+    // SIGTERM, so a signal would kill the process before deleting the account.
+    "process.on('message', async (message) => { if (message !== 'stop') return; let status = 0; try {",
     `await app.get(DatabaseService).prisma.user.deleteMany({ where: { emailKey: ${JSON.stringify(account.email)}, usernameKey: ${JSON.stringify(account.username)} } });`,
     "} catch { status = 1; } finally { await app.close(); process.exit(status); } });",
     "process.send({ origin });",
@@ -96,7 +98,7 @@ export async function startAuthApi() {
         if (code === 0) resolve();
         else reject(new Error("Isolated Auth API cleanup failed."));
       });
-      child.kill("SIGTERM");
+      child.send("stop");
     });
   }
   try {

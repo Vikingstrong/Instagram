@@ -10,15 +10,4 @@ export function AuthBrand() {
   </span>;
 }
 
-// CSS artwork keeps this screen self-contained: no remote images or tracking.
-export function AuthArtwork() {
-  return <div className="auth-art" aria-hidden="true">
-    <div className="auth-orbit" />
-    <div className="auth-photo auth-photo-back"><div className="auth-sun" /><span>В поисках нового</span></div>
-    <div className="auth-photo auth-photo-front"><div className="auth-mountains" /><div className="auth-photo-caption"><span className="size-7 rounded-full bg-white/30" /><span>Моменты, которые с нами.</span><span>♡</span></div></div>
-    <div className="auth-photo auth-photo-side"><span>small joys<br />big memories.</span></div>
-    <span className="auth-sticker auth-sticker-heart">♥</span>
-    <span className="auth-sticker auth-sticker-spark">✦</span>
-    <span className="auth-note">Ближе, чем кажется</span>
-  </div>;
-}
+export { AuthArtwork } from "./auth-artwork";
