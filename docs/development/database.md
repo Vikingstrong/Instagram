@@ -2,8 +2,8 @@
 
 Срез готовит PostgreSQL и Prisma. Подключение к NestJS, readiness и Swagger
 теперь реализованы в [FND-04](api-readiness.md); общие контракты подготовлены
-в [FND-02](foundation-contracts.md). Прикладных
-моделей и SQL-миграций пока нет. Это не завершение всего FND-01/FND-03/FND-04:
+в [FND-02](foundation-contracts.md). Первые прикладные Auth-модели и миграция
+описаны в [Auth database](auth-database.md). Это не завершение всего FND-01/FND-03/FND-04:
 Браузерный runner и локальная схема origin зафиксированы в
 [FND-01 baseline](foundation-baseline.md); их интеграционная проверка остаётся отдельной работой.
 Локальная почта Mailpit настроена в Compose: [FND-03](local-environment.md).
@@ -14,7 +14,7 @@
 - PostgreSQL — **18.6**, образ команды — `postgres:18.6-bookworm`
   ([официальный список тегов](https://github.com/docker-library/official-images/blob/master/library/postgres)).
 - `prisma`, `@prisma/client`, `@prisma/adapter-pg` — строго **7.10.1**.
-- Schema: `apps/api/prisma/schema.prisma`; будущая история миграций:
+- Schema: `apps/api/prisma/schema.prisma`; история миграций:
   `apps/api/prisma/migrations/`.
 - Prisma 7 CLI получает URL из `apps/api/prisma.config.ts`, а не из schema.
   Конфигурация читает корневой `.env`; переменные процесса имеют приоритет.
@@ -160,18 +160,21 @@ NestJS использует БД в `GET /api/v1/readiness`; его старый
 переопределить host, port, user, password или database, запрещены для обоих
 подключений. Никаких reset/truncate в тестах нет.
 
-Проверка пустой схемы рассчитана на текущий Foundation. При добавлении первой
-согласованной модели её нужно заменить проверками новой схемы и ограничений.
+Проверка пустой схемы заменена проверкой таблиц Auth. Перед integration
+обязательно примените миграции к test-БД. Auth-тесты удаляют только собственных
+пользователей по UUID; каскад очищает их сессии и токены.
 
 ## Процесс миграций
 
 `db:migrate:test` использует отдельный `prisma.test.config.ts`, проверяющий
 различие dev/test до подключения. `db:migrate:deploy` использует dev URL.
 Обе команды применяют только существующую историю, не создают миграции и не
-вызывают reset. Сейчас ожидается **0 миграций**. Это проверяет доступность
-migration tooling на реальной БД, но не доказывает применение прикладной SQL-миграции.
+вызывают reset. Первая миграция — `20261022060000_auth_database`: три таблицы,
+enum, индексы, внешние ключи и SQL CHECK-ограничения. Повторный deploy не должен
+повторно создавать таблицы или удалять данные.
 
-При Auth-срезе после согласования контракта появятся первые модели и миграции.
+SQL первой Auth-миграции сгенерирован `prisma migrate diff --from-empty`
+и дополнен проверками целостности; применение проверяется на отдельных новых БД.
 Для `migrate dev` потребуется отдельно подготовленная shadow database; текущим
 прикладным ролям намеренно не выдан CREATEDB. SQL проходит review до применения;
 миграции не запускаются при старте каждого API-процесса. `db push` не заменяет

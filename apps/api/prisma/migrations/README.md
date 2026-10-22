@@ -1,10 +1,10 @@
 # Migration history
 
-Foundation has no application models and no SQL migrations. Do not add a dummy
-table or empty migration to make a smoke check pass.
+The first migration, `20261022060000_auth_database`, creates Auth users, sessions
+and one-time tokens. See [Auth persistence](../../../../docs/development/auth-database.md).
 
-The first versioned migration belongs to the Auth slice after its contracts and
-product decisions are agreed. Create and review its SQL before applying it. Use
+Review SQL before applying it. SQL CHECK constraints are part of migration history
+and are not expressed by Prisma schema; preserve them in future migrations. Use
 an explicitly isolated shadow database when authoring migrations; application
 roles intentionally have no CREATEDB privilege.
 
