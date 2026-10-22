@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { HomeAccess, useHomeIdentity } from "./home-access";
 
@@ -52,4 +53,31 @@ it("does not render content or silently enter as guest when the API fails", asyn
   await screen.findByRole("alert");
   expect(screen.queryByText("Публикации")).toBeNull();
   expect(screen.getByRole("button", { name: "Попробовать снова" })).toBeTruthy();
+});
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  const user = useHomeIdentity();
+  return <><button onClick={() => setCount(count + 1)}>Счёт {count}</button><p>{user?.email ?? "скрыто"}</p></>;
+}
+
+it("keeps the feed mounted on focus and remounts it only when the account changes", async () => {
+  const other = { ...account, id: "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d", email: "other@example.test" };
+  const fetch = vi.fn()
+    .mockImplementationOnce(async () => Response.json({ user: account }))
+    .mockImplementationOnce(async () => Response.json({ user: account }))
+    .mockImplementationOnce(async () => Response.json({ user: other }));
+  vi.stubGlobal("fetch", fetch);
+  render(<HomeAccess><Counter /></HomeAccess>);
+  await screen.findByText(account.email);
+  fireEvent.click(screen.getByRole("button", { name: "Счёт 0" }));
+  fireEvent(window, new Event("focus"));
+  // Identity hidden while rechecking, but no full-screen loader and no remount.
+  expect(screen.getByText("скрыто")).toBeTruthy();
+  expect(screen.queryByText("Проверяем сессию…")).toBeNull();
+  await screen.findByText(account.email);
+  expect(screen.getByRole("button", { name: "Счёт 1" })).toBeTruthy();
+  fireEvent(window, new Event("focus"));
+  await screen.findByText(other.email);
+  expect(screen.getByRole("button", { name: "Счёт 0" })).toBeTruthy();
 });

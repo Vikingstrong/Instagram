@@ -10,6 +10,10 @@ export function createDatabaseClient(connectionString: string): PrismaClient {
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 10_000,
     statement_timeout: 5_000,
+    // Pin the session time zone. The adapter exchanges timestamps without an
+    // offset, so a server whose TimeZone is not UTC shifted every JS Date
+    // against CURRENT_TIMESTAMP (mail queue, leases and cooldowns by hours).
+    options: '-c TimeZone=UTC',
   });
   return new PrismaClient({ adapter, log: [] });
 }

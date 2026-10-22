@@ -39,6 +39,21 @@ describe('Database Foundation (real PostgreSQL)', () => {
     ]);
   });
 
+  it('keeps JS dates and CURRENT_TIMESTAMP aligned whatever the server TimeZone is', async () => {
+    const sent = new Date();
+    const rows = await client.$queryRaw<
+      { zone: string; skewMs: number; now: Date }[]
+    >`
+      SELECT current_setting('TimeZone') AS zone,
+             (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - ${sent}::timestamptz)) * 1000)::float8 AS "skewMs",
+             CURRENT_TIMESTAMP AS now
+    `;
+    expect(rows[0]!.zone).toBe('UTC');
+    // Same instant on both sides: only round-trip latency, never hours.
+    expect(Math.abs(rows[0]!.skewMs)).toBeLessThan(5_000);
+    expect(Math.abs(rows[0]!.now.getTime() - Date.now())).toBeLessThan(5_000);
+  });
+
   it('uses an unprivileged test role without access to the development database', async () => {
     const developmentDatabase = decodeURIComponent(
       development.pathname.slice(1),

@@ -17,37 +17,50 @@ export function HomeAccess({ children }: { children: ReactNode }) {
   const [access, setAccess] = useState<Access>({ state: "loading" });
   const [prompt, setPrompt] = useState(false);
   const [revision, setRevision] = useState(0);
+  // Rechecking an already shown feed: identity is hidden, the feed stays mounted
+  // (scroll, typed text and local state survive a tab switch).
+  const [checking, setChecking] = useState(false);
+  const shown = useRef(false);
   const modal = useRef<HTMLDialogElement>(null);
   const generation = useRef(0);
 
   useEffect(() => {
     let active = true;
     let request: AbortController | undefined;
+    function hideIdentity() {
+      if (shown.current) setChecking(true);
+      else setAccess({ state: "loading" });
+      setPrompt(false);
+    }
     async function refresh() {
       const version = ++generation.current;
       request?.abort();
       const controller = new AbortController();
       request = controller;
-      setAccess({ state: "loading" });
-      setPrompt(false);
+      hideIdentity();
       const result = await createApiClient().request(authEndpoints.session, AuthSessionResponseSchema, { signal: controller.signal });
       if (!active || controller.signal.aborted || version !== generation.current) return;
-      if (!result.ok) { setAccess({ state: "error", failure: result.failure }); return; }
+      if (!result.ok) {
+        // A failed background check keeps the feed but not the unconfirmed identity.
+        if (!shown.current) setAccess({ state: "error", failure: result.failure });
+        return;
+      }
       if (result.data.user && !result.data.user.emailVerified) {
         window.location.replace("/auth/session"); return;
       }
       if (!result.data.user && new URLSearchParams(window.location.search).get("guest") !== "1") {
         window.location.replace("/auth/login"); return;
       }
-      // The account key remounts the feed when the cookie changes identity.
+      // The account key remounts the feed only when the cookie changes identity.
+      shown.current = true;
+      setChecking(false);
       setAccess({ state: "ready", user: result.data.user });
     }
     function visibility() {
       if (document.visibilityState === "hidden") {
         ++generation.current;
         request?.abort();
-        setAccess({ state: "loading" });
-        setPrompt(false);
+        hideIdentity();
       } else void refresh();
     }
     void refresh();
@@ -92,7 +105,7 @@ export function HomeAccess({ children }: { children: ReactNode }) {
 
   if (access.state === "loading") return <main className="grid min-h-dvh place-content-center gap-6 text-center"><AuthBrand /><p role="status" className="text-sm text-muted-foreground">Проверяем сессию…</p></main>;
   if (access.state === "error") return <main className="mx-auto grid min-h-dvh max-w-sm place-content-center gap-6 px-6"><AuthBrand /><ApiErrorNotice failure={access.failure} onRetry={() => setRevision(value => value + 1)} /><Link href="/auth/login" className="text-ig-link">Перейти ко входу</Link></main>;
-  return <HomeIdentity value={access.user}>
+  return <HomeIdentity value={checking ? null : access.user}>
     <div key={access.user?.id ?? "guest"} onClickCapture={interact}>{children}</div>
     <dialog ref={modal} onCancel={() => setPrompt(false)} onClose={() => setPrompt(false)} aria-labelledby="guest-prompt-title" className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-3xl border bg-[#1b1e24] p-7 text-center text-white shadow-2xl backdrop:bg-black/70">
       <h2 id="guest-prompt-title" className="text-2xl font-semibold">Будьте частью момента</h2>

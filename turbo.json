@@ -30,6 +30,25 @@
     "@instagram/contracts#test": {
       "dependsOn": ["build"],
       "cache": false
+    },
+    "@instagram/api#db:generate": {
+      "cache": false
+    },
+    "@instagram/api#build": {
+      "dependsOn": ["^build", "@instagram/api#db:generate"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "@instagram/api#lint": {
+      "dependsOn": ["^build", "@instagram/api#db:generate"]
+    },
+    "@instagram/api#check-types": {
+      "cache": false,
+      "dependsOn": ["^build", "@instagram/api#db:generate"]
+    },
+    "@instagram/api#test": {
+      "dependsOn": ["^build", "@instagram/api#db:generate"],
+      "cache": false
     }
   }
 }

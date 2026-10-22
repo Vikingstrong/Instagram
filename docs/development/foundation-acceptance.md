@@ -50,12 +50,12 @@
 
 | Подтверждение | Developer 1 — реальный ПК | Developer 2 — реальный ПК |
 | --- | --- | --- |
-| ОС, Node/pnpm, commit SHA, дата | Fedora 44, Node 24.19.0, pnpm 12.14.0, `034bc98`, 2026-10-22; [отчёт](foundation-pc-2026-10-22.md) | Не подтверждено |
-| Чистая установка и `pnpm dev` | Frozen install PASS; обе dev-команды PASS на 3100/4100; общий `pnpm dev` не запускался | Не подтверждено |
-| PostgreSQL dev/test и Mailpit SMTP | PASS native PostgreSQL + отдельный Mailpit; Compose не проверен | Не подтверждено |
-| Build/types/lint/unit/contracts/integration | PASS; [команды и числа тестов](foundation-pc-2026-10-22.md) | Не подтверждено |
-| Browser readiness, Swagger и E2E | PASS: 4 API, 14 browser; 2 viewport skips | Не подтверждено |
-| Отказ БД и восстановление | PASS: 200 → 503 → 200, без перезапуска API | Не подтверждено |
+| ОС, Node/pnpm, commit SHA, дата | Fedora 44, Node 24.19.0, pnpm 12.14.0, `034bc98`, 2026-10-22; [отчёт](foundation-pc-2026-10-22.md) | Windows 10 Pro 19045, **Node 24.13.1** (ниже `.nvmrc` 24.19.0, pnpm не предупредил), pnpm 12.14.0; чистый clone `2bca154`, повтор на ветке `fix/foundation-acceptance` от `6c731a2`; 2026-10-22; [отчёт](foundation-pc-dev2-2026-10-22.md) |
+| Чистая установка и `pnpm dev` | Frozen install PASS; обе dev-команды PASS на 3100/4100; общий `pnpm dev` не запускался | Frozen install PASS (947 пакетов, lockfile не изменён); `dev:api` и `dev:web` PASS на 4000/3000; общий `pnpm dev` не запускался |
+| PostgreSQL dev/test и Mailpit SMTP | PASS native PostgreSQL + отдельный Mailpit; Compose не проверен | PASS native PostgreSQL 18.6 (отдельный кластер, init-скрипт проекта) + native Mailpit v1.31.5 (sha256 сверен с релизом); **Compose не проверен: Docker на ПК нет** |
+| Build/types/lint/unit/contracts/integration | PASS; [команды и числа тестов](foundation-pc-2026-10-22.md) | PASS: contracts 14, API 18, web 52, integration 46 (вкл. SMTP → Mailpit) при TimeZone сервера `America/Buenos_Aires`. Первый прогон: 10 integration FAIL — найден и исправлен баг часового пояса |
+| Browser readiness, Swagger и E2E | PASS: 4 API, 14 browser; 2 viewport skips | Readiness 200 через origin web, Swagger PASS; E2E `--workers=1`: 17 passed, 2 viewport skips, 1 таймаут desktop `auth-email` (scrypt под нагрузкой), отдельный повтор PASS |
+| Отказ БД и восстановление | PASS: 200 → 503 → 200, без перезапуска API | PASS: 200 → 503 (безопасное тело, `no-store`) → 200, без перезапуска API |
 | Совместное review и остаточные дефекты | Не подтверждено | Не подтверждено |
 
 Ограничения проверки Developer 1 и отличия портов приведены в
