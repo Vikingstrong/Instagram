@@ -49,7 +49,7 @@ recheck them when changing scripts and update this section in the same task.
 | Unit / contract tests | `pnpm test` | API Vitest, contracts node:test, web Vitest + Testing Library (jsdom) |
 | E2E tests | `pnpm test:e2e` | API Vitest + Supertest; web Playwright browser smoke (desktop + mobile), starts `next dev` itself |
 | Database integration | `pnpm --filter @instagram/api test:integration` | Real PostgreSQL 18.6 and Mailpit SMTP checks; requires distinct dev/test URLs and roles |
-| Validate / generate Prisma | `pnpm --filter @instagram/api db:validate` / `pnpm --filter @instagram/api db:generate` | Prisma 7.10.1; generation also runs before API dev/build/typecheck/lint |
+| Validate / generate Prisma | `pnpm --filter @instagram/api db:validate` / `pnpm --filter @instagram/api db:generate` | Prisma 7.10.1; root Turbo build/typecheck/lint/test run generation once as `@instagram/api#db:generate` (parallel per-script generation raced); API dev/start, `db:check` and `test:integration` still generate themselves. Run `db:generate` first when calling API build/lint/check-types/test directly |
 | Check database connection | `pnpm --filter @instagram/api db:check` (append `--test` for test DB) | Builds API, imports compiled ESM client, connects and executes SQL |
 | Apply migration history | `pnpm --filter @instagram/api db:migrate:deploy` / `pnpm --filter @instagram/api db:migrate:test` | Dev/test respectively; first Auth migration is versioned SQL |
 | Build | `pnpm build` | Contracts first, then both apps through Turbo |
