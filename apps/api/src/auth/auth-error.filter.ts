@@ -24,7 +24,8 @@ export class AuthErrorFilter {
     const request = host.switchToHttp().getRequest<Request>();
     if (
       request.path !== '/api/v1/auth' &&
-      !request.path.startsWith('/api/v1/auth/')
+      !request.path.startsWith('/api/v1/auth/') &&
+      !(exception instanceof AuthError)
     )
       return new BaseExceptionFilter(this.adapter.httpAdapter).catch(
         exception,

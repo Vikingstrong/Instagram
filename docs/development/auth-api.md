@@ -71,7 +71,9 @@ Foundation сохраняет свой точный readiness 503-контрак
 Ошибки включают безопасный фиксированный message и случайный UUID requestId.
 Malformed JSON и body более штатных 100 KiB возвращают безопасные 400/413;
 исходный input и driver error не сериализуются. Остальные legacy routes не
-переведены автоматически на глобальный Auth-контракт ошибок.
+переведены автоматически на глобальный Auth-контракт ошибок. Типизированные
+AuthError (например, отказ verified guard) сохраняют безопасный Auth envelope
+и вне Auth-prefix; остальные legacy exceptions сохраняют прежнее поведение.
 Auth-prefix также исключён из Observe HTTP tracing, чтобы credentials/cookies
 и внутренние error snapshots не попадали в APM. Это не разрешение логировать
 пароли или токены в прикладном коде.
