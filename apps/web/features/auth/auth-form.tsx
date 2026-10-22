@@ -8,8 +8,7 @@ import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { createAuthClient } from "@/lib/api/auth";
 import type { ApiFailure } from "@/lib/api/client";
 
-const inputClass = "mt-2 w-full rounded-lg border bg-secondary p-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ig-blue";
-export const authButtonClass = "w-full cursor-pointer rounded-lg bg-ig-blue px-4 py-3 font-semibold text-white hover:bg-ig-blue-hover focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-wait disabled:opacity-50";
+import { authButtonClass, authInputClass as inputClass } from "./auth-design";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const registering = mode === "register";
@@ -17,6 +16,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ApiFailure>();
   const [invalid, setInvalid] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [registered, setRegistered] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -49,20 +49,21 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       } else {
         // A document navigation drops the previous account's React/router state.
         // Cookies remain API-owned and HttpOnly; no user/token persistence here.
-        window.location.replace("/auth/session");
+        window.location.replace(result.data.user.emailVerified ? "/" : "/auth/session");
       }
     } finally {
       const password = form.elements.namedItem("password");
       if (password instanceof HTMLInputElement) password.value = "";
+      setShowPassword(false);
       pending.current = false;
       setBusy(false);
     }
   }
 
   if (registered) return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Аккаунт создан</h1>
-      <p role="status">Письмо подтверждения поставлено в очередь. Проверьте входящие и папку «Спам». Основные функции откроются после подтверждения email.</p>
+    <div className="space-y-4">
+      <h1 className="text-2xl font-semibold">Подтвердите email</h1>
+      <p role="status">Письмо подтверждения поставлено в очередь. Откройте ссылку из письма, чтобы завершить регистрацию. Проверьте входящие и папку «Спам».</p>
       <Link href="/auth/request-verification" className="block text-ig-link underline">Отправить письмо повторно</Link>
       <Link href="/auth/login" className="text-ig-link underline">Войти в аккаунт</Link>
     </div>
@@ -70,19 +71,21 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   return (
     <>
-      <h1 className="mb-6 text-center text-2xl font-semibold">{registering ? "Регистрация" : "Вход"}</h1>
-      <form onSubmit={submit} noValidate className="space-y-5" aria-busy={busy}>
-        <fieldset disabled={busy} className="space-y-5">
+      <p className="auth-eyebrow mb-3">{registering ? "Начните свою историю" : "С возвращением"}</p>
+      <h1 className="mb-3 text-3xl font-semibold tracking-tight">{registering ? "Создайте аккаунт" : "Войти в Instagram"}</h1>
+      <p className="mb-8 text-sm leading-6 text-muted-foreground">{registering ? "Самое интересное начинается с вас. Подтвердите email — и оставайтесь на связи." : "Ваши люди и любимые моменты уже здесь."}</p>
+      <form onSubmit={submit} noValidate className="space-y-4" aria-busy={busy}>
+        <fieldset disabled={busy} className="space-y-4">
           <div className="block text-sm"><label htmlFor="auth-email">Email</label>
-            <input id="auth-email" className={inputClass} name="email" type="email" autoComplete="email" required maxLength={254} />
+            <input id="auth-email" className={inputClass} name="email" placeholder="you@example.com" type="email" autoComplete="email" required maxLength={254} />
           </div>
           {registering && <div className="block text-sm"><label htmlFor="auth-username">Имя пользователя</label>
-            <input id="auth-username" className={inputClass} name="username" autoComplete="username" required aria-describedby="username-help" />
+            <input id="auth-username" className={inputClass} placeholder="Ваше имя пользователя" name="username" autoComplete="username" required aria-describedby="username-help" />
             <span id="username-help" className="mt-2 block text-muted-foreground">3–30 латинских букв, цифр, точек или подчёркиваний.</span>
           </div>}
           <div className="block text-sm"><label htmlFor="auth-password">Пароль</label>
-            <input id="auth-password" className={inputClass} name="password" type="password" autoComplete={registering ? "new-password" : "current-password"} required aria-describedby="password-help" />
-            <span id="password-help" className="mt-2 block text-muted-foreground">12–128 символов. Пробелы и Unicode разрешены.</span>
+            <div className="relative"><input id="auth-password" className={`${inputClass} pr-24`} name="password" type={showPassword ? "text" : "password"} autoComplete={registering ? "new-password" : "current-password"} required aria-describedby="password-help" placeholder={registering ? "Не менее 8 символов" : "Введите пароль"} /><button type="button" aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-4 mt-2 text-xs font-semibold text-[#adb8ff]">{showPassword ? "Скрыть" : "Показать"}</button></div>
+            <span id="password-help" className="mt-2 block text-xs text-muted-foreground">8–128 символов. Пробелы и Unicode разрешены.</span>
           </div>
         </fieldset>
         {invalid && <p role="alert" className="text-sm text-destructive">Проверьте email, пароль и {registering ? "имя пользователя" : "длину пароля"}. Пробелы в начале и конце сохраняются.</p>}
@@ -90,10 +93,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <button className={authButtonClass} disabled={busy} type="submit">{busy ? "Подождите…" : registering ? "Создать аккаунт" : "Войти"}</button>
       </form>
       {!registering && <Link href="/auth/forgot-password" className="mt-5 block text-center text-sm text-ig-link underline">Забыли пароль?</Link>}
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        {registering ? "Уже есть аккаунт? " : "Нет аккаунта? "}
-        <Link href={registering ? "/auth/login" : "/auth/register"} className="text-ig-link underline">{registering ? "Войти" : "Зарегистрироваться"}</Link>
-      </p>
+      <div className="my-7 flex items-center gap-4 text-xs text-muted-foreground"><span className="h-px flex-1 bg-white/10" />или<span className="h-px flex-1 bg-white/10" /></div>
+      <Link href={registering ? "/auth/login" : "/auth/register"} className="flex min-h-12 items-center justify-center rounded-full border border-[#708dff]/70 px-4 text-sm font-semibold text-[#adb8ff] transition hover:bg-[#708dff]/10">{registering ? "Уже есть аккаунт? Войти" : "Создать новый аккаунт"}</Link>
+      <Link href="/?guest=1" className="mt-5 block text-center text-sm text-muted-foreground transition hover:text-white">Продолжить как гость <span aria-hidden="true">↗</span></Link>
     </>
   );
 }

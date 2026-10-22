@@ -32,18 +32,18 @@ export const AuthPasswordSchema = z
       length += 1;
       if (length > 128) break;
     }
-    if (length < 12 || length > 128) {
+    if (length < 8 || length > 128) {
       context.addIssue({
         code: "custom",
-        message: "Password must contain 12 to 128 Unicode code points.",
+        message: "Password must contain 8 to 128 Unicode code points.",
       });
     }
   })
   .meta({
-    minLength: 12,
+    minLength: 8,
     maxLength: 128,
     description:
-      "12–128 Unicode code points; spaces allowed, no trimming or normalization. Lone surrogates are rejected.",
+      "8–128 Unicode code points; spaces allowed, no trimming or normalization. Lone surrogates are rejected.",
   });
 
 export const AuthRegisterRequestSchema = z.strictObject({

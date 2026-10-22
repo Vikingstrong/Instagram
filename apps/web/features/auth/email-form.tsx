@@ -6,7 +6,7 @@ import { AuthEmailRequestSchema, AuthLinkTokenSchema, AuthPasswordSchema } from 
 import { createAuthClient } from "@/lib/api/auth";
 import type { ApiFailure } from "@/lib/api/client";
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
-import { authButtonClass } from "./auth-form";
+import { authInputClass as inputClass, authButtonClass } from "./auth-design";
 
 type Mode = "request-verification" | "forgot-password" | "verify" | "reset-password";
 const titles: Record<Mode, string> = {
@@ -15,7 +15,6 @@ const titles: Record<Mode, string> = {
   verify: "Подтвердить email",
   "reset-password": "Новый пароль",
 };
-const inputClass = "mt-2 w-full rounded-lg border bg-secondary p-3 text-base focus-visible:outline-2 focus-visible:outline-ig-blue";
 
 export function EmailForm({ mode }: { mode: Mode }) {
   const request = mode === "request-verification" || mode === "forgot-password";
@@ -103,7 +102,7 @@ export function EmailForm({ mode }: { mode: Mode }) {
       {request && <div><label htmlFor="request-email">Email</label><input id="request-email" className={inputClass} name="email" type="email" autoComplete="email" required disabled={busy} /></div>}
       {!request && token === undefined && <p role="status">Проверяем ссылку…</p>}
       {!request && token === "" && <p role="alert">В ссылке нет действительного токена. Запросите новое письмо.</p>}
-      {mode === "reset-password" && <div><label htmlFor="reset-password">Новый пароль</label><input id="reset-password" className={inputClass} name="password" type="password" autoComplete="new-password" required disabled={busy} aria-describedby="reset-help" /><p id="reset-help" className="mt-2 text-sm text-muted-foreground">12–128 символов. Пробелы и Unicode разрешены. После смены пароля потребуется новый вход на всех устройствах.</p></div>}
+      {mode === "reset-password" && <div><label htmlFor="reset-password">Новый пароль</label><input id="reset-password" className={inputClass} name="password" type="password" autoComplete="new-password" required disabled={busy} aria-describedby="reset-help" /><p id="reset-help" className="mt-2 text-sm text-muted-foreground">8–128 символов. Пробелы и Unicode разрешены. После смены пароля потребуется новый вход на всех устройствах.</p></div>}
       {mode === "verify" && token && <p>Нажмите кнопку, чтобы подтвердить адрес email.</p>}
       {invalid && <p role="alert">Проверьте введённые данные и ссылку из письма.</p>}
       {failure && <ApiErrorNotice failure={failure} />}

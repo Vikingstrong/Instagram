@@ -24,7 +24,8 @@ import { configureApp } from '../src/configure-app.js';
 const testUrl = readDatabaseUrl(process.env, 'test');
 const origin = 'http://localhost:3000';
 const password = 'synthetic initial password 🔐';
-const nextPassword = 'synthetic replacement password 🔐';
+// Reset accepts the same eight-code-point minimum as registration.
+const nextPassword = 're set🔐8';
 const key = 'd'.repeat(64);
 type Agent = ReturnType<typeof request.agent>;
 @Controller('__test/email-protected')

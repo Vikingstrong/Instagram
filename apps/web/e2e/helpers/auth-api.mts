@@ -33,7 +33,7 @@ export async function startAuthApi() {
   const account = {
     email: `swagger-${suffix}@example.test`,
     username: `u_${suffix.slice(0, 20)}`,
-    password: "synthetic swagger password 🔐",
+    password: "brow🔐ser",
   };
   const nest = new URL(
     "../../../api/node_modules/@nestjs/core/index.js",

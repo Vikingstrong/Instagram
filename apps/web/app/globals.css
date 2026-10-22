@@ -104,3 +104,42 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Auth: split editorial cover on desktop, focused form on mobile. */
+.auth-layout { display: grid; min-height: 100dvh; grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.85fr); background: #0c1014; color: #f5f5f5; }
+.auth-story { position: relative; display: flex; flex-direction: column; overflow: hidden; padding: 36px 48px 24px; background: radial-gradient(ellipse at 35% 65%, #36203955, transparent 60%); }
+.auth-brand-link { align-self: flex-start; }
+.auth-story-content { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding-top: 38px; text-align: center; }
+.auth-eyebrow { color: #b3a9d0; font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+.auth-story h2 { margin-top: 20px; font-family: Georgia, serif; font-size: clamp(36px, 3.6vw, 64px); font-weight: 400; line-height: 1.15; letter-spacing: -.035em; }
+.auth-story h2 span { background: linear-gradient(110deg, #ffc995, #f6a3cf, #bba8ff); background-clip: text; color: transparent; }
+.auth-story-footnote { margin-top: 8px; color: #8f929c; font-size: 12px; }
+.auth-panel { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid #ffffff12; background: #16191e; padding: 72px 48px 24px; }
+.auth-form-container { width: 100%; max-width: 400px; margin: auto 0; padding: 28px 0 44px; }
+.auth-mobile-brand { display: none; }
+.auth-footer { display: flex; width: 100%; max-width: 400px; justify-content: space-between; gap: 20px; padding-top: 24px; color: #7d828d; font-size: 11px; }
+.auth-art { position: relative; width: 440px; height: 340px; margin-top: 35px; }
+.auth-orbit { position: absolute; inset: 12px 5px; border: 1px solid #bba8ff15; border-radius: 50%; transform: rotate(-20deg); }
+.auth-photo { position: absolute; overflow: hidden; border: 5px solid #ffffffcf; border-radius: 24px; box-shadow: 0 24px 48px #0007; }
+.auth-photo-back { left: 40px; top: 42px; width: 175px; height: 230px; transform: rotate(-15deg); background: linear-gradient(#d89d91 15%, #9d9aa7 45%, #455c69 46%, #274c5b 64%, #25404f); }
+.auth-photo-back span { position: absolute; bottom: 17px; left: 13px; font-family: Georgia,serif; font-size: 20px; }
+.auth-sun { width: 55px; height: 55px; border-radius: 50%; background: #ffdc96; margin: 30px 0 0 75px; box-shadow: 0 0 50px #fff9; }
+.auth-photo-front { left: 128px; top: 15px; z-index: 2; width: 190px; height: 284px; transform: rotate(5deg); background: linear-gradient(#abcbd9 0%, #c6d5cf 46%, #4b655b 47%, #2e443d); }
+.auth-mountains { position: absolute; inset: 55px -45px 0; background: linear-gradient(140deg,#546c79,#1a383b); clip-path: polygon(0 55%,35% 3%,53% 35%,68% 14%,100% 66%,100% 100%,0 100%); }
+.auth-mountains::after { content: ""; position: absolute; inset: 65% 0 0; background: #d4a27a; transform: skewY(-14deg); }
+.auth-photo-caption { position: absolute; inset: auto 10px 10px; display: flex; align-items: center; gap: 6px; font-size: 9px; }
+.auth-photo-side { right: 24px; top: 85px; width: 145px; height: 196px; transform: rotate(17deg); background: linear-gradient(145deg,#799a82,#ced3ac 60%,#e8cda9); }
+.auth-photo-side span { position: absolute; top: 55px; left: 16px; color: #354639; font-family: Georgia,serif; font-size: 23px; font-style: italic; line-height: 1.1; }
+.auth-sticker { position: absolute; z-index: 3; }
+.auth-sticker-heart { left: 28px; top: 200px; transform: rotate(-15deg); font-size: 64px; color: #f64f8f; text-shadow: 4px 5px #ff9e61; }
+.auth-sticker-spark { right: 36px; top: 24px; font-size: 64px; color: #c3b3ff; }
+.auth-note { position: absolute; bottom: 18px; left: 145px; z-index: 4; transform: rotate(-7deg); border-radius: 8px; background: #f4e5c6; padding: 9px 14px; color: #463d39; font-size: 12px; }
+@media (min-width: 1600px) { .auth-form-container { max-width: 480px; } .auth-art { margin-top: 60px; transform: scale(1.1); margin-bottom: 25px; } }
+@media (max-width: 899px) {
+  .auth-layout { display: flex; flex-direction: column; }
+  .auth-story { display: none; }
+  .auth-panel { flex: 1; min-height: 100dvh; border: 0; padding: 28px 24px 20px; }
+  .auth-mobile-brand { display: block; padding: 8px 0 20px; }
+  .auth-form-container { padding: 28px 0; }
+}
+@media (prefers-reduced-motion: reduce) { .auth-layout * { transition: none; } }

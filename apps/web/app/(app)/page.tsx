@@ -1,5 +1,6 @@
+import { AppShell } from "@/components/shell/app-shell";
+import { HomeAccess } from "@/features/auth/home-access";
 import {
-  mockCurrentUser,
   mockPosts,
   mockSuggestedCards,
   mockSuggestedList,
@@ -12,7 +13,7 @@ import { SuggestionsCarousel } from "@/components/home/suggestions-carousel";
 // plus the right column on wide screens. Data is design-only (see mock-data).
 export default function Home() {
   return (
-    <div className="flex justify-center">
+    <HomeAccess><AppShell><div className="flex justify-center">
       <div className="flex w-full max-w-157.5 justify-center">
         <div className="flex w-full max-w-117.5 flex-col gap-6 py-4 md:py-6">
           <h1 className="sr-only">Главная</h1>
@@ -24,9 +25,8 @@ export default function Home() {
       </div>
 
       <RightSidebar
-        currentUser={mockCurrentUser}
         suggestions={mockSuggestedList}
       />
-    </div>
+    </div></AppShell></HomeAccess>
   );
 }

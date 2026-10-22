@@ -7,7 +7,7 @@ import { authEndpoints, AuthSessionResponseSchema, type AuthUser } from "@instag
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { createAuthClient } from "@/lib/api/auth";
 import { createApiClient, type ApiFailure } from "@/lib/api/client";
-import { authButtonClass } from "./auth-form";
+import { authButtonClass } from "./auth-design";
 
 type Session = { state: "loading" } | { state: "ready"; user: AuthUser | null } | { state: "error"; failure: ApiFailure };
 
@@ -86,6 +86,7 @@ export function SessionPanel() {
         <p className="break-words font-semibold">{session.user.username}</p>
         <p className="break-words text-muted-foreground">{session.user.email}</p>
         <p role="status">{session.user.emailVerified ? "Email подтверждён." : "Подтвердите email, чтобы пользоваться основными функциями."}</p>
+        {session.user.emailVerified && <Link href="/" className={authButtonClass}>Перейти к ленте</Link>}
         {!session.user.emailVerified && <Link href="/auth/request-verification" className="block text-ig-link underline">Отправить письмо подтверждения</Link>}
         <button type="button" className={authButtonClass} onClick={logout} disabled={busy}>Выйти</button>
       </>}
