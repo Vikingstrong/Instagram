@@ -37,7 +37,7 @@ describe("AuthForm", () => {
     const password = ` ${"🔐".repeat(126)} `;
     const user = await fill(password);
     await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
-    await screen.findByRole("heading", { name: "Аккаунт создан" });
+    await screen.findByRole("heading", { name: "Подтвердите email" });
     expect(fetch).toHaveBeenCalledTimes(2);
     const [path, init] = fetch.mock.calls[1];
     expect(path).toBe("/api/v1/auth/register");
@@ -74,4 +74,17 @@ describe("AuthForm", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("Неверный email или пароль.");
     expect(screen.getByRole("button", { name: "Войти" }).hasAttribute("disabled")).toBe(false);
   });
+});
+
+it("accepts exactly eight password characters and lets the user reveal them", async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ csrfToken }))
+    .mockResolvedValueOnce(Response.json({ user: account }, { status: 201 }));
+  vi.stubGlobal("fetch", fetch);
+  render(<AuthForm mode="register" />);
+  const user = await fill("12345678");
+  await user.click(screen.getByRole("button", { name: "Показать пароль" }));
+  expect(screen.getByLabelText("Пароль").getAttribute("type")).toBe("text");
+  await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
+  await screen.findByRole("heading", { name: "Подтвердите email" });
+  expect(JSON.parse(fetch.mock.calls[1][1].body).password).toBe("12345678");
 });

@@ -34,7 +34,8 @@ import { configureApp } from '../src/configure-app.js';
 
 const testUrl = readDatabaseUrl(process.env, 'test');
 const origin = 'http://localhost:3000';
-const password = '  synthetic auth password 🔐  ';
+// Eight Unicode code points, including spaces and a non-BMP character.
+const password = 'pa ss 🔐8';
 type Agent = ReturnType<typeof request.agent>;
 @Controller('__test/protected')
 class ProtectedFixture {

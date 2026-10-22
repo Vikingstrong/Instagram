@@ -52,6 +52,10 @@ test('two users verify, resend and recover through real forms and SMTP mail', as
     await expect(page, 'Start the browser API with scripts/ci/start-test-api.mjs; never use a shared dev API').toHaveURL(/\/auth\/session$/);
     await expect(page.getByText(first.account.email, { exact: true })).toBeVisible();
     expect((await (await page.request.get('/api/v1/auth/session')).json()).user.id).toBe(user.id);
+    // The guest URL is a browse preference, never an unverified-session bypass.
+    await page.goto('/?guest=1');
+    await expect(page).toHaveURL(/\/auth\/session$/);
+    await expect(page.getByText('Подтвердите email, чтобы пользоваться основными функциями.')).toBeVisible();
 
     second = await startAuthApi();
     otherContext = await browser.newContext({ baseURL, viewport: info.project.use.viewport });
@@ -61,7 +65,7 @@ test('two users verify, resend and recover through real forms and SMTP mail', as
     await other.getByLabel('Имя пользователя', { exact: true }).fill(second.account.username);
     await other.getByLabel('Пароль', { exact: true }).fill(second.account.password);
     await other.getByRole('button', { name: 'Создать аккаунт', exact: true }).click();
-    await expect(other.getByRole('heading', { name: 'Аккаунт создан' })).toBeVisible();
+    await expect(other.getByRole('heading', { name: 'Подтвердите email' })).toBeVisible();
     const registeredAt = Date.now();
     expect((await (await other.request.get('/api/v1/auth/session')).json()).user).toBeNull();
     await login(other, second.account.email, second.account.password);
@@ -111,7 +115,9 @@ test('two users verify, resend and recover through real forms and SMTP mail', as
     await expect(page.getByRole('region', { name: 'Аккаунт', exact: true }).getByRole('alert')).toContainText('Неверный email или пароль');
     await page.getByLabel('Пароль', { exact: true }).fill(newPassword);
     await page.getByRole('button', { name: 'Войти', exact: true }).click();
-    await expect(page).toHaveURL(/\/auth\/session$/);
+    await expect(page).toHaveURL(new URL('/', baseURL).href);
+    await expect(page.getByRole('heading', { name: 'Главная', exact: true })).toBeAttached();
+    await page.goto('/auth/session');
     await expect(page.getByRole('status')).toHaveText('Email подтверждён.');
     await page.getByRole('button', { name: 'Выйти', exact: true }).click();
     await expect(page).toHaveURL(/\/auth\/login$/);

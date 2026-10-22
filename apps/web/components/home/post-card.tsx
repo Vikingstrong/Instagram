@@ -40,10 +40,10 @@ export function PostCard({ post }: { post: MockPost }) {
             </p>
             <p className="truncate text-xs text-white/90">{post.audio}</p>
           </div>
-          <button type="button" className="text-sm font-semibold hover:opacity-80">
+          <button data-auth-required type="button" className="text-sm font-semibold hover:opacity-80">
             Подписаться
           </button>
-          <button type="button" aria-label="Дополнительно" className="hover:opacity-80">
+          <button data-auth-required type="button" aria-label="Дополнительно" className="hover:opacity-80">
             <MoreHorizontalIcon />
           </button>
         </header>
@@ -51,16 +51,16 @@ export function PostCard({ post }: { post: MockPost }) {
 
       <div className="flex flex-col gap-2 px-3 pt-3 md:px-0">
         <div className="flex items-center gap-4">
-          <button type="button" aria-label="Нравится" className={actionClass}>
+          <button data-auth-required type="button" aria-label="Нравится" className={actionClass}>
             <HeartIcon />
           </button>
-          <button type="button" aria-label="Комментировать" className={actionClass}>
+          <button data-auth-required type="button" aria-label="Комментировать" className={actionClass}>
             <CommentIcon />
           </button>
-          <button type="button" aria-label="Поделиться" className={actionClass}>
+          <button data-auth-required type="button" aria-label="Поделиться" className={actionClass}>
             <DirectIcon />
           </button>
-          <button
+          <button data-auth-required
             type="button"
             aria-label="Сохранить"
             className={cn(actionClass, "ml-auto")}
@@ -73,18 +73,13 @@ export function PostCard({ post }: { post: MockPost }) {
         <p className="text-sm">
           <span className="font-semibold">{author.username}</span> {post.caption}
         </p>
-        <button
+        <button data-auth-required
           type="button"
           className="self-start text-sm text-muted-foreground"
         >
           Посмотреть все комментарии ({post.comments})
         </button>
-        <input
-          type="text"
-          aria-label="Добавьте комментарий"
-          placeholder="Добавьте комментарий…"
-          className="bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
+        <button data-auth-required type="button" aria-label="Добавьте комментарий" className="self-start text-sm text-muted-foreground">Добавьте комментарий…</button>
       </div>
     </article>
   );

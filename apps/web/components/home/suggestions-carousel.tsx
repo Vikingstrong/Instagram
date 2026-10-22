@@ -71,7 +71,7 @@ export function SuggestionsCarousel({ users }: { users: MockUser[] }) {
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Популярное</p>
 
-              <button
+              <button data-auth-required
                 type="button"
                 className="mt-6 h-8 w-full rounded-lg bg-ig-blue text-sm font-semibold text-white transition-colors hover:bg-ig-blue-hover"
               >

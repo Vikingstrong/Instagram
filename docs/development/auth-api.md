@@ -27,7 +27,7 @@ OpenAPI JSON: `http://localhost:4000/api/docs/openapi.json`.
 ### Проверка через Swagger UI
 
 1. Раскройте `registerAuth`, нажмите Try it out, укажите уникальные email/username
-   и пароль 12–128 Unicode code points. Execute должен вернуть 201 и
+   и пароль 8–128 Unicode code points. Execute должен вернуть 201 и
    `emailVerified: false`. Примеры в Swagger синтетические, не реальные credentials.
 2. Выполните `loginAuth` с теми же email/паролем. Ответ 200 содержит пользователя;
    браузер сохраняет HttpOnly-cookie. Вручную вводить bearer token не нужно.

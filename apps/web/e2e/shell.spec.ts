@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("app shell", () => {
   test("home renders inside the shell", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/?guest=1");
 
     await expect(page).toHaveTitle("Instagram");
     await expect(
@@ -15,7 +15,7 @@ test.describe("app shell", () => {
 
   test("desktop rail expands on hover", async ({ page, isMobile }) => {
     test.skip(isMobile, "The rail exists only on desktop widths");
-    await page.goto("/");
+    await page.goto("/?guest=1");
 
     const rail = page.locator("aside").first();
     // A browser's initial cursor can already hover the rail at the left edge.
@@ -35,7 +35,7 @@ test.describe("app shell", () => {
     isMobile,
   }) => {
     test.skip(!isMobile, "Bottom navigation exists only on mobile widths");
-    await page.goto("/");
+    await page.goto("/?guest=1");
 
     await expect(page.locator("aside").first()).toBeHidden();
     await expect(

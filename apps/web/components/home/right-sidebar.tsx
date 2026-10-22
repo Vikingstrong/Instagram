@@ -1,3 +1,6 @@
+"use client";
+
+import { useHomeIdentity } from "@/features/auth/home-access";
 import Link from "next/link";
 
 import { VerifiedBadge } from "@/components/icons/ig-icons";
@@ -21,26 +24,23 @@ const linkButtonClass =
 
 // Right column of the home page on wide screens: account and suggestions.
 export function RightSidebar({
-  currentUser,
   suggestions,
 }: {
-  currentUser: MockUser;
   suggestions: MockUser[];
 }) {
+  const currentUser = useHomeIdentity();
   return (
     <aside className="hidden w-95.75 shrink-0 pt-6 pl-16 min-[1160px]:block">
-      <div className="flex items-center gap-3">
+      {currentUser && <div className="flex items-center gap-3">
         <DefaultAvatar size={44} />
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-sm font-semibold">{currentUser.username}</p>
           <p className="truncate text-sm text-muted-foreground">
-            {currentUser.displayName}
+            {currentUser.email}
           </p>
         </div>
-        <button type="button" className={linkButtonClass}>
-          Переключиться
-        </button>
-      </div>
+        <Link href="/auth/session" className={linkButtonClass}>Аккаунт</Link>
+      </div>}
 
       <div className="mt-6 mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-muted-foreground">
@@ -67,7 +67,7 @@ export function RightSidebar({
               </p>
               <p className="truncate text-xs text-muted-foreground">Популярное</p>
             </div>
-            <button type="button" className={linkButtonClass}>
+            <button data-auth-required type="button" className={linkButtonClass}>
               Подписаться
             </button>
           </li>

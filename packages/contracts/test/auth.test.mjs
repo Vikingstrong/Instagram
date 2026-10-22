@@ -73,17 +73,17 @@ test("email rejects malformed, padded and oversized input", () => {
 
 test("password counts Unicode code points at both boundaries", () => {
   for (const value of [
-    "x".repeat(12),
+    "x".repeat(8),
     "x".repeat(128),
-    "🔐".repeat(12),
+    "🔐".repeat(8),
     "🔐".repeat(128),
   ]) {
     assert.equal(AuthPasswordSchema.parse(value), value);
   }
   for (const value of [
-    "x".repeat(11),
+    "x".repeat(7),
     "x".repeat(129),
-    "🔐".repeat(6),
+    "🔐".repeat(7),
     "🔐".repeat(129),
   ]) {
     assert.equal(AuthPasswordSchema.safeParse(value).success, false);
@@ -93,13 +93,13 @@ test("password counts Unicode code points at both boundaries", () => {
 test("password preserves spaces and Unicode representation and rejects lone surrogates", () => {
   for (const value of [
     "  word with spaces  ",
-    " ".repeat(12),
-    "é".repeat(12),
-    "e\u0301".repeat(12),
+    " ".repeat(8),
+    "é".repeat(8),
+    "e\u0301".repeat(8),
   ]) {
     assert.equal(AuthPasswordSchema.parse(value), value);
   }
-  for (const value of ["x".repeat(12) + "\ud800", "\udc00" + "x".repeat(12)]) {
+  for (const value of ["x".repeat(8) + "\ud800", "\udc00" + "x".repeat(8)]) {
     assert.equal(AuthPasswordSchema.safeParse(value).success, false);
   }
 });
@@ -158,7 +158,7 @@ test("OpenAPI preserves password code-point limits and strict request fields", (
     target: "openapi-3.0",
   });
   assert.equal(schema.additionalProperties, false);
-  assert.equal(schema.properties.password.minLength, 12);
+  assert.equal(schema.properties.password.minLength, 8);
   assert.equal(schema.properties.password.maxLength, 128);
   assert.equal(
     new RegExp(schema.properties.username.pattern).test("abc\n"),
