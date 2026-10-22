@@ -6,6 +6,7 @@ import { AuthLoginRequestSchema, AuthRegisterRequestSchema } from "@instagram/co
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { createAuthClient } from "@/lib/api/auth";
+import { replaceLocation } from "@/lib/navigation";
 import type { ApiFailure } from "@/lib/api/client";
 
 import { authButtonClass, authInputClass as inputClass } from "./auth-design";
@@ -17,7 +18,6 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [failure, setFailure] = useState<ApiFailure>();
   const [invalid, setInvalid] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [registered, setRegistered] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,13 +43,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         ? await auth.register({ ...parsed.data, username: parsed.data.username })
         : await auth.login(parsed.data);
       if (!result.ok) setFailure(result.failure);
-      else if (registering) {
-        form.reset();
-        setRegistered(true);
-      } else {
-        // A document navigation drops the previous account's React/router state.
-        // Cookies remain API-owned and HttpOnly; no user/token persistence here.
-        window.location.replace(result.data.user.emailVerified ? "/" : "/auth/session");
+      else {
+        // Registration and login both return a signed-in user. A document
+        // navigation drops the previous account's React/router state; cookies
+        // remain API-owned and HttpOnly, nothing is persisted here.
+        replaceLocation(result.data.user.emailVerified ? "/" : "/auth/session");
       }
     } finally {
       const password = form.elements.namedItem("password");
@@ -59,15 +57,6 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       setBusy(false);
     }
   }
-
-  if (registered) return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Подтвердите email</h1>
-      <p role="status">Письмо подтверждения поставлено в очередь. Откройте ссылку из письма, чтобы завершить регистрацию. Проверьте входящие и папку «Спам».</p>
-      <Link href="/auth/request-verification" className="block text-ig-link underline">Отправить письмо повторно</Link>
-      <Link href="/auth/login" className="text-ig-link underline">Войти в аккаунт</Link>
-    </div>
-  );
 
   return (
     <>
@@ -90,6 +79,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </fieldset>
         {invalid && <p role="alert" className="text-sm text-destructive">Проверьте email, пароль и {registering ? "имя пользователя" : "длину пароля"}. Пробелы в начале и конце сохраняются.</p>}
         {failure && <ApiErrorNotice failure={failure} />}
+        {/* One generic error for unknown emails and wrong passwords (no account
+            enumeration); point to the likely next step instead. */}
+        {!registering && failure?.kind === "api" && failure.error.code === "INVALID_CREDENTIALS" && (
+          <p className="text-sm text-muted-foreground">Нет аккаунта? <Link href="/auth/register" className="font-semibold text-ig-link underline">Зарегистрируйтесь</Link></p>
+        )}
         <button className={authButtonClass} disabled={busy} type="submit">{busy ? "Подождите…" : registering ? "Создать аккаунт" : "Войти"}</button>
       </form>
       {!registering && <Link href="/auth/forgot-password" className="mt-5 block text-center text-sm text-ig-link underline">Забыли пароль?</Link>}

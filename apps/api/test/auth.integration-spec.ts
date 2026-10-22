@@ -120,7 +120,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
     return { input, user };
   }
 
-  it('registers without verification/auto-login, hashes passwords and exposes only safe user fields', async () => {
+  it('registers unverified, signs in with an HttpOnly session, hashes passwords and exposes only safe user fields', async () => {
     const client = agent();
     const { input, user } = await register(client);
     expect(user.emailVerified).toBe(false);
@@ -134,7 +134,32 @@ describe('Auth HTTP with real PostgreSQL', () => {
       AuthSessionResponseSchema.parse(
         (await client.get(authEndpoints.session.path).expect(200)).body,
       ).user,
-    ).toBeNull();
+    ).toEqual(user);
+    const sessions = await database.prisma.authSession.findMany({
+      where: { userId: user.id },
+    });
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]!.credentialVersion).toBe(stored.credentialVersion);
+  });
+
+  it('sets the registration session cookie with the same flags as login, never in the body', async () => {
+    const client = agent();
+    const suffix = randomUUID().replaceAll('-', '');
+    const response = await post(client, authEndpoints.register.path, {
+      email: `${suffix}@example.test`,
+      username: `u_${suffix.slice(0, 20)}`,
+      password,
+    });
+    expect(response.status).toBe(201);
+    ownedIds.push(AuthUserResponseSchema.parse(response.body).user.id);
+    const header = cookieHeaders(response).find((value) =>
+      value.startsWith('instagram-session='),
+    );
+    if (!header) throw new Error('Missing session cookie');
+    for (const flag of ['HttpOnly', 'SameSite=Lax', 'Path=/', 'Max-Age=604800'])
+      expect(header.includes(flag)).toBe(true);
+    const token = header.split(';')[0]!.slice('instagram-session='.length);
+    expect(response.text.includes(token)).toBe(false);
   });
 
   it('uses HttpOnly persistent cookies, stores only a token hash and revokes on logout', async () => {
@@ -218,8 +243,9 @@ describe('Auth HTTP with real PostgreSQL', () => {
   });
 
   it('denies direct protected requests for anonymous and unverified users', async () => {
+    // Registration signs its own browser in; probe from a separate anonymous one.
+    const { input, user } = await register(agent());
     const client = agent();
-    const { input, user } = await register(client);
     expect(
       AuthApiErrorResponseSchema.parse(
         (await client.get('/api/v1/__test/protected').expect(401)).body,
@@ -284,8 +310,8 @@ describe('Auth HTTP with real PostgreSQL', () => {
   });
 
   it('returns the same generic error for unknown emails and incorrect passwords', async () => {
+    const { input } = await register(agent());
     const client = agent();
-    const { input } = await register(client);
     const errors = [];
     for (const email of [input.email, `${randomUUID()}@example.test`]) {
       const response = await post(client, authEndpoints.login.path, {
@@ -303,8 +329,11 @@ describe('Auth HTTP with real PostgreSQL', () => {
   });
 
   it('does not issue a session if credentials change during password verification', async () => {
+    const { input, user } = await register(agent());
     const client = agent();
-    const { input, user } = await register(client);
+    const registrationSessions = await database.prisma.authSession.count({
+      where: { userId: user.id },
+    });
     const hasher = app.get(PasswordHasher);
     const verify = hasher.verify.bind(hasher);
     const spy = vi
@@ -328,7 +357,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
       ).toBe(401);
       expect(
         await database.prisma.authSession.count({ where: { userId: user.id } }),
-      ).toBe(0);
+      ).toBe(registrationSessions);
     } finally {
       spy.mockRestore();
     }

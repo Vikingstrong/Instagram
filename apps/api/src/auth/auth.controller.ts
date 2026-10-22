@@ -232,17 +232,27 @@ export class AuthController {
   })
   @ApiOperation({
     operationId: 'registerAuth',
-    summary: 'Create an unverified account',
+    summary: 'Create an unverified account and sign it in',
     description:
-      'Open registration. Requires an allowed browser Origin and CSRF cookie/header. Does not create a session. Email verification/delivery is the next slice and is not implemented yet; protected features remain unavailable until verified.',
+      'Open registration. Requires an allowed browser Origin and CSRF cookie/header. Atomically creates the account, queues the verification email and sets an HttpOnly session cookie. Protected features remain unavailable until the email is verified.',
   })
   @ApiResponse({
     status: 201,
-    headers: noStore,
+    headers: {
+      ...noStore,
+      'Set-Cookie': {
+        schema: { type: 'string' },
+        description:
+          'HttpOnly session; SameSite=Lax; Path=/; Secure and __Host- prefix in production.',
+      },
+    },
     schema: schema(AuthUserResponseSchema),
   })
   @errorResponse(409)
-  async register(@Body() body: unknown) {
+  async register(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const input = parse(body, AuthRegisterRequestSchema);
     this.limiter.consume(
       'register-email',
@@ -250,9 +260,12 @@ export class AuthController {
       3,
       900_000,
     );
-    return AuthUserResponseSchema.parse({
-      user: await this.auth.register(input),
+    const result = await this.auth.register(input);
+    response.cookie(this.security.sessionCookie, result.token, {
+      ...this.security.cookieOptions,
+      maxAge: SESSION_TTL_MS,
     });
+    return AuthUserResponseSchema.parse({ user: result.user });
   }
 
   @Post('login')

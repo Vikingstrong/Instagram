@@ -1,10 +1,12 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { EmailForm } from './email-form';
 import { StrictMode } from 'react';
+import { replaceLocation } from '@/lib/navigation';
 
-afterEach(() => { vi.unstubAllGlobals(); window.history.replaceState({}, '', '/'); });
+vi.mock('@/lib/navigation', () => ({ replaceLocation: vi.fn() }));
+afterEach(() => { vi.unstubAllGlobals(); vi.mocked(replaceLocation).mockClear(); window.history.replaceState({}, '', '/'); });
 const csrfToken = `${'a'.repeat(43)}.1792640000.${'b'.repeat(43)}`;
 it('never consumes a verification token on page load and removes it from history', async () => {
   const token = 'c'.repeat(43);
@@ -15,7 +17,9 @@ it('never consumes a verification token on page load and removes it from history
   expect(window.location.hash).toBe('');
   expect(fetch).not.toHaveBeenCalled();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Подтвердить email' }));
-  await screen.findByRole('status');
+  // Confirmed: straight to the feed, no intermediate "check session" step.
+  await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith('/'));
+  expect(screen.queryByRole('link', { name: 'Проверить сессию' })).toBeNull();
   expect(fetch.mock.calls[1][0]).toBe('/api/v1/auth/verification/confirm');
   expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ token });
 });
@@ -55,6 +59,14 @@ it('uses a newly opened fragment link on the same page after an old link failed'
   });
   expect(window.location.hash).toBe('');
   await user.click(screen.getByRole('button', { name: 'Подтвердить email' }));
-  await screen.findByRole('status');
+  await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith('/'));
   expect(JSON.parse(fetch.mock.calls[3][1].body).token === second).toBe(true);
+});
+
+it('prefills the signed-in account email when requesting a new verification link', async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ user: { id: '4f70d2ab-d6d6-4243-b0d3-f7b767434789', email: 'person@example.test', username: 'person', emailVerified: false } }));
+  vi.stubGlobal('fetch', fetch);
+  render(<EmailForm mode="request-verification" />);
+  await waitFor(() => expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('person@example.test'));
+  expect(fetch.mock.calls[0][0]).toBe('/api/v1/auth/session');
 });

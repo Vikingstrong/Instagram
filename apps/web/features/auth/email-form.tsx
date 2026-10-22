@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { AuthEmailRequestSchema, AuthLinkTokenSchema, AuthPasswordSchema } from "@instagram/contracts";
+import { authEndpoints, AuthEmailRequestSchema, AuthLinkTokenSchema, AuthPasswordSchema, AuthSessionResponseSchema } from "@instagram/contracts";
 import { createAuthClient } from "@/lib/api/auth";
-import type { ApiFailure } from "@/lib/api/client";
+import { replaceLocation } from "@/lib/navigation";
+import { createApiClient, type ApiFailure } from "@/lib/api/client";
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { authInputClass as inputClass, authButtonClass } from "./auth-design";
 
@@ -26,6 +27,18 @@ export function EmailForm({ mode }: { mode: Mode }) {
   const [invalid, setInvalid] = useState(false);
   const [failure, setFailure] = useState<ApiFailure>();
   const [done, setDone] = useState(false);
+  const [prefill, setPrefill] = useState("");
+  // Signed-in users resend to their own address without retyping it.
+  useEffect(() => {
+    if (mode !== "request-verification") return;
+    const controller = new AbortController();
+    void createApiClient()
+      .request(authEndpoints.session, AuthSessionResponseSchema, { signal: controller.signal })
+      .then((result) => {
+        if (result.ok && result.data.user) setPrefill(result.data.user.email);
+      });
+    return () => controller.abort();
+  }, [mode]);
   useEffect(() => {
     alive.current = true;
     let active = true;
@@ -77,9 +90,13 @@ export function EmailForm({ mode }: { mode: Mode }) {
         : mode === "verify" ? await auth.verify(token!) : await auth.resetPassword(token!, password);
       if (!alive.current || (!request && capturedToken.current !== submittedToken)) return;
       if (!result.ok) setFailure(result.failure);
-      else if (mode === "reset-password") {
+      else if (mode === "verify") {
+        // Straight to the feed: the home page shows it to the now-verified
+        // session, or asks to sign in when the link was opened elsewhere.
+        replaceLocation("/");
+      } else if (mode === "reset-password") {
         // Drop any state of the account whose sessions were just revoked.
-        window.location.replace("/auth/password-changed");
+        replaceLocation("/auth/password-changed");
       } else {
         setToken("");
         form.reset();
@@ -96,10 +113,9 @@ export function EmailForm({ mode }: { mode: Mode }) {
   return <div className="space-y-5">
     <h1 className="text-2xl font-semibold">{titles[mode]}</h1>
     {done ? <>
-      <p role="status">{mode === "verify" ? "Email подтверждён. Теперь можно войти в аккаунт или проверить текущую сессию." : "Если для этого адреса доступно действие, письмо будет отправлено. Проверьте входящие и папку «Спам». Повторная отправка доступна не чаще раза в минуту."}</p>
-      {mode === "verify" && <Link href="/auth/session" className="block text-ig-link underline">Проверить сессию</Link>}
+      <p role="status">Если для этого адреса доступно действие, письмо будет отправлено. Проверьте входящие и папку «Спам». Повторная отправка доступна не чаще раза в минуту.</p>
     </> : <form onSubmit={submit} noValidate className="space-y-5" aria-busy={busy}>
-      {request && <div><label htmlFor="request-email">Email</label><input id="request-email" className={inputClass} name="email" type="email" autoComplete="email" required disabled={busy} /></div>}
+      {request && <div><label htmlFor="request-email">Email</label><input id="request-email" key={prefill} defaultValue={prefill} className={inputClass} name="email" type="email" autoComplete="email" required disabled={busy} /></div>}
       {!request && token === undefined && <p role="status">Проверяем ссылку…</p>}
       {!request && token === "" && <p role="alert">В ссылке нет действительного токена. Запросите новое письмо.</p>}
       {mode === "reset-password" && <div><label htmlFor="reset-password">Новый пароль</label><input id="reset-password" className={inputClass} name="password" type="password" autoComplete="new-password" required disabled={busy} aria-describedby="reset-help" /><p id="reset-help" className="mt-2 text-sm text-muted-foreground">8–128 символов. Пробелы и Unicode разрешены. После смены пароля потребуется новый вход на всех устройствах.</p></div>}

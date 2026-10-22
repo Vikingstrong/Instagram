@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { replaceLocation } from "@/lib/navigation";
 import { AuthForm } from "./auth-form";
 
-afterEach(() => vi.unstubAllGlobals());
+vi.mock("@/lib/navigation", () => ({ replaceLocation: vi.fn() }));
+afterEach(() => { vi.unstubAllGlobals(); vi.mocked(replaceLocation).mockClear(); });
 
 const csrfToken = `${"a".repeat(43)}.1792640000.${"b".repeat(43)}`;
 const account = { id: "4f70d2ab-d6d6-4243-b0d3-f7b767434789", email: "person@example.test", username: "person", emailVerified: false };
@@ -27,7 +29,7 @@ describe("AuthForm", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("preserves Unicode code points and spaces, uses CSRF and never logs in after registration", async () => {
+  it("preserves Unicode code points and spaces, uses CSRF and opens email confirmation after registration", async () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(Response.json({ csrfToken }))
       .mockResolvedValueOnce(Response.json({ user: account }, { status: 201 }));
@@ -37,7 +39,8 @@ describe("AuthForm", () => {
     const password = ` ${"🔐".repeat(126)} `;
     const user = await fill(password);
     await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
-    await screen.findByRole("heading", { name: "Подтвердите email" });
+    // Registration signs in; an unverified account goes to the confirmation page.
+    await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith("/auth/session"));
     expect(fetch).toHaveBeenCalledTimes(2);
     const [path, init] = fetch.mock.calls[1];
     expect(path).toBe("/api/v1/auth/register");
@@ -45,7 +48,6 @@ describe("AuthForm", () => {
     expect(init.headers["X-CSRF-Token"]).toBe(csrfToken);
     expect(init.credentials).toBe("same-origin");
     expect(init.cache).toBe("no-store");
-    expect(screen.getByRole("status").textContent).toContain("поставлено в очередь");
   });
 
   it("does not submit a mutation if CSRF fails", async () => {
@@ -72,7 +74,9 @@ describe("AuthForm", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     respond(Response.json({ error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password.", requestId: account.id } }, { status: 401 }));
     expect((await screen.findByRole("alert")).textContent).toBe("Неверный email или пароль.");
+    expect(screen.getByRole("link", { name: "Зарегистрируйтесь" }).getAttribute("href")).toBe("/auth/register");
     expect(screen.getByRole("button", { name: "Войти" }).hasAttribute("disabled")).toBe(false);
+    expect(replaceLocation).not.toHaveBeenCalled();
   });
 });
 
@@ -85,6 +89,6 @@ it("accepts exactly eight password characters and lets the user reveal them", as
   await user.click(screen.getByRole("button", { name: "Показать пароль" }));
   expect(screen.getByLabelText("Пароль").getAttribute("type")).toBe("text");
   await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
-  await screen.findByRole("heading", { name: "Подтвердите email" });
+  await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith("/auth/session"));
   expect(JSON.parse(fetch.mock.calls[1][1].body).password).toBe("12345678");
 });
