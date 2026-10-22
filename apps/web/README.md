@@ -23,3 +23,8 @@ Do not put it in `NEXT_PUBLIC_*`. Server Components use the request-scoped
 `pnpm test:e2e` includes real browser readiness and requires running PostgreSQL
 and API. Playwright starts web automatically or reuses it outside CI.
 The home feed still uses design mock-data; auth and product APIs are later work.
+
+Fonts are bundled with the app and loaded through `next/font/local`; build/dev
+do not fetch Google Fonts. Sources, checksums and SIL OFL licenses are in
+[`app/fonts`](app/fonts/README.md). The browser font check blocks Google Fonts
+and verifies all three faces load from the application origin.
