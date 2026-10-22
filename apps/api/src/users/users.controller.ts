@@ -6,12 +6,14 @@ import {
   Inject,
   Param,
   Patch,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiSecurity,
   ApiTags,
@@ -20,7 +22,9 @@ import {
   AuthUsernameSchema,
   OwnProfileResponseSchema,
   UpdateOwnProfileRequestSchema,
+  UserListResponseSchema,
   UserProfileResponseSchema,
+  UserSearchQuerySchema,
 } from '@instagram/contracts';
 import { UsersService } from './users.service.js';
 import {
@@ -140,5 +144,46 @@ export class MeController {
     return OwnProfileResponseSchema.parse({
       profile: await this.users.updateOwnProfile(viewer(request), input),
     });
+  }
+}
+
+// A separate prefix: /users/{username} would capture "search" as a username.
+@ApiTags('Users')
+@ApiSecurity('session')
+@Controller('search')
+@UseGuards(VerifiedSessionGuard)
+@errorResponse(400)
+@errorResponse(401)
+@errorResponse(403)
+@errorResponse(429)
+@errorResponse(500)
+@errorResponse(503)
+export class SearchController {
+  constructor(
+    @Inject(UsersService) private readonly users: UsersService,
+    @Inject(AuthRateLimiter) private readonly limiter: AuthRateLimiter,
+  ) {}
+
+  @Get('users')
+  @Header('Cache-Control', 'no-store')
+  @ApiQuery({ name: 'q', required: true, type: String, example: 'demo' })
+  @ApiQuery({ name: 'cursor', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiOperation({
+    operationId: 'searchUsers',
+    summary: 'Search users by username or display name',
+    description:
+      'Case-insensitive substring match; q is 1–160 characters after trimming. Ordered by username; limit 1–50, default 20. Returns profile cards only, never posts.',
+  })
+  @ApiResponse({
+    status: 200,
+    headers: noStore,
+    schema: schema(UserListResponseSchema),
+  })
+  async search(@Query() query: unknown, @Req() request: AuthenticatedRequest) {
+    this.limiter.consume('search', viewer(request), 120, 60_000);
+    return UserListResponseSchema.parse(
+      await this.users.search(parse(query, UserSearchQuerySchema)),
+    );
   }
 }

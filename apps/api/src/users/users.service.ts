@@ -5,11 +5,19 @@ import {
   type OwnProfile,
   type ProfileRelationship,
   type UpdateOwnProfileRequest,
+  type UserListResponse,
   type UserProfile,
+  type UserSearchQuery,
 } from '@instagram/contracts';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { AuthError } from '../auth/auth.error.js';
+import {
+  decodeCursor,
+  encodeCursor,
+  summarySelect,
+  userSummary,
+} from './user-summary.js';
 
 const ownSelect = {
   id: true,
@@ -125,5 +133,35 @@ export class UsersService {
         throw new AuthError('USERNAME_TAKEN');
       throw error;
     }
+  }
+
+  // Case-insensitive substring match on username or display name, ordered by
+  // username key so the keyset cursor is stable. Prisma passes contains into
+  // LIKE unescaped, so %, _ and the escape character are escaped here.
+  async search(query: UserSearchQuery): Promise<UserListResponse> {
+    const after = decodeCursor(query.cursor, 'username');
+    const text = query.q.replace(/[\\%_]/g, '\\$&');
+    const rows = await this.database.prisma.user.findMany({
+      where: {
+        emailVerifiedAt: { not: null },
+        OR: [
+          { usernameKey: { contains: text.toLowerCase() } },
+          { displayName: { contains: text, mode: 'insensitive' } },
+        ],
+        ...(after && { usernameKey: { gt: after.username } }),
+      },
+      orderBy: { usernameKey: 'asc' },
+      take: query.limit + 1,
+      select: { ...summarySelect, usernameKey: true },
+    });
+    const items = rows.slice(0, query.limit);
+    const last = items.at(-1);
+    return {
+      items: items.map(({ usernameKey: _key, ...user }) => userSummary(user)),
+      nextCursor:
+        rows.length > query.limit && last
+          ? encodeCursor(last.usernameKey, last.id)
+          : null,
+    };
   }
 }

@@ -5,6 +5,7 @@ import { AppService } from './app.service.js';
 import { ReadinessModule } from './readiness/readiness.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
+import { SocialModule } from './social/social.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -13,6 +14,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ReadinessModule,
     AuthModule,
     UsersModule,
+    SocialModule,
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({
@@ -20,7 +22,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: 'api',
       // Keep credentials/cookies and driver-error snapshots out of APM traces.
-      http: { ignore: [/^\/api\/v1\/(?:auth|users|me)(?:\/|$)/] },
+      http: { ignore: [/^\/api\/v1\/(?:auth|users|me|search)(?:\/|$)/] },
     }),
   ],
   controllers: [AppController],

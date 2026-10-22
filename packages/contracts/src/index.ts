@@ -48,6 +48,29 @@ export {
   type UpdateOwnProfileRequest,
 } from "./users.js";
 
+export {
+  UserSummarySchema,
+  PageCursorSchema,
+  PageQuerySchema,
+  UserListResponseSchema,
+  UserSearchQuerySchema,
+  SuggestionsQuerySchema,
+  SuggestionsResponseSchema,
+  EmptyRequestSchema,
+  FollowResponseSchema,
+  FollowRequestSchema,
+  FollowRequestListResponseSchema,
+  FollowRequestDecisionResponseSchema,
+  RemoveFollowerResponseSchema,
+  socialEndpoints,
+  type PageQuery,
+  type UserSearchQuery,
+  type UserSummary,
+  type UserListResponse,
+  type FollowRequest,
+  type FollowResponse,
+} from "./social.js";
+
 // This describes the future FND-04 endpoint; FND-02 does not expose an HTTP route.
 export const readinessEndpoint = {
   method: "GET",

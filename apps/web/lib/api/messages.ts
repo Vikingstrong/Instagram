@@ -21,6 +21,12 @@ export function describeFailure(failure: ApiFailure): string {
           return "Подтвердите email для продолжения.";
         case "REQUEST_FORBIDDEN":
           return "Обновите страницу и повторите запрос.";
+        case "CANNOT_FOLLOW_SELF":
+          return "Нельзя подписаться на себя.";
+        case "PROFILE_PRIVATE":
+          return "Это закрытый аккаунт.";
+        case "FOLLOW_REQUEST_NOT_FOUND":
+          return "Запрос на подписку уже обработан.";
         case "USER_NOT_FOUND":
           return "Пользователь не найден.";
         case "USERNAME_TAKEN":
