@@ -99,6 +99,13 @@ export class DirectEvents implements OnModuleInit, OnModuleDestroy {
         this.write(stream, frame);
   }
 
+  notifyCall(userIds: string[], notice: { callId: string }): void {
+    const frame = `event: call\ndata: ${JSON.stringify(notice)}\n\n`;
+    for (const userId of new Set(userIds))
+      for (const stream of this.streams.get(userId) ?? [])
+        this.write(stream, frame);
+  }
+
   count(userId?: string): number {
     if (userId) return this.streams.get(userId)?.size ?? 0;
     let total = 0;

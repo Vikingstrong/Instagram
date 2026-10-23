@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { CallButtons } from "@/features/calls/call-buttons";
+import { CallHistory } from "@/features/calls/call-history";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { DirectMessageTextSchema, type Conversation } from "@instagram/contracts";
 
@@ -133,8 +135,10 @@ function ThreadBody({
             <span className="block truncate text-xs text-muted-foreground">{peer.username}</span>
           </span>
         </Link>
+        <CallButtons conversation={conversation} />
         <ConnectionBadge state={connection} />
       </header>
+      <CallHistory conversationId={conversation.id} viewerId={viewerId} />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3">
         {thread.hasOlder && (

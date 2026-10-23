@@ -54,11 +54,18 @@ export function Inbox({
         )}
         <ul>
           {list.items.map((conversation) => {
-            const { peer, lastMessage } = conversation;
+            const { peer, lastMessage, lastCall } = conversation;
             const active = conversation.id === selectedId;
-            const preview = lastMessage
-              ? `${lastMessage.senderId === viewerId ? "Вы: " : ""}${lastMessage.text}`
-              : "Начните диалог";
+            const recentCall =
+              lastCall &&
+              (!lastMessage ||
+                (lastCall.endedAt ?? lastCall.createdAt) >=
+                  lastMessage.createdAt);
+            const preview = recentCall
+              ? `${lastCall.kind === "VIDEO" ? "Видеозвонок" : "Аудиозвонок"} · ${{ RINGING: "Вызов", ACTIVE: "Идёт звонок", ENDED: "Завершён", DECLINED: "Отклонён", MISSED: "Пропущен", FAILED: "Соединение прервано" }[lastCall.status]}`
+              : lastMessage
+                ? `${lastMessage.senderId === viewerId ? "Вы: " : ""}${lastMessage.text}`
+                : "Начните диалог";
             return (
               <li key={conversation.id}>
                 <Link
@@ -76,7 +83,9 @@ export function Inbox({
                     </span>
                     <span className="flex gap-1 text-xs text-muted-foreground">
                       <span className="truncate">{preview}</span>
-                      <span className="shrink-0">· {timeAgo(conversation.lastActivityAt)}</span>
+                      <span className="shrink-0">
+                        · {timeAgo(conversation.lastActivityAt)}
+                      </span>
                     </span>
                   </span>
                 </Link>

@@ -113,6 +113,7 @@ docs/development/direct-api.md. Stage 7 realtime: SSE GET /api/v1/direct/events
 (DirectEvents in-memory hub, ids only; SessionRevocations closes streams on
 logout/reset); web subscribes, waits for "ready", then syncs over REST; see
 docs/development/direct-realtime.md.
+Stage 9 calls slice: CallsModule and global web CallsProvider implement audio/video 1:1 with REST/SSE signaling; see `docs/development/calls-api.md`. TURN configuration and real-network acceptance remain required.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.
