@@ -6,12 +6,13 @@ import { useEffect, useState } from "react";
 import type { UserProfile } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
+import { SettingsIcon } from "@/components/icons/ig-icons";
 import { DefaultAvatar } from "@/components/ui-ig/avatar";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
 import type { ApiFailure } from "@/lib/api/client";
 import { createSocialClient } from "@/lib/api/social";
 
-import { FollowButton } from "./follow-button";
+import { ProfileFollowActions } from "./profile-follow-actions";
 import { UserListDialog } from "./user-list-dialog";
 
 type Load =
@@ -129,15 +130,25 @@ function ProfileContent({ username }: { username: string }) {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="truncate text-xl">{profile.username}</h1>
             {self ? (
-              <Link href="/accounts/edit" className={secondaryButton}>
-                Редактировать профиль
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link href="/accounts/edit" className={secondaryButton}>
+                  Редактировать профиль
+                </Link>
+                <Link
+                  href="/accounts/account"
+                  aria-label="Настройки аккаунта"
+                  className="rounded-lg p-1 transition-colors hover:bg-secondary"
+                >
+                  <SettingsIcon />
+                </Link>
+              </div>
             ) : (
-              <FollowButton
+              <ProfileFollowActions
                 key={profile.relationship}
                 userId={profile.id}
                 username={profile.username}
-                initial={profile.relationship === "self" ? "none" : profile.relationship}
+                isPrivate={profile.isPrivate}
+                relationship={profile.relationship === "self" ? "none" : profile.relationship}
                 onChange={refresh}
               />
             )}

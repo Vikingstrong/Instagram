@@ -7,17 +7,11 @@ import type { UserSummary } from "@instagram/contracts";
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { CloseIcon } from "@/components/icons/ig-icons";
 import { Avatar } from "@/components/ui-ig/avatar";
+import { openModal } from "@/components/ui-ig/confirm-dialog";
 import { describeFailure } from "@/lib/api/messages";
 import { createSocialClient } from "@/lib/api/social";
 
 import { usePagedList } from "./use-paged-list";
-
-// jsdom has no showModal; fall back to a plain open dialog there.
-export function openModal(node: HTMLDialogElement | null) {
-  if (!node || node.open) return;
-  if (typeof node.showModal === "function") node.showModal();
-  else node.setAttribute("open", "");
-}
 
 // Modal list of followers/followings with "load more" paging. The owner of a
 // followers list may remove a follower from it.

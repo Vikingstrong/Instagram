@@ -43,7 +43,7 @@ export function RightSidebar() {
             {currentUser.email}
           </p>
         </div>
-        <Link href="/auth/session" className={linkButtonClass}>Аккаунт</Link>
+        <Link href="/accounts/edit" className={linkButtonClass}>Настройки</Link>
       </div>}
 
       {suggestions && (

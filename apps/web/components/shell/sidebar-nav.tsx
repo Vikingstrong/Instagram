@@ -4,15 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import {
-  AppsIcon,
-  InstagramGlyphIcon,
-  MenuIcon,
-} from "@/components/icons/ig-icons";
+import { AppsIcon, InstagramGlyphIcon } from "@/components/icons/ig-icons";
 import { cn } from "@/lib/utils";
 
 import { useHomeIdentity } from "@/features/auth/home-access";
 
+import { MoreMenu } from "./more-menu";
 import { isNavItemActive, navHref, navItems } from "./nav-items";
 
 const rowClass =
@@ -73,12 +70,9 @@ export function SidebarNav() {
         </ul>
       </nav>
 
-      {/* Design only: menus behind these buttons are not part of the MVP yet. */}
+      {/* "Также от Meta" stays design-only; "Ещё" opens settings and sign-out. */}
       <div className="flex flex-col gap-2">
-        <button type="button" className={rowClass}>
-          <MenuIcon />
-          <RowLabel>Ещё</RowLabel>
-        </button>
+        <MoreMenu label={<RowLabel>Ещё</RowLabel>} />
         <button type="button" className={rowClass}>
           <AppsIcon />
           <RowLabel>Также от Meta</RowLabel>
