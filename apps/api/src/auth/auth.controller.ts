@@ -52,7 +52,7 @@ export class AuthController {
     this.limiter.consume(
       'read-ip',
       request.socket.remoteAddress ?? 'unknown',
-      300,
+      this.security.readIpLimit,
       300_000,
     );
   }
