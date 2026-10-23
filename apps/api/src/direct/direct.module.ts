@@ -14,6 +14,7 @@ import {
 // live here only.
 @Module({
   imports: [DatabaseModule, AuthModule],
+  exports: [DirectService, DirectEvents],
   controllers: [DirectController, DirectEventsController],
   providers: [
     DirectService,

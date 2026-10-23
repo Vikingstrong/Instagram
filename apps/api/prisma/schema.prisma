@@ -63,6 +63,9 @@ model User {
   conversationsA    Conversation[]  @relation("participantA")
   conversationsB    Conversation[]  @relation("participantB")
   conversationsMade Conversation[]  @relation("creator")
+  callsMade Call[] @relation("callCaller")
+  callsReceived Call[] @relation("callCallee")
+  callSeat CallSeat?
   messages          DirectMessage[]
 
   @@map("auth_users")
@@ -224,6 +227,7 @@ model Conversation {
   userA          User            @relation("participantA", fields: [userAId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   userB          User            @relation("participantB", fields: [userBId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   createdBy      User            @relation("creator", fields: [createdById], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  calls Call[]
   messages       DirectMessage[]
 
   @@unique([userAId, userBId])
@@ -259,4 +263,49 @@ model CommentLike {
   @@id([commentId, userId])
   @@index([userId])
   @@map("comment_likes")
+}
+
+enum CallStatus {
+  RINGING
+  ACTIVE
+  ENDED
+  DECLINED
+  MISSED
+  FAILED
+}
+enum CallKind {
+  AUDIO
+  VIDEO
+}
+model Call {
+  id String @id @db.Uuid
+  conversationId String @db.Uuid
+  callerId String @db.Uuid
+  calleeId String @db.Uuid
+  callerSessionHash String @db.VarChar(64)
+  calleeSessionHash String? @db.VarChar(64)
+  callerClientId String @db.Uuid
+  calleeClientId String? @db.Uuid
+  kind CallKind
+  status CallStatus @default(RINGING)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  answeredAt DateTime? @db.Timestamptz(3)
+  endedAt DateTime? @db.Timestamptz(3)
+  callerSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  calleeSeenAt DateTime? @db.Timestamptz(3)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  caller User @relation("callCaller", fields: [callerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  callee User @relation("callCallee", fields: [calleeId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  seats CallSeat[]
+  @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("calls")
+}
+model CallSeat {
+  userId String @id @db.Uuid
+  callId String @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  @@index([callId])
+  @@map("call_seats")
 }

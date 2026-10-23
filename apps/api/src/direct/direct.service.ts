@@ -42,6 +42,18 @@ const conversationSelect = {
   lastActivityAt: true,
   userA: { select: summarySelect },
   userB: { select: summarySelect },
+  calls: {
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: 1,
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      callerId: true,
+      createdAt: true,
+      endedAt: true,
+    },
+  },
   messages: {
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: 1,
@@ -66,6 +78,13 @@ function toConversation(viewerId: string, row: ConversationRow): Conversation {
     id: row.id,
     peer: userSummary(row.userAId === viewerId ? row.userB : row.userA),
     lastMessage: last ? toMessage(last) : null,
+    lastCall: row.calls[0]
+      ? {
+          ...row.calls[0],
+          createdAt: row.calls[0].createdAt.toISOString(),
+          endedAt: row.calls[0].endedAt?.toISOString() ?? null,
+        }
+      : null,
     lastActivityAt: row.lastActivityAt.toISOString(),
   });
 }
@@ -93,6 +112,13 @@ export class DirectService {
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(DirectEvents) private readonly events: DirectEvents,
   ) {}
+
+  async callActivity(tx: Prisma.TransactionClient, conversationId: string) {
+    await tx.conversation.update({
+      where: { id: conversationId },
+      data: { lastActivityAt: new Date() },
+    });
+  }
 
   // Any verified user may write to any other verified user (FR-09),
   // regardless of follows or privacy. Repeats and races return the same
@@ -137,7 +163,13 @@ export class DirectService {
       where: {
         AND: [
           participant(viewerId),
-          { OR: [{ createdById: viewerId }, { messages: { some: {} } }] },
+          {
+            OR: [
+              { createdById: viewerId },
+              { messages: { some: {} } },
+              { calls: { some: {} } },
+            ],
+          },
           after
             ? {
                 OR: [
