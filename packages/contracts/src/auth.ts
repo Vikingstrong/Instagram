@@ -97,6 +97,12 @@ export const authErrors = {
     message: "The image is damaged or its format is not supported.",
   },
   IMAGE_TOO_LARGE: { status: 413, message: "The image is larger than allowed." },
+  INVALID_VIDEO: {
+    status: 400,
+    message: "The video is damaged or its format is not supported.",
+  },
+  VIDEO_TOO_LARGE: { status: 413, message: "The video is larger than allowed." },
+  VIDEO_TOO_LONG: { status: 400, message: "The video is longer than allowed." },
   INVALID_CREDENTIALS: { status: 401, message: "Invalid email or password." },
   AUTHENTICATION_REQUIRED: {
     status: 401,
@@ -159,6 +165,9 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("INVALID_REQUEST"),
     errorVariant("INVALID_IMAGE"),
     errorVariant("IMAGE_TOO_LARGE"),
+    errorVariant("INVALID_VIDEO"),
+    errorVariant("VIDEO_TOO_LARGE"),
+    errorVariant("VIDEO_TOO_LONG"),
     errorVariant("INVALID_CREDENTIALS"),
     errorVariant("AUTHENTICATION_REQUIRED"),
     errorVariant("EMAIL_VERIFICATION_REQUIRED"),

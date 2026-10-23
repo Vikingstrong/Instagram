@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../infrastructure/database/database.module.js';
 import { ImageProcessor } from './image-processor.js';
+import { VideoProcessor } from './video-processor.js';
 import {
   LocalMediaStorage,
   MEDIA_STORAGE,
@@ -8,12 +9,13 @@ import {
 } from './media-storage.js';
 import { MEDIA_CLEANUP, MediaService } from './media.service.js';
 
-// Image processing, private storage and cleanup. No access rules here: posts
+// Image and video processing, private storage and cleanup. No access rules here: posts
 // and profiles decide who may read a file (architecture §10).
 @Module({
   imports: [DatabaseModule],
   providers: [
     ImageProcessor,
+    VideoProcessor,
     MediaService,
     {
       provide: MEDIA_STORAGE,
@@ -27,6 +29,6 @@ import { MEDIA_CLEANUP, MediaService } from './media.service.js';
           : process.env.MEDIA_CLEANUP_ENABLED === 'true',
     },
   ],
-  exports: [MediaService],
+  exports: [MediaService, VideoProcessor],
 })
 export class MediaModule {}

@@ -17,7 +17,7 @@ export const MEDIA_CLEANUP = Symbol('MEDIA_CLEANUP');
 // Abandoned uploads older than this are treated as failed.
 const PENDING_TTL_MS = 3600_000;
 
-export function mediaUrl(id: string, variant: MediaVariant): string {
+export function mediaUrl(id: string, variant: MediaVariant | 'video'): string {
   return `/api/v1/media/${id}/${variant}`;
 }
 

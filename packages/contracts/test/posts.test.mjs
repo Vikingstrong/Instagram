@@ -9,9 +9,11 @@ import {
   LikeResponseSchema,
   MediaUrlSchema,
   PostResponseSchema,
+  PostSchema,
   UserSummarySchema,
   authErrors,
   imageUploadRules,
+  videoUploadRules,
 } from "@instagram/contracts";
 
 const media = randomUUID();
@@ -25,6 +27,9 @@ const post = {
     isPrivate: false,
   },
   caption: "Закат\nна море",
+  type: "photo",
+  video: null,
+  status: "ready",
   image: {
     url: `/api/v1/media/${media}/full`,
     thumbnailUrl: `/api/v1/media/${media}/thumb`,
@@ -81,6 +86,9 @@ test("upload rules and media errors match the agreed limits", () => {
     ["IMAGE_TOO_LARGE", 413],
     ["POST_NOT_FOUND", 404],
     ["MEDIA_NOT_FOUND", 404],
+    ["INVALID_VIDEO", 400],
+    ["VIDEO_TOO_LARGE", 413],
+    ["VIDEO_TOO_LONG", 400],
     ["COMMENT_NOT_FOUND", 404],
     ["CANNOT_DELETE_COMMENT", 403],
   ]) {
@@ -124,4 +132,37 @@ test("comment lists carry delete rights; likes report the resulting state", () =
   );
   assert.deepEqual(LikeResponseSchema.parse({ liked: true, likeCount: 1 }), { liked: true, likeCount: 1 });
   assert.equal(LikeResponseSchema.safeParse({ liked: true, likeCount: -1 }).success, false);
+});
+
+test("video posts carry a poster, a served video and a processing status", () => {
+  const clip = randomUUID();
+  const video = {
+    ...post,
+    type: "video",
+    image: {
+      ...post.image,
+      url: `/api/v1/media/${clip}/full`,
+      thumbnailUrl: `/api/v1/media/${clip}/thumb`,
+    },
+    video: { url: `/api/v1/media/${clip}/video`, durationMs: 12_500 },
+  };
+  assert.deepEqual(PostSchema.parse(video), video);
+  assert.equal(
+    PostSchema.parse({ ...video, video: null, status: "processing" }).status,
+    "processing",
+  );
+  for (const invalid of [
+    { ...video, status: "uploading" },
+    { ...video, type: "reel" },
+    { ...video, video: { url: `/api/v1/media/${clip}/raw`, durationMs: 1 } },
+    { ...video, video: { url: `/api/v1/media/${clip}/video`, durationMs: 0 } },
+  ])
+    assert.equal(PostSchema.safeParse(invalid).success, false);
+  assert.equal(videoUploadRules.maxBytes, 100 * 1024 * 1024);
+  assert.equal(videoUploadRules.maxDurationMs, 90_000);
+  assert.deepEqual(videoUploadRules.formats, [
+    "video/mp4",
+    "video/quicktime",
+    "video/webm",
+  ]);
 });

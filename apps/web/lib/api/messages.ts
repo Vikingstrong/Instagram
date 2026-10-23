@@ -15,6 +15,12 @@ export function describeFailure(failure: ApiFailure): string {
           return "Файл повреждён или это не JPEG, PNG или WebP.";
         case "IMAGE_TOO_LARGE":
           return "Фото больше 10 МБ. Выберите файл поменьше.";
+        case "INVALID_VIDEO":
+          return "Видео повреждено или это не MP4, MOV или WebM.";
+        case "VIDEO_TOO_LARGE":
+          return "Видео больше 100 МБ. Выберите файл поменьше.";
+        case "VIDEO_TOO_LONG":
+          return "Видео длиннее 90 секунд. Обрежьте его и попробуйте снова.";
         case "POST_NOT_FOUND":
           return "Публикация недоступна или удалена.";
         case "MEDIA_NOT_FOUND":

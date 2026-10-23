@@ -11,10 +11,21 @@ export const imageUploadRules = {
   multipartField: "image",
 } as const;
 
+// Video posts (FR-10, P-12). The API probes the content, transcodes it to
+// H.264/AAC MP4 and makes a poster; name and declared type are not trusted.
+export const videoUploadRules = {
+  maxBytes: 100 * 1024 * 1024,
+  maxDurationMs: 90_000,
+  maxDimension: 4096,
+  formats: ["video/mp4", "video/quicktime", "video/webm"],
+  multipartField: "video",
+} as const;
+
 // P-09 caption: up to 2200 code points, line breaks allowed, may be empty.
 export const PostCaptionSchema = profileText(2200, true);
 
-// Multipart text fields next to the image. Unknown fields are rejected.
+// Multipart text fields next to the image or video. Unknown fields are
+// rejected.
 export const CreatePostFieldsSchema = z.strictObject({
   caption: PostCaptionSchema.optional().transform((value) => value ?? ""),
 });
@@ -27,11 +38,23 @@ export const PostImageSchema = z.strictObject({
   height: z.int().positive(),
 });
 
+// The transcoded MP4, served with Range support after an access check.
+export const PostVideoSchema = z.strictObject({
+  url: MediaUrlSchema,
+  durationMs: z.int().positive(),
+});
+
 export const PostSchema = z.strictObject({
   id: z.uuid(),
   author: UserSummarySchema,
   caption: PostCaptionSchema,
+  // A video post's image is its poster, so grids show every post the same.
+  type: z.enum(["photo", "video"]),
   image: PostImageSchema,
+  video: PostVideoSchema.nullable(),
+  // Only the author ever sees a post that is not "ready": a video still
+  // being processed, or one whose processing failed.
+  status: z.enum(["ready", "processing", "failed"]),
   createdAt: z.iso.datetime(),
   // FR-06: counters and the viewer's own like, read with the post.
   likeCount: z.int().nonnegative(),
@@ -83,12 +106,14 @@ export const DeleteCommentResponseSchema = z.strictObject({
 });
 
 export type Post = z.infer<typeof PostSchema>;
+export type PostVideo = z.infer<typeof PostVideoSchema>;
 export type Comment = z.infer<typeof CommentSchema>;
 export type LikeResponse = z.infer<typeof LikeResponseSchema>;
 export type PostListResponse = z.infer<typeof PostListResponseSchema>;
 
 export const postsEndpoints = {
-  // multipart/form-data: image (file) + optional caption.
+  // multipart/form-data: image or video (file) + optional caption. A video
+  // post answers with status "processing" until the server has prepared it.
   create: { method: "POST", path: "/api/v1/posts", successStatus: 201 },
   get: { method: "GET", path: "/api/v1/posts/{id}", successStatus: 200 },
   remove: { method: "DELETE", path: "/api/v1/posts/{id}", successStatus: 200 },
@@ -96,6 +121,8 @@ export const postsEndpoints = {
   // multipart/form-data: image (file).
   setAvatar: { method: "PUT", path: "/api/v1/me/avatar", successStatus: 200 },
   removeAvatar: { method: "DELETE", path: "/api/v1/me/avatar", successStatus: 200 },
+  // FR-10: video posts the viewer may see, newest first, no ranking.
+  reels: { method: "GET", path: "/api/v1/reels", successStatus: 200 },
   // FR-05: own posts and approved followings, newest first.
   feed: { method: "GET", path: "/api/v1/feed", successStatus: 200 },
   like: { method: "PUT", path: "/api/v1/posts/{id}/like", successStatus: 200 },

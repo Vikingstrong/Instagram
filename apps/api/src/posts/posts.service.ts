@@ -25,7 +25,17 @@ const postSelect = (viewerId: string) =>
     id: true,
     caption: true,
     createdAt: true,
-    media: { select: { id: true, width: true, height: true } },
+    media: {
+      select: {
+        id: true,
+        type: true,
+        state: true,
+        width: true,
+        height: true,
+        durationMs: true,
+        failedAt: true,
+      },
+    },
     author: { select: summarySelect },
     _count: { select: { likes: true, comments: true } },
     likes: { where: { userId: viewerId }, select: { userId: true }, take: 1 },
@@ -35,17 +45,35 @@ type PostRow = {
   id: string;
   caption: string;
   createdAt: Date;
-  media: { id: string; width: number | null; height: number | null };
+  media: {
+    id: string;
+    type: 'IMAGE' | 'VIDEO';
+    state: 'PENDING' | 'READY' | 'DELETED';
+    width: number | null;
+    height: number | null;
+    durationMs: number | null;
+    failedAt: Date | null;
+  };
   author: Parameters<typeof userSummary>[0];
   _count: { likes: number; comments: number };
   likes: { userId: string }[];
 };
 
+// A video post's image is its poster. Until processing ends only the
+// author can read the post, and its video is not served yet.
 function toPost(row: PostRow): Post {
+  const { media } = row;
+  const ready = media.state === 'READY';
   return PostSchema.parse({
     id: row.id,
     author: userSummary(row.author),
     caption: row.caption,
+    type: media.type === 'VIDEO' ? 'video' : 'photo',
+    video:
+      media.type === 'VIDEO' && ready
+        ? { url: mediaUrl(media.id, 'video'), durationMs: media.durationMs }
+        : null,
+    status: ready ? 'ready' : media.failedAt ? 'failed' : 'processing',
     image: {
       url: mediaUrl(row.media.id, 'full'),
       thumbnailUrl: mediaUrl(row.media.id, 'thumb'),

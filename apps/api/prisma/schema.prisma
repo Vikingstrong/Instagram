@@ -31,6 +31,12 @@ enum MediaState {
   DELETED
 }
 
+// FR-10: a post is a photo or a video; avatars are always images.
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
 model User {
   id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email             String          @db.VarChar(254)
@@ -138,24 +144,32 @@ model Follow {
 // while files are written, READY once usable, DELETED when no longer served
 // (files are then removed by a repeatable cleanup). CHECK constraints in SQL.
 model Media {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId   String     @db.Uuid
-  kind      MediaKind
-  state     MediaState @default(PENDING)
-  width     Int?
-  height    Int?
-  createdAt DateTime   @default(now()) @db.Timestamptz(3)
-  deletedAt DateTime?  @db.Timestamptz(3)
-  owner     User       @relation("owner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  avatarOf  User?      @relation("avatar")
-  post      Post?
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId    String     @db.Uuid
+  kind       MediaKind
+  type       MediaType  @default(IMAGE)
+  state      MediaState @default(PENDING)
+  width      Int?
+  height     Int?
+  // Video only: duration of the transcoded file.
+  durationMs Int?
+  createdAt  DateTime   @default(now()) @db.Timestamptz(3)
+  // A video whose processing failed stays PENDING with this set, so its
+  // author can be told; cleanup removes it later.
+  failedAt   DateTime?  @db.Timestamptz(3)
+  deletedAt  DateTime?  @db.Timestamptz(3)
+  owner      User       @relation("owner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  avatarOf   User?      @relation("avatar")
+  post       Post?
 
   @@index([state, createdAt])
   @@index([ownerId])
   @@map("media")
 }
 
-// FR-04: exactly one image per post. Created only with READY media.
+// FR-04/FR-10: exactly one image or video per post. Photos are created with
+// READY media; a video post is created PENDING and becomes visible when its
+// media turns READY.
 model Post {
   id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   authorId  String     @db.Uuid

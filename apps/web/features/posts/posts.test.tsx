@@ -39,6 +39,9 @@ const post = (n: number, extra: object = {}) => ({
   id: uuid(n),
   author: author(),
   caption: `Пост ${n}`,
+  type: "photo",
+  video: null,
+  status: "ready",
   image: {
     url: `/api/v1/media/${uuid(100 + n)}/full`,
     thumbnailUrl: `/api/v1/media/${uuid(100 + n)}/thumb`,
