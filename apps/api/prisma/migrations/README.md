@@ -11,3 +11,8 @@ roles intentionally have no CREATEDB privilege.
 Apply reviewed migrations with `pnpm --filter @instagram/api db:migrate:deploy`.
 For the isolated test database use `pnpm --filter @instagram/api db:migrate:test`.
 Never use `db push` or `migrate reset` as an automatic setup step.
+
+Stories: `20261024110000_stories` adds the STORY media kind, 24h story rows
+and unique audience records; see [Stories](../../../../docs/development/stories.md).
+The enum addition is committed before the transactional table/index creation.
+Apply with migrate deploy; existing media, posts and migration SQL are preserved.

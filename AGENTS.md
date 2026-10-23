@@ -118,6 +118,13 @@ background ffmpeg-static transcode in MediaService, VideoProcessor), video
 streaming with Range at /api/v1/media/{id}/video, GET /api/v1/reels; web
 /create (photo or video), VideoPlayer, /reels; see
 docs/development/video-reels.md.
+Stage 11 Stories (FR-13): StoriesModule, `/api/v1/stories`, photo/video uploads,
+24h expiry, subscription tray, per-story views and owner-only audience list;
+web `/stories/create`, `/stories/[id]`, `/stories/user/[id]`.
+Shared media delivery checks story expiry and author visibility on each read.
+StoriesService removes expired story rows via its cleanup and delegates files
+to MediaService; see
+`docs/development/stories.md`. Stories and Live have separate owners/scopes.
 Stage 9 calls slice: CallsModule and global web CallsProvider implement audio/video 1:1 with REST/SSE signaling; see `docs/development/calls-api.md`. TURN configuration and real-network acceptance remain required.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in

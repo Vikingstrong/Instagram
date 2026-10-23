@@ -103,7 +103,11 @@ describe("Reels", () => {
     expect(first.getAttribute("src")).toBe(`/api/v1/media/${uuid(101)}/video`);
     expect(first.muted).toBe(true);
     expect(first.hasAttribute("loop")).toBe(true);
+    await waitFor(() => expect(observerOf("Ролик 2")).toBeDefined());
 
+    // The video DOM can appear before its passive effect attaches the observer.
+    // Await that observable readiness instead of relying on scheduler speed.
+    await waitFor(() => expect(observerOf("Ролик 1")).toBeDefined());
     act(() => observerOf("Ролик 1").show(true));
     expect(play.mock.contexts).toEqual([first]);
     act(() => {
@@ -127,6 +131,9 @@ describe("Reels", () => {
     });
     render(<Reels />);
     await screen.findByLabelText("Ролик 2");
+    // The video DOM can appear before its passive effect attaches the observer.
+    // Await that observable readiness instead of relying on scheduler speed.
+    await waitFor(() => expect(observerOf("Ролик 1")).toBeDefined());
     act(() => observerOf("Ролик 1").show(true));
     expect(await screen.findByLabelText("Ролик 3")).toBeTruthy();
     expect(

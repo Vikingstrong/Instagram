@@ -351,7 +351,7 @@ export class PostsController {
     operationId: 'getMedia',
     summary: 'Image or video bytes after an access check',
     description:
-      'Checked on every request: post images and videos follow post visibility, avatars follow the profile summary. "video" honours a single Range (206, or 416 past the end) for seeking. No public or signed URLs; not cacheable by shared caches.',
+      'Checked on every request: post images and videos follow post visibility, stories additionally expire after 24 hours, avatars follow the profile summary. "video" honours a single Range (206, or 416 past the end) for seeking. No public or signed URLs; not cacheable by shared caches.',
   })
   @ApiResponse({ status: 200, description: 'image/webp or video/mp4' })
   @ApiResponse({ status: 206, description: 'video/mp4 byte range' })

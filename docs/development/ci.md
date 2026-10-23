@@ -114,3 +114,16 @@ override облачной среды для доступа контейнера 
 загрузить также системный Arial fallback, отсутствующий в Linux. Тест исправлен
 так, чтобы проверять каждую включённую гарнитуру отдельно; повторный запуск
 обоих viewport прошёл. Проверка не подменяет загрузку шрифта проверкой CSS.
+
+
+## Stories и изоляция browser fixtures
+
+Auth/account fixtures запускают только настоящие AuthModule и ReadinessModule,
+а основной TEST API — полный AppModule. Это исключает запуск глобального
+восстановления interrupted video на каждом вспомогательном процессе и гонку
+с обработкой Stories/Reels в основном API. Почтовый worker у fixtures отключён.
+Call browser tests включают synthetic camera/microphone только в своём файле;
+headless CI не имеет физических устройств. Это не проверка TURN и реальных сетей.
+Stories browser tests покрывают фото и видео на desktop/mobile; дополнительно
+в Chrome можно задать STORIES_EXPECT_VIDEO_PLAYBACK=true для проверки H.264.
+См. [Stories](stories.md) для результатов и ограничений текущего среза.

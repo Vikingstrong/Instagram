@@ -39,7 +39,22 @@ export async function startAuthApi() {
     "../../../api/node_modules/@nestjs/core/index.js",
     import.meta.url,
   );
-  const appModule = new URL("../../../api/dist/app.module.js", import.meta.url);
+  // Account/Swagger fixtures need only Auth and readiness. Starting a full
+  // AppModule here ran global video recovery in another process and marked
+  // concurrent Stories/Reels uploads as interrupted. The web API under test
+  // still runs the complete production AppModule.
+  const common = new URL(
+    "../../../api/node_modules/@nestjs/common/index.js",
+    import.meta.url,
+  );
+  const authModule = new URL(
+    "../../../api/dist/auth/auth.module.js",
+    import.meta.url,
+  );
+  const readinessModule = new URL(
+    "../../../api/dist/readiness/readiness.module.js",
+    import.meta.url,
+  );
   const configure = new URL(
     "../../../api/dist/configure-app.js",
     import.meta.url,
@@ -54,11 +69,15 @@ export async function startAuthApi() {
   );
   const code = [
     `import { NestFactory } from ${JSON.stringify(nest.href)};`,
-    `import { AppModule } from ${JSON.stringify(appModule.href)};`,
+    `import { Module } from ${JSON.stringify(common.href)};`,
+    `import { AuthModule } from ${JSON.stringify(authModule.href)};`,
+    `import { ReadinessModule } from ${JSON.stringify(readinessModule.href)};`,
     `import { configureApp } from ${JSON.stringify(configure.href)};`,
     `import { AUTH_CONFIG } from ${JSON.stringify(config.href)};`,
     `import { DatabaseService } from ${JSON.stringify(database.href)};`,
-    "const app = await NestFactory.create(AppModule, { logger: false });",
+    "class AuthFixtureModule {}",
+    "Module({ imports: [AuthModule, ReadinessModule] })(AuthFixtureModule);",
+    "const app = await NestFactory.create(AuthFixtureModule, { logger: false });",
     "configureApp(app); await app.listen(0, '127.0.0.1');",
     "const origin = await app.getUrl(); app.get(AUTH_CONFIG).allowedOrigins.add(origin);",
     // Cleanup is requested over IPC, not SIGTERM: Windows has no catchable

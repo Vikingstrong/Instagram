@@ -114,6 +114,8 @@ describe('Database Foundation (real PostgreSQL)', () => {
       { name: 'media' },
       { name: 'post_likes' },
       { name: 'posts' },
+      { name: 'stories' },
+      { name: 'story_views' },
     ]);
   });
 });

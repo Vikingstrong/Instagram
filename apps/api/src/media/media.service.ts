@@ -126,11 +126,12 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     tx: Prisma.TransactionClient,
     ownerId: string,
     info: VideoInfo,
+    kind: MediaKind = 'POST',
   ): Promise<{ id: string }> {
     return tx.media.create({
       data: {
         ownerId,
-        kind: 'POST',
+        kind,
         type: 'VIDEO',
         ...outputSize(info.width, info.height),
       },
@@ -204,7 +205,7 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     const cutoff = new Date(now.getTime() - PENDING_TTL_MS);
     // Failed videos were kept for their author to see; their posts go now.
     const failed = await this.database.prisma.media.findMany({
-      where: { failedAt: { lt: cutoff }, state: { not: 'DELETED' } },
+      where: { kind: 'POST', failedAt: { lt: cutoff }, state: { not: 'DELETED' } },
       select: { id: true },
       take: 100,
     });
@@ -226,6 +227,7 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
           },
         ],
         post: null,
+        story: null,
       },
       select: { id: true },
       take: 100,
@@ -245,7 +247,7 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
   private async purge(id: string): Promise<void> {
     await this.storage.remove(id);
     await this.database.prisma.media.deleteMany({
-      where: { id, state: { not: 'READY' }, post: null },
+      where: { id, state: { not: 'READY' }, post: null, story: null },
     });
   }
 

@@ -21,6 +21,7 @@ enum FollowStatus {
 }
 
 enum MediaKind {
+  STORY
   POST
   AVATAR
 }
@@ -61,6 +62,8 @@ model User {
   followers         Follow[]        @relation("followee")
   avatar            Media?          @relation("avatar", fields: [avatarMediaId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   media             Media[]         @relation("owner")
+  stories           Story[]
+  storyViews        StoryView[]
   posts             Post[]
   likes             PostLike[]
   commentLikes      CommentLike[]
@@ -165,6 +168,7 @@ model Media {
   deletedAt  DateTime?  @db.Timestamptz(3)
   owner      User       @relation("owner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   avatarOf   User?      @relation("avatar")
+  story      Story?
   post       Post?
 
   @@index([state, createdAt])
@@ -322,4 +326,33 @@ model CallSeat {
   call Call @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   @@index([callId])
   @@map("call_seats")
+}
+
+// FR-13: expiry is checked on every read, independently of background cleanup.
+model Story {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId  String      @db.Uuid
+  mediaId   String      @unique @db.Uuid
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime    @default(dbgenerated("(CURRENT_TIMESTAMP + '24:00:00'::interval)")) @db.Timestamptz(3)
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  media     Media       @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
+  views     StoryView[]
+
+  @@index([authorId, createdAt, id])
+  @@index([expiresAt])
+  @@map("stories")
+}
+
+model StoryView {
+  storyId String   @db.Uuid
+  userId  String   @db.Uuid
+  viewedAt DateTime @default(now()) @db.Timestamptz(3)
+  story   Story    @relation(fields: [storyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([storyId, userId])
+  @@index([storyId, viewedAt(sort: Desc), userId(sort: Desc)])
+  @@index([userId])
+  @@map("story_views")
 }
