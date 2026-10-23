@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Post } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
-import { CreateIcon } from "@/components/icons/ig-icons";
+import { CreateIcon, ReelsIcon } from "@/components/icons/ig-icons";
 import { MediaImage } from "@/components/ui-ig/media-image";
 import { usePagedList } from "@/features/social/use-paged-list";
 import { createPostsClient } from "@/lib/api/posts";
@@ -68,6 +68,12 @@ export function ProfileGrid({ userId, self }: { userId: string; self: boolean })
                 className="size-full object-cover"
               />
               <span className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/30" />
+              {post.type === "video" && (
+                <span className="absolute top-2 right-2 text-white drop-shadow">
+                  <ReelsIcon className="size-5" />
+                  <span className="sr-only">Видео</span>
+                </span>
+              )}
             </Link>
           </li>
         ))}

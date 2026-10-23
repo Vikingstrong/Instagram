@@ -74,6 +74,8 @@ export {
 
 export {
   imageUploadRules,
+  videoUploadRules,
+  PostVideoSchema,
   PostCaptionSchema,
   CreatePostFieldsSchema,
   PostImageSchema,
@@ -91,6 +93,7 @@ export {
   DeleteCommentResponseSchema,
   postsEndpoints,
   type Post,
+  type PostVideo,
   type PostListResponse,
   type Comment,
   type LikeResponse,

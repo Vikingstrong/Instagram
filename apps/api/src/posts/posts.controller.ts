@@ -10,6 +10,7 @@ import {
   Put,
   Query,
   Req,
+  Res,
   StreamableFile,
   UploadedFile,
   UseGuards,
@@ -38,8 +39,13 @@ import {
   PostResponseSchema,
   UserSummarySchema,
   imageUploadRules,
+  videoUploadRules,
 } from '@instagram/contracts';
+import { rm } from 'node:fs/promises';
+import type { Response } from 'express';
+import { parseRange } from '../media/byte-range.js';
 import { PostsService } from './posts.service.js';
+import { VideoUploadInterceptor } from './video-upload.interceptor.js';
 import {
   VerifiedSessionGuard,
   type AuthenticatedRequest,
@@ -154,6 +160,62 @@ export class PostsController {
     });
   }
 
+  @Post('posts/video')
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(UploadMutationGuard)
+  @UseInterceptors(VideoUploadInterceptor)
+  @ApiSecurity('csrfToken')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: [videoUploadRules.multipartField],
+      properties: {
+        [videoUploadRules.multipartField]: {
+          type: 'string',
+          format: 'binary',
+          description: 'MP4, MOV or WebM, up to 100 MB and 90 seconds.',
+        },
+        caption: {
+          type: 'string',
+          maxLength: 2200,
+          description: 'Optional, up to 2200 characters.',
+        },
+      },
+    },
+  })
+  @errorResponse(400)
+  @errorResponse(403)
+  @errorResponse(413)
+  @ApiOperation({
+    operationId: 'createVideoPost',
+    summary: 'Publish a post with one video',
+    description:
+      'The server checks the decoded video, then answers 201 with status "processing" and transcodes it to H.264/AAC MP4 with a poster in the background. Only the author can read the post until it is ready; a failed processing shows as status "failed" to the author. 10 uploads per hour.',
+  })
+  @ok(PostResponseSchema, 201)
+  async createVideo(
+    @UploadedFile() file: { path: string } | undefined,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    if (!file?.path) throw new AuthError('INVALID_VIDEO');
+    let fields: { caption: string };
+    try {
+      fields = parse(body ?? {}, CreatePostFieldsSchema);
+    } catch (error) {
+      await rm(file.path, { force: true });
+      throw error;
+    }
+    return PostResponseSchema.parse({
+      post: await this.posts.createVideo(
+        viewer(request),
+        file.path,
+        fields.caption,
+      ),
+    });
+  }
+
   @Get('posts/:id')
   @Header('Cache-Control', 'no-store')
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -192,6 +254,24 @@ export class PostsController {
     parse(body, EmptyRequestSchema);
     await this.posts.remove(viewer(request), uuid(id));
     return DeletePostResponseSchema.parse({ status: 'deleted' });
+  }
+
+  @Get('reels')
+  @Header('Cache-Control', 'no-store')
+  @ApiQuery({ name: 'cursor', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiOperation({
+    operationId: 'listReels',
+    summary: 'Video posts the viewer may see, newest first',
+    description:
+      'FR-10: own videos, approved followings and public accounts; access is checked before paging, unfinished videos never appear. No ranking. Limit 1–50, default 20.',
+  })
+  @ok(PostListResponseSchema)
+  @errorResponse(400)
+  async reels(@Query() query: unknown, @Req() request: AuthenticatedRequest) {
+    return PostListResponseSchema.parse(
+      await this.posts.reels(viewer(request), parse(query, PageQuerySchema)),
+    );
   }
 
   @Get('users/:id/posts')
@@ -265,25 +345,51 @@ export class PostsController {
   @Header('Cache-Control', 'private, no-store')
   @Header('X-Content-Type-Options', 'nosniff')
   @ApiParam({ name: 'id', format: 'uuid' })
-  @ApiParam({ name: 'variant', enum: ['full', 'thumb'] })
-  @ApiProduces('image/webp')
+  @ApiParam({ name: 'variant', enum: ['full', 'thumb', 'video'] })
+  @ApiProduces('image/webp', 'video/mp4')
   @ApiOperation({
     operationId: 'getMedia',
-    summary: 'Image bytes after an access check',
+    summary: 'Image or video bytes after an access check',
     description:
-      'Checked on every request: post images follow post visibility, avatars follow the profile summary. No public or signed URLs; not cacheable by shared caches.',
+      'Checked on every request: post images and videos follow post visibility, avatars follow the profile summary. "video" honours a single Range (206, or 416 past the end) for seeking. No public or signed URLs; not cacheable by shared caches.',
   })
-  @ApiResponse({ status: 200, description: 'image/webp' })
+  @ApiResponse({ status: 200, description: 'image/webp or video/mp4' })
+  @ApiResponse({ status: 206, description: 'video/mp4 byte range' })
   @errorResponse(400)
   @errorResponse(404)
   async media(
     @Param('id') id: string,
     @Param('variant') variant: string,
     @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    if (variant !== 'full' && variant !== 'thumb')
+    if (variant !== 'full' && variant !== 'thumb' && variant !== 'video')
       throw new AuthError('MEDIA_NOT_FOUND');
     this.limiter.consume('media-read', viewer(request), 1200, 300_000);
+    if (variant === 'video') {
+      const file = await this.posts.openVideo(viewer(request), uuid(id));
+      response.setHeader('Accept-Ranges', 'bytes');
+      const range = parseRange(request.headers.range, file.size);
+      if (range.kind === 'unsatisfiable') {
+        response.status(416).setHeader('Content-Range', `bytes */${file.size}`);
+        return;
+      }
+      const [start, end] =
+        range.kind === 'partial'
+          ? [range.start, range.end]
+          : [0, file.size - 1];
+      if (range.kind === 'partial') {
+        response.status(206);
+        response.setHeader(
+          'Content-Range',
+          `bytes ${start}-${end}/${file.size}`,
+        );
+      }
+      return new StreamableFile(file.stream(start, end), {
+        type: 'video/mp4',
+        length: end - start + 1,
+      });
+    }
     const data = await this.posts.readImage(viewer(request), uuid(id), variant);
     return new StreamableFile(data, {
       type: 'image/webp',

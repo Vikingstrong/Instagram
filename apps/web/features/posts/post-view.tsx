@@ -18,6 +18,7 @@ import { replaceLocation } from "@/lib/navigation";
 
 import { CommentForm, CommentList } from "./comments";
 import { LikeButton, likesLabel, useLike } from "./like-button";
+import { PostMedia } from "./post-media";
 import { formatPostDate } from "./time";
 
 type Load =
@@ -114,15 +115,16 @@ function PostContent({ id }: { id: string }) {
       <article className="flex flex-col border-b md:flex-row md:border">
         <div className="md:hidden">{author}</div>
         <div className="flex items-center justify-center bg-black md:min-w-0 md:flex-[1_1_60%]">
-          <MediaImage
-            src={post.image.url}
-            alt={post.caption || `Публикация ${post.author.username}`}
-            width={post.image.width}
-            height={post.image.height}
-            className="max-h-[min(1350px,85dvh)] w-full object-contain"
-          />
+          <PostMedia post={post} className="max-h-[min(1350px,85dvh)]" />
         </div>
-        <PostSide post={post} header={author} />
+        {post.status === "ready" ? (
+          <PostSide post={post} header={author} />
+        ) : (
+          // Likes and comments open once the video is ready for everyone.
+          <div className="flex flex-col md:w-84 md:shrink-0 md:border-l lg:w-100">
+            <div className="hidden md:block">{author}</div>
+          </div>
+        )}
       </article>
     </div>
   );

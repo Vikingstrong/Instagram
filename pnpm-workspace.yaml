@@ -6,4 +6,6 @@ allowBuilds:
   "@prisma/engines": true
   prisma: true
   sharp: false
+  # Downloads the pinned ffmpeg binary for video processing (stage 8).
+  ffmpeg-static: true
   unrs-resolver: false

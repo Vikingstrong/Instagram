@@ -46,7 +46,7 @@ export const ProfileRelationshipSchema = z.enum([
 export const MediaUrlSchema = z
   .string()
   .regex(
-    /^\/api\/v1\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:full|thumb)$/,
+    /^\/api\/v1\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:full|thumb|video)$/,
   );
 
 // Allowed FR-02 summary. Private profiles return the same fields; their posts

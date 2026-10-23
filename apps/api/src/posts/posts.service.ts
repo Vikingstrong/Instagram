@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { rm } from 'node:fs/promises';
 import {
   PostSchema,
   type PageQuery,
@@ -25,7 +26,17 @@ const postSelect = (viewerId: string) =>
     id: true,
     caption: true,
     createdAt: true,
-    media: { select: { id: true, width: true, height: true } },
+    media: {
+      select: {
+        id: true,
+        type: true,
+        state: true,
+        width: true,
+        height: true,
+        durationMs: true,
+        failedAt: true,
+      },
+    },
     author: { select: summarySelect },
     _count: { select: { likes: true, comments: true } },
     likes: { where: { userId: viewerId }, select: { userId: true }, take: 1 },
@@ -35,17 +46,35 @@ type PostRow = {
   id: string;
   caption: string;
   createdAt: Date;
-  media: { id: string; width: number | null; height: number | null };
+  media: {
+    id: string;
+    type: 'IMAGE' | 'VIDEO';
+    state: 'PENDING' | 'READY' | 'DELETED';
+    width: number | null;
+    height: number | null;
+    durationMs: number | null;
+    failedAt: Date | null;
+  };
   author: Parameters<typeof userSummary>[0];
   _count: { likes: number; comments: number };
   likes: { userId: string }[];
 };
 
+// A video post's image is its poster. Until processing ends only the
+// author can read the post, and its video is not served yet.
 function toPost(row: PostRow): Post {
+  const { media } = row;
+  const ready = media.state === 'READY';
   return PostSchema.parse({
     id: row.id,
     author: userSummary(row.author),
     caption: row.caption,
+    type: media.type === 'VIDEO' ? 'video' : 'photo',
+    video:
+      media.type === 'VIDEO' && ready
+        ? { url: mediaUrl(media.id, 'video'), durationMs: media.durationMs }
+        : null,
+    status: ready ? 'ready' : media.failedAt ? 'failed' : 'processing',
     image: {
       url: mediaUrl(row.media.id, 'full'),
       thumbnailUrl: mediaUrl(row.media.id, 'thumb'),
@@ -126,9 +155,45 @@ export class PostsService {
     }
   }
 
+  // FR-10: the original is checked before anything is recorded; then the
+  // post and its PENDING media are created together and the transcoding
+  // runs in the background. Others see the post only once it is READY.
+  async createVideo(
+    authorId: string,
+    original: string,
+    caption: string,
+  ): Promise<Post> {
+    try {
+      const info = await this.media.inspectVideo(original);
+      const row = await this.database.prisma.$transaction(async (tx) => {
+        const media = await this.media.createVideo(tx, authorId, info);
+        return tx.post.create({
+          data: { authorId, mediaId: media.id, caption },
+          select: postSelect(authorId),
+        });
+      });
+      void this.media.processVideo(row.media.id, original);
+      return toPost(row);
+    } catch (error) {
+      await rm(original, { force: true }).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  // Visible posts, plus the viewer's own video that is still processing or
+  // failed, so its author can follow it.
   async get(viewerId: string, id: string): Promise<Post> {
     const row = await this.database.prisma.post.findFirst({
-      where: { id, ...visiblePost(viewerId) },
+      where: {
+        id,
+        OR: [
+          visiblePost(viewerId),
+          {
+            authorId: viewerId,
+            media: { type: 'VIDEO', state: 'PENDING' },
+          },
+        ],
+      },
       select: postSelect(viewerId),
     });
     if (!row) throw new AuthError('POST_NOT_FOUND');
@@ -172,6 +237,12 @@ export class PostsService {
       },
       page,
     );
+  }
+
+  // FR-10 Reels: every video post the viewer may see (own, approved
+  // followings and public accounts), newest first, no ranking.
+  async reels(viewerId: string, page: PageQuery): Promise<PostListResponse> {
+    return this.page(viewerId, { media: { type: 'VIDEO' } }, page);
   }
 
   private page(
@@ -274,5 +345,24 @@ export class PostsService {
     const data = await this.media.read(id, variant);
     if (!data) throw new AuthError('MEDIA_NOT_FOUND');
     return data;
+  }
+
+  // The video file of a READY post the viewer may see, checked again for
+  // every (Range) request, so a revoked follow stops playback at once.
+  async openVideo(viewerId: string, id: string) {
+    const allowed = await this.database.prisma.media.findFirst({
+      where: {
+        id,
+        kind: 'POST',
+        type: 'VIDEO',
+        state: 'READY',
+        post: visiblePost(viewerId),
+      },
+      select: { id: true },
+    });
+    if (!allowed) throw new AuthError('MEDIA_NOT_FOUND');
+    const file = await this.media.open(id, 'video');
+    if (!file) throw new AuthError('MEDIA_NOT_FOUND');
+    return file;
   }
 }

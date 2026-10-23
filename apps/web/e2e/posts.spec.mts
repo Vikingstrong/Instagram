@@ -13,7 +13,7 @@ test('publish, view, set an avatar and delete a post', async ({ page, playwright
     await login(page, owner.account);
 
     await page.goto('/create');
-    await page.getByLabel('Фото для публикации').setInputFiles({
+    await page.getByLabel('Фото или видео для публикации').setInputFiles({
       name: 'sunset.png',
       mimeType: 'image/png',
       buffer: photo([232, 116, 59]),

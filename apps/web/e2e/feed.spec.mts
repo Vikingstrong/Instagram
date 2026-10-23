@@ -19,7 +19,7 @@ test('feed, like and comment between two users', async ({ page, browser, baseURL
     await login(authorPage, author.account);
     await expect(authorPage.getByRole('heading', { name: 'В ленте пока пусто' })).toBeVisible();
     await authorPage.goto('/create');
-    await authorPage.getByLabel('Фото для публикации').setInputFiles({
+    await authorPage.getByLabel('Фото или видео для публикации').setInputFiles({
       name: 'lake.png',
       mimeType: 'image/png',
       buffer: photo([40, 150, 120]),

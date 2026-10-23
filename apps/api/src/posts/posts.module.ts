@@ -5,6 +5,7 @@ import { MediaModule } from '../media/media.module.js';
 import { PostsService } from './posts.service.js';
 import { PostsController } from './posts.controller.js';
 import { InteractionsService } from './interactions.service.js';
+import { VideoUploadInterceptor } from './video-upload.interceptor.js';
 import { InteractionsController } from './interactions.controller.js';
 
 // Posts, avatars and protected image delivery. The post visibility policy
@@ -13,6 +14,6 @@ import { InteractionsController } from './interactions.controller.js';
 @Module({
   imports: [DatabaseModule, AuthModule, MediaModule],
   controllers: [PostsController, InteractionsController],
-  providers: [PostsService, InteractionsService],
+  providers: [PostsService, InteractionsService, VideoUploadInterceptor],
 })
 export class PostsModule {}

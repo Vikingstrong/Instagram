@@ -10,6 +10,7 @@ import { MediaImage } from "@/components/ui-ig/media-image";
 
 import { CommentForm, CommentItem } from "./comments";
 import { LikeButton, likesLabel, useLike } from "./like-button";
+import { PostMedia } from "./post-media";
 import { timeAgo } from "./time";
 
 // One feed item: author, photo, like, counters, caption and a comment field.
@@ -41,16 +42,23 @@ export function FeedPost({ post }: { post: Post }) {
         </p>
       </header>
 
-      <Link href={href} className="block overflow-hidden bg-black md:rounded-sm md:border">
-        <MediaImage
-          src={post.image.url}
-          alt={post.caption || `Публикация ${author.username}`}
-          width={post.image.width}
-          height={post.image.height}
-          loading="lazy"
-          className="max-h-146.25 w-full object-contain"
-        />
-      </Link>
+      {post.type === "video" ? (
+        // A video keeps its own controls, so it is not wrapped in a link.
+        <div className="overflow-hidden bg-black md:rounded-sm md:border">
+          <PostMedia post={post} className="max-h-146.25" />
+        </div>
+      ) : (
+        <Link href={href} className="block overflow-hidden bg-black md:rounded-sm md:border">
+          <MediaImage
+            src={post.image.url}
+            alt={post.caption || `Публикация ${author.username}`}
+            width={post.image.width}
+            height={post.image.height}
+            loading="lazy"
+            className="max-h-146.25 w-full object-contain"
+          />
+        </Link>
+      )}
 
       <div className="flex flex-col gap-2 px-3 pt-3 md:px-0">
         <div className="flex items-center gap-4">
