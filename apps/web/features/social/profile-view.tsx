@@ -9,6 +9,7 @@ import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { SettingsIcon } from "@/components/icons/ig-icons";
 import { DefaultAvatar } from "@/components/ui-ig/avatar";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
+import { MessageButton } from "@/features/direct/message-button";
 import { ProfileGrid } from "@/features/posts/profile-grid";
 import type { ApiFailure } from "@/lib/api/client";
 import { createSocialClient } from "@/lib/api/social";
@@ -144,15 +145,18 @@ function ProfileContent({ username }: { username: string }) {
                 </Link>
               </div>
             ) : (
-              <ProfileFollowActions
-                key={profile.relationship}
-                userId={profile.id}
-                username={profile.username}
-                avatarUrl={profile.avatarUrl}
-                isPrivate={profile.isPrivate}
-                relationship={profile.relationship === "self" ? "none" : profile.relationship}
-                onChange={refresh}
-              />
+              <>
+                <ProfileFollowActions
+                  key={profile.relationship}
+                  userId={profile.id}
+                  username={profile.username}
+                  avatarUrl={profile.avatarUrl}
+                  isPrivate={profile.isPrivate}
+                  relationship={profile.relationship === "self" ? "none" : profile.relationship}
+                  onChange={refresh}
+                />
+                <MessageButton userId={profile.id} />
+              </>
             )}
           </div>
           <ul className="flex gap-6 text-sm md:text-base">

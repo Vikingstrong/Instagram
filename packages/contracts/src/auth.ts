@@ -113,6 +113,15 @@ export const authErrors = {
   POST_NOT_FOUND: { status: 404, message: "Post not found." },
   MEDIA_NOT_FOUND: { status: 404, message: "Image not found." },
   COMMENT_NOT_FOUND: { status: 404, message: "Comment not found." },
+  CONVERSATION_NOT_FOUND: { status: 404, message: "Conversation not found." },
+  CANNOT_MESSAGE_SELF: {
+    status: 400,
+    message: "You cannot start a conversation with yourself.",
+  },
+  MESSAGE_ID_CONFLICT: {
+    status: 409,
+    message: "This message id was already used for another message.",
+  },
   CANNOT_DELETE_COMMENT: {
     status: 403,
     message: "You cannot delete this comment.",
@@ -162,6 +171,9 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("MEDIA_NOT_FOUND"),
     errorVariant("COMMENT_NOT_FOUND"),
     errorVariant("CANNOT_DELETE_COMMENT"),
+    errorVariant("CONVERSATION_NOT_FOUND"),
+    errorVariant("CANNOT_MESSAGE_SELF"),
+    errorVariant("MESSAGE_ID_CONFLICT"),
     errorVariant("USERNAME_TAKEN"),
     errorVariant("ACCOUNT_UNAVAILABLE"),
     errorVariant("TOO_MANY_REQUESTS"),

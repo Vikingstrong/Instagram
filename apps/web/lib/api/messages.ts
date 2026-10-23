@@ -23,6 +23,12 @@ export function describeFailure(failure: ApiFailure): string {
           return "Комментарий уже удалён.";
         case "CANNOT_DELETE_COMMENT":
           return "Этот комментарий нельзя удалить.";
+        case "CONVERSATION_NOT_FOUND":
+          return "Диалог не найден.";
+        case "CANNOT_MESSAGE_SELF":
+          return "Нельзя написать самому себе.";
+        case "MESSAGE_ID_CONFLICT":
+          return "Сообщение не отправлено. Напишите его ещё раз.";
         case "INVALID_REQUEST":
           return "Проверьте введённые данные.";
         case "INVALID_CREDENTIALS":

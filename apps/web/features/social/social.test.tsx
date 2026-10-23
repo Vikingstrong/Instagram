@@ -25,6 +25,7 @@ vi.mock("@/features/auth/home-access", () => ({
 }));
 vi.mock("next/navigation", () => ({
   useParams: () => ({ username: route.username }),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 vi.mock("@/lib/navigation", () => ({ replaceLocation: vi.fn() }));
 

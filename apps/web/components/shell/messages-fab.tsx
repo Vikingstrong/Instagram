@@ -1,9 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { DirectIcon } from "@/components/icons/ig-icons";
 
 // Floating shortcut to Direct on wide screens, as in the desktop app.
+// Hidden inside Direct itself, where it would cover the composer.
 export function MessagesFab() {
+  const pathname = usePathname();
+  if (pathname === "/direct" || pathname.startsWith("/direct/")) return null;
   return (
     <Link
       href="/direct"
