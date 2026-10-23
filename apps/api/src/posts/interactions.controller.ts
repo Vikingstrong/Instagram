@@ -194,8 +194,77 @@ export class InteractionsController {
         viewer(request),
         uuid(id),
         input.text,
+        input.replyToCommentId,
       ),
     });
+  }
+
+  @Get('comments/:id/replies')
+  @Header('Cache-Control', 'no-store')
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiQuery({ name: 'cursor', required: false, type: String })
+  @ApiOperation({
+    operationId: 'listCommentReplies',
+    summary: 'Replies to a root comment, oldest first, three per page',
+  })
+  @ok(CommentListResponseSchema)
+  @errorResponse(404)
+  async replies(
+    @Param('id') id: string,
+    @Query() query: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return CommentListResponseSchema.parse(
+      await this.interactions.replies(
+        viewer(request),
+        uuid(id),
+        parse(query, PageQuerySchema),
+      ),
+    );
+  }
+
+  @Put('comments/:id/like')
+  @Header('Cache-Control', 'no-store')
+  @mutationBody(EmptyRequestSchema, {})
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOperation({
+    operationId: 'likeComment',
+    summary: 'Like a comment or reply, idempotently',
+  })
+  @ok(LikeResponseSchema)
+  @errorResponse(404)
+  async likeComment(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    parse(body, EmptyRequestSchema);
+    this.limiter.consume('like', viewer(request), 300, 300_000);
+    return LikeResponseSchema.parse(
+      await this.interactions.commentLike(viewer(request), uuid(id), true),
+    );
+  }
+
+  @Delete('comments/:id/like')
+  @Header('Cache-Control', 'no-store')
+  @mutationBody(EmptyRequestSchema, {})
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOperation({
+    operationId: 'unlikeComment',
+    summary: 'Remove a comment like, idempotently',
+  })
+  @ok(LikeResponseSchema)
+  @errorResponse(404)
+  async unlikeComment(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    parse(body, EmptyRequestSchema);
+    this.limiter.consume('like', viewer(request), 300, 300_000);
+    return LikeResponseSchema.parse(
+      await this.interactions.commentLike(viewer(request), uuid(id), false),
+    );
   }
 
   @Delete('comments/:id')

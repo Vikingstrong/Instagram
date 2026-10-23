@@ -80,10 +80,28 @@ export function createPostsClient(api: ApiClient = createApiClient()) {
         CommentListResponseSchema,
         { signal },
       ),
-    addComment: (id: string, text: string) =>
-      mutate(withPath(postsEndpoints.addComment, { id }), CommentResponseSchema, {
-        text,
-      }),
+    replies: (id: string, cursor?: string, signal?: AbortSignal) =>
+      api.request(
+        withPath(postsEndpoints.replies, { id }, { cursor }),
+        CommentListResponseSchema,
+        { signal },
+      ),
+    likeComment: (id: string) =>
+      mutate(withPath(postsEndpoints.likeComment, { id }), LikeResponseSchema),
+    unlikeComment: (id: string) =>
+      mutate(
+        withPath(postsEndpoints.unlikeComment, { id }),
+        LikeResponseSchema,
+      ),
+    addComment: (id: string, text: string, replyToCommentId?: string) =>
+      mutate(
+        withPath(postsEndpoints.addComment, { id }),
+        CommentResponseSchema,
+        {
+          text,
+          ...(replyToCommentId && { replyToCommentId }),
+        },
+      ),
     removeComment: (id: string) =>
       mutate(
         withPath(postsEndpoints.removeComment, { id }),

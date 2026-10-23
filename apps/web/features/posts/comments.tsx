@@ -12,6 +12,8 @@ import { describeFailure } from "@/lib/api/messages";
 import { createPostsClient } from "@/lib/api/posts";
 import { cn } from "@/lib/utils";
 
+import { LikeButton, useLike } from "./like-button";
+
 import { timeAgo } from "./time";
 
 // One-line comment field. Empty or space-only text cannot be sent; the text
@@ -20,10 +22,12 @@ export function CommentForm({
   postId,
   onAdded,
   className,
+  replyTo,
 }: {
   postId: string;
   onAdded: (comment: Comment) => void;
   className?: string;
+  replyTo?: Comment;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -37,7 +41,11 @@ export function CommentForm({
     pending.current = true;
     setSending(true);
     setError(undefined);
-    const result = await createPostsClient().addComment(postId, text);
+    const result = await createPostsClient().addComment(
+      postId,
+      text,
+      replyTo?.id,
+    );
     pending.current = false;
     setSending(false);
     if (!result.ok) {
@@ -49,17 +57,27 @@ export function CommentForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className={cn("flex flex-col gap-1", className)}>
+    <form
+      onSubmit={submit}
+      noValidate
+      className={cn("flex flex-col gap-1", className)}
+    >
+      {replyTo && (
+        <p className="text-xs text-muted-foreground">
+          Ответ для{" "}
+          <span className="font-semibold">@{replyTo.author.username}</span>
+        </p>
+      )}
       <div className="flex items-center gap-2">
-        <label htmlFor={`comment-${postId}`} className="sr-only">
-          Комментарий
+        <label htmlFor={`comment-${replyTo?.id ?? postId}`} className="sr-only">
+          {replyTo ? "Ответ" : "Комментарий"}
         </label>
         <textarea
-          id={`comment-${postId}`}
+          id={`comment-${replyTo?.id ?? postId}`}
           rows={1}
           value={text}
           disabled={sending}
-          placeholder="Добавьте комментарий…"
+          placeholder={replyTo ? "Напишите ответ…" : "Добавьте комментарий…"}
           onChange={(event) => {
             setText(event.target.value);
             setError(undefined);
@@ -95,10 +113,19 @@ export function CommentForm({
 export function CommentItem({
   comment,
   onDeleted,
+  onReply,
+  onReplyCountChange,
 }: {
   comment: Comment;
   onDeleted: (id: string) => void;
+  onReply?: (target: Comment) => void;
+  onReplyCountChange?: (delta: number) => void;
 }) {
+  const like = useLike(comment.id, comment, "comment");
+  const [replyTo, setReplyTo] = useState<Comment>();
+  const [expanded, setExpanded] = useState(false);
+  const [addedReplies, setAddedReplies] = useState<Comment[]>([]);
+  const [replyCount, setReplyCount] = useState(comment.replyCount);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -109,8 +136,12 @@ export function CommentItem({
     const result = await createPostsClient().removeComment(comment.id);
     setBusy(false);
     // Already deleted elsewhere counts as done.
-    if (result.ok || (result.failure.kind === "api" && result.failure.status === 404)) {
+    if (
+      result.ok ||
+      (result.failure.kind === "api" && result.failure.status === 404)
+    ) {
       setConfirm(false);
+      if (!comment.parentId) onReplyCountChange?.(-replyCount);
       onDeleted(comment.id);
       return;
     }
@@ -119,34 +150,126 @@ export function CommentItem({
 
   const { author } = comment;
   return (
-    <li className="group flex gap-3 py-2">
-      <Link href={`/${author.username}`} aria-hidden tabIndex={-1} className="shrink-0">
-        <Avatar name={author.username} src={author.avatarUrl} size={32} />
-      </Link>
-      <div className="min-w-0 flex-1 text-sm">
-        <p className="break-words whitespace-pre-line">
-          <Link href={`/${author.username}`} className="mr-1 font-semibold">
-            {author.username}
-          </Link>
-          {comment.text}
-        </p>
-        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-          <time dateTime={comment.createdAt}>{timeAgo(comment.createdAt)}</time>
-          {comment.canDelete && (
+    <li className="py-2">
+      <div className="group flex gap-3">
+        <Link
+          href={`/${author.username}`}
+          aria-hidden
+          tabIndex={-1}
+          className="shrink-0"
+        >
+          <Avatar name={author.username} src={author.avatarUrl} size={32} />
+        </Link>
+        <div className="min-w-0 flex-1 text-sm">
+          <p className="break-words whitespace-pre-line">
+            <Link href={`/${author.username}`} className="mr-1 font-semibold">
+              {author.username}
+            </Link>
+            {comment.replyTo && (
+              <span className="mr-1 text-muted-foreground">
+                Ответ для{" "}
+                <Link
+                  href={`/${comment.replyTo.username}`}
+                  className="font-semibold"
+                >
+                  @{comment.replyTo.username}
+                </Link>{" "}
+                ·{" "}
+              </span>
+            )}
+            {comment.text}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <time dateTime={comment.createdAt}>
+              {timeAgo(comment.createdAt)}
+            </time>
+            <span>{like.likeCount} нравится</span>
             <button
               type="button"
-              onClick={() => setConfirm(true)}
-              aria-label={`Удалить комментарий ${author.username}`}
               className="font-semibold hover:text-foreground"
+              onClick={() => (onReply ? onReply(comment) : setReplyTo(comment))}
             >
-              Удалить
+              Ответить
             </button>
-          )}
+            {comment.canDelete && (
+              <button
+                type="button"
+                onClick={() => setConfirm(true)}
+                aria-label={`Удалить комментарий ${author.username}`}
+                className="font-semibold hover:text-foreground"
+              >
+                Удалить
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="shrink-0 self-start [&_svg]:size-4">
+          <LikeButton liked={like.liked} onToggle={like.toggle} />
         </div>
       </div>
+      {like.error && (
+        <p role="alert" className="text-xs text-destructive">
+          {like.error}
+        </p>
+      )}
+      {!comment.parentId && (
+        <div className="ml-11">
+          {!expanded && replyCount > 0 && (
+            <button
+              type="button"
+              className="py-2 text-xs font-semibold text-muted-foreground"
+              onClick={() => setExpanded(true)}
+            >
+              Посмотреть ответы ({replyCount})
+            </button>
+          )}
+          {expanded && (
+            <ReplyList
+              root={comment}
+              added={addedReplies}
+              onReply={setReplyTo}
+              onDeleted={(id) => {
+                setAddedReplies((items) =>
+                  items.filter((item) => item.id !== id),
+                );
+                setReplyCount((count) => Math.max(0, count - 1));
+                onReplyCountChange?.(-1);
+              }}
+            />
+          )}
+          {replyTo && (
+            <div className="border-l pl-3">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground"
+                onClick={() => setReplyTo(undefined)}
+              >
+                Отменить ответ
+              </button>
+              <CommentForm
+                key={replyTo.id}
+                postId={comment.postId}
+                replyTo={replyTo}
+                onAdded={(reply) => {
+                  setAddedReplies((items) => [...items, reply]);
+                  setReplyCount((count) => count + 1);
+                  onReplyCountChange?.(1);
+                  setExpanded(true);
+                  setReplyTo(undefined);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
       {confirm && (
         <ConfirmDialog
           title="Удалить комментарий?"
+          description={
+            !comment.parentId && replyCount > 0
+              ? "Ответы под этим комментарием тоже будут удалены."
+              : undefined
+          }
           confirmLabel="Удалить"
           busy={busy}
           error={error}
@@ -158,6 +281,60 @@ export function CommentItem({
         />
       )}
     </li>
+  );
+}
+
+function ReplyList({
+  root,
+  added,
+  onReply,
+  onDeleted,
+}: {
+  root: Comment;
+  added: Comment[];
+  onReply: (target: Comment) => void;
+  onDeleted: (id: string) => void;
+}) {
+  const list = usePagedList<Comment>(
+    (cursor, signal) => createPostsClient().replies(root.id, cursor, signal),
+    root.id,
+  );
+  const own = new Set(added.map((item) => item.id));
+  const items = [...list.items.filter((item) => !own.has(item.id)), ...added];
+  return (
+    <>
+      {list.failure && (
+        <ApiErrorNotice failure={list.failure} onRetry={list.retry} />
+      )}
+      {list.loading && (
+        <p role="status" className="text-xs text-muted-foreground">
+          Загрузка ответов…
+        </p>
+      )}
+      <ul aria-label={`Ответы на комментарий ${root.author.username}`}>
+        {items.map((reply) => (
+          <CommentItem
+            key={reply.id}
+            comment={reply}
+            onReply={onReply}
+            onDeleted={(id) => {
+              list.remove((item) => item.id !== id);
+              onDeleted(id);
+            }}
+          />
+        ))}
+      </ul>
+      {list.cursor && !list.failure && (
+        <button
+          type="button"
+          disabled={list.loading}
+          onClick={list.more}
+          className="py-2 text-xs font-semibold text-muted-foreground"
+        >
+          Показать ещё ответы
+        </button>
+      )}
+    </>
   );
 }
 
@@ -177,11 +354,16 @@ export function CommentList({
     postId,
   );
   const own = new Set(added.map((comment) => comment.id));
-  const items = [...list.items.filter((comment) => !own.has(comment.id)), ...added];
+  const items = [
+    ...list.items.filter((comment) => !own.has(comment.id)),
+    ...added,
+  ];
 
   return (
     <section aria-label="Комментарии">
-      {list.failure && <ApiErrorNotice failure={list.failure} onRetry={list.retry} />}
+      {list.failure && (
+        <ApiErrorNotice failure={list.failure} onRetry={list.retry} />
+      )}
       {list.loading && list.items.length === 0 && (
         <p role="status" className="py-2 text-sm text-muted-foreground">
           Загрузка комментариев…
@@ -210,7 +392,9 @@ export function CommentList({
         ))}
       </ul>
       {!list.loading && !list.failure && items.length === 0 && (
-        <p className="py-2 text-sm text-muted-foreground">Комментариев пока нет.</p>
+        <p className="py-2 text-sm text-muted-foreground">
+          Комментариев пока нет.
+        </p>
       )}
     </section>
   );

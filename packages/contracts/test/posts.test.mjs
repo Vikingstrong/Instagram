@@ -115,6 +115,7 @@ test("comment lists carry delete rights; likes report the resulting state", () =
     text: "Красиво",
     createdAt: new Date().toISOString(),
     canDelete: false,
+    parentId: null, replyTo: null, replyCount: 0, liked: false, likeCount: 0,
   };
   const page = { items: [comment], nextCursor: null };
   assert.deepEqual(CommentListResponseSchema.parse(page), page);
@@ -124,4 +125,15 @@ test("comment lists carry delete rights; likes report the resulting state", () =
   );
   assert.deepEqual(LikeResponseSchema.parse({ liked: true, likeCount: 1 }), { liked: true, likeCount: 1 });
   assert.equal(LikeResponseSchema.safeParse({ liked: true, likeCount: -1 }).success, false);
+});
+
+
+test("reply destinations are UUIDs and cannot supply recipient identity", () => {
+  const id = randomUUID();
+  assert.deepEqual(CreateCommentRequestSchema.parse({ text: "Ответ", replyToCommentId: id }), { text: "Ответ", replyToCommentId: id });
+  for (const body of [
+    { text: "Ответ", replyToCommentId: "bad" },
+    { text: "Ответ", replyToCommentId: id, replyToUserId: randomUUID() },
+    { text: "Ответ", parentId: id },
+  ]) assert.equal(CreateCommentRequestSchema.safeParse(body).success, false);
 });
