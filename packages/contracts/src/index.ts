@@ -96,6 +96,22 @@ export {
   type LikeResponse,
 } from "./posts.js";
 
+export {
+  DirectMessageTextSchema,
+  OpenConversationRequestSchema,
+  SendMessageRequestSchema,
+  DirectMessageSchema,
+  ConversationSchema,
+  ConversationResponseSchema,
+  ConversationListResponseSchema,
+  DirectMessageResponseSchema,
+  DirectMessageListResponseSchema,
+  directEndpoints,
+  type DirectMessage,
+  type Conversation,
+  type SendMessageRequest,
+} from "./direct.js";
+
 // This describes the future FND-04 endpoint; FND-02 does not expose an HTTP route.
 export const readinessEndpoint = {
   method: "GET",

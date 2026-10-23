@@ -6,7 +6,22 @@ export type AuthConfiguration = {
   allowedOrigins: ReadonlySet<string>;
   secureCookies: boolean;
   csrfSecret: string;
+  // Per socket address and 5 minutes. Behind the Next proxy every browser
+  // shares one address, so deployments and browser tests may raise these.
+  mutationIpLimit: number;
+  readIpLimit: number;
 };
+
+function positiveLimit(
+  name: string,
+  value: string | undefined,
+  fallback: number,
+) {
+  if (value === undefined || value === '') return fallback;
+  if (!/^[1-9]\d{0,6}$/.test(value))
+    throw new Error(`${name} must be a positive integer.`);
+  return Number(value);
+}
 export function readAuthConfiguration(
   env: NodeJS.ProcessEnv,
 ): AuthConfiguration {
@@ -48,5 +63,15 @@ export function readAuthConfiguration(
     allowedOrigins,
     secureCookies: production,
     csrfSecret,
+    mutationIpLimit: positiveLimit(
+      'AUTH_MUTATION_IP_LIMIT',
+      env.AUTH_MUTATION_IP_LIMIT,
+      60,
+    ),
+    readIpLimit: positiveLimit(
+      'AUTH_READ_IP_LIMIT',
+      env.AUTH_READ_IP_LIMIT,
+      300,
+    ),
   };
 }

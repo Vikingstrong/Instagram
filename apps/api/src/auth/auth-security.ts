@@ -27,7 +27,11 @@ export class AuthSecurity {
   readonly sessionCookie: string;
   private readonly csrfCookie: string;
   readonly cookieOptions: CookieOptions;
+  readonly mutationIpLimit: number;
+  readonly readIpLimit: number;
   constructor(@Inject(AUTH_CONFIG) private readonly config: AuthConfiguration) {
+    this.mutationIpLimit = config.mutationIpLimit;
+    this.readIpLimit = config.readIpLimit;
     this.sessionCookie = config.secureCookies
       ? '__Host-instagram-session'
       : 'instagram-session';
@@ -96,7 +100,7 @@ export class AuthMutationGuard implements CanActivate {
     this.limiter.consume(
       'mutation-ip',
       request.socket.remoteAddress ?? 'unknown',
-      60,
+      this.security.mutationIpLimit,
       300_000,
     );
     this.security.assertMutation(request);
@@ -118,7 +122,7 @@ export class UploadMutationGuard implements CanActivate {
     this.limiter.consume(
       'mutation-ip',
       request.socket.remoteAddress ?? 'unknown',
-      60,
+      this.security.mutationIpLimit,
       300_000,
     );
     this.security.assertMutation(request);

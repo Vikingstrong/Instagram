@@ -44,4 +44,20 @@ describe('Auth configuration', () => {
       readAuthConfiguration({ AUTH_CSRF_SECRET: 'private-secret' }),
     ).toThrow('AUTH_CSRF_SECRET must contain');
   });
+  it('keeps per-address limits unless explicitly raised', () => {
+    expect(readAuthConfiguration({})).toMatchObject({
+      mutationIpLimit: 60,
+      readIpLimit: 300,
+    });
+    expect(
+      readAuthConfiguration({
+        AUTH_MUTATION_IP_LIMIT: '500',
+        AUTH_READ_IP_LIMIT: '2000',
+      }),
+    ).toMatchObject({ mutationIpLimit: 500, readIpLimit: 2000 });
+    for (const value of ['0', '-1', '1.5', 'many'])
+      expect(() =>
+        readAuthConfiguration({ AUTH_MUTATION_IP_LIMIT: value }),
+      ).toThrow('AUTH_MUTATION_IP_LIMIT must be a positive integer.');
+  });
 });

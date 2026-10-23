@@ -32,32 +32,36 @@ enum MediaState {
 }
 
 model User {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email             String        @db.VarChar(254)
-  emailKey          String        @unique @db.VarChar(254)
-  username          String        @db.VarChar(30)
-  usernameKey       String        @unique @db.VarChar(30)
-  passwordHash      String        @db.Text
-  emailVerifiedAt   DateTime?     @db.Timestamptz(3)
-  credentialVersion Int           @default(0)
-  displayName       String        @default("") @db.VarChar(30)
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String          @db.VarChar(254)
+  emailKey          String          @unique @db.VarChar(254)
+  username          String          @db.VarChar(30)
+  usernameKey       String          @unique @db.VarChar(30)
+  passwordHash      String          @db.Text
+  emailVerifiedAt   DateTime?       @db.Timestamptz(3)
+  credentialVersion Int             @default(0)
+  displayName       String          @default("") @db.VarChar(30)
   // Unicode lower case computed by the API: search must not depend on the
   // database collation ("C" folds only ASCII).
-  displayNameKey    String        @default("") @db.Text
-  bio               String        @default("") @db.VarChar(150)
-  isPrivate         Boolean       @default(false)
-  avatarMediaId     String?       @unique @db.Uuid
-  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
+  displayNameKey    String          @default("") @db.Text
+  bio               String          @default("") @db.VarChar(150)
+  isPrivate         Boolean         @default(false)
+  avatarMediaId     String?         @unique @db.Uuid
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime        @default(now()) @updatedAt @db.Timestamptz(3)
   sessions          AuthSession[]
   tokens            AuthToken[]
-  following         Follow[]      @relation("follower")
-  followers         Follow[]      @relation("followee")
-  avatar            Media?        @relation("avatar", fields: [avatarMediaId], references: [id], onDelete: SetNull, onUpdate: Restrict)
-  media             Media[]       @relation("owner")
+  following         Follow[]        @relation("follower")
+  followers         Follow[]        @relation("followee")
+  avatar            Media?          @relation("avatar", fields: [avatarMediaId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  media             Media[]         @relation("owner")
   posts             Post[]
   likes             PostLike[]
   comments          Comment[]
+  conversationsA    Conversation[]  @relation("participantA")
+  conversationsB    Conversation[]  @relation("participantB")
+  conversationsMade Conversation[]  @relation("creator")
+  messages          DirectMessage[]
 
   @@map("auth_users")
 }
@@ -96,17 +100,17 @@ model AuthToken {
 }
 
 model MailDelivery {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tokenId        String    @unique @db.Uuid
-  payload        String?   @db.Text
-  attempts       Int       @default(0)
-  nextAttemptAt  DateTime  @default(now()) @db.Timestamptz(3)
-  leaseUntil     DateTime? @db.Timestamptz(3)
-  claimId        String?   @db.Uuid
-  sentAt         DateTime? @db.Timestamptz(3)
-  cancelledAt    DateTime? @db.Timestamptz(3)
-  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
-  token          AuthToken @relation(fields: [tokenId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenId       String    @unique @db.Uuid
+  payload       String?   @db.Text
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now()) @db.Timestamptz(3)
+  leaseUntil    DateTime? @db.Timestamptz(3)
+  claimId       String?   @db.Uuid
+  sentAt        DateTime? @db.Timestamptz(3)
+  cancelledAt   DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  token         AuthToken @relation(fields: [tokenId], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   @@index([sentAt, cancelledAt, nextAttemptAt])
   @@map("mail_deliveries")
@@ -153,13 +157,13 @@ model Media {
 
 // FR-04: exactly one image per post. Created only with READY media.
 model Post {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authorId  String   @db.Uuid
-  mediaId   String   @unique @db.Uuid
-  caption   String   @default("") @db.VarChar(2200)
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  media     Media    @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId  String     @db.Uuid
+  mediaId   String     @unique @db.Uuid
+  caption   String     @default("") @db.VarChar(2200)
+  createdAt DateTime   @default(now()) @db.Timestamptz(3)
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  media     Media      @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
   likes     PostLike[]
   comments  Comment[]
 
@@ -194,4 +198,42 @@ model Comment {
   @@index([postId, createdAt, id])
   @@index([authorId])
   @@map("comments")
+}
+
+// FR-09: one conversation per pair of users. The pair is stored ordered
+// (userAId < userBId, CHECK in the migration) so the unique key covers both
+// directions. lastActivityAt orders the list; it moves with each message.
+model Conversation {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userAId        String          @db.Uuid
+  userBId        String          @db.Uuid
+  createdById    String          @db.Uuid
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  lastActivityAt DateTime        @default(now()) @db.Timestamptz(3)
+  userA          User            @relation("participantA", fields: [userAId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  userB          User            @relation("participantB", fields: [userBId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  createdBy      User            @relation("creator", fields: [createdById], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  messages       DirectMessage[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId, lastActivityAt(sort: Desc), id(sort: Desc)])
+  @@index([userBId, lastActivityAt(sort: Desc), id(sort: Desc)])
+  @@map("direct_conversations")
+}
+
+// A retry with the same (senderId, clientMessageId) finds the stored message
+// instead of creating a duplicate.
+model DirectMessage {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId  String       @db.Uuid
+  senderId        String       @db.Uuid
+  clientMessageId String       @db.Uuid
+  text            String       @db.VarChar(1000)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  sender          User         @relation(fields: [senderId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([senderId, clientMessageId])
+  @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("direct_messages")
 }

@@ -13,6 +13,7 @@ import { AuthError } from './auth.error.js';
 import { MailService } from '../mail/mail.service.js';
 import { AUTH_CONFIG, type AuthConfiguration } from './auth.config.js';
 import type { AuthTokenPurpose } from '../generated/prisma/client.js';
+import { SessionRevocations } from './session-revocations.js';
 
 export const SESSION_TTL_MS = 7 * 24 * 3600_000;
 const sessionPattern = /^[A-Za-z0-9_-]{43}$/;
@@ -45,6 +46,8 @@ export class AuthService {
     @Inject(PasswordHasher) private readonly hasher: PasswordHasher,
     @Inject(MailService) private readonly mail: MailService,
     @Inject(AUTH_CONFIG) private readonly config: AuthConfiguration,
+    @Inject(SessionRevocations)
+    private readonly revocations: SessionRevocations,
   ) {}
   // Registration signs the new account in atomically: the session is created in
   // the same transaction as the account and its verification mail. Protected
@@ -158,10 +161,12 @@ export class AuthService {
 
   async logout(token: string | undefined): Promise<void> {
     if (!token || !sessionPattern.test(token)) return;
+    const tokenHash = sessionHash(token);
     await this.database.prisma.authSession.updateMany({
-      where: { tokenHash: sessionHash(token), revokedAt: null },
+      where: { tokenHash, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    this.revocations.publish({ tokenHash });
   }
 
   private async issueToken(
@@ -241,59 +246,65 @@ export class AuthService {
       select: { userId: true },
     });
     if (!hint) throw new AuthError('INVALID_OR_EXPIRED_TOKEN');
-    await this.database.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<{ credentialVersion: number }[]>`
+    const revokedSessions = await this.database.prisma.$transaction(
+      async (tx) => {
+        const rows = await tx.$queryRaw<{ credentialVersion: number }[]>`
         SELECT "credentialVersion" FROM auth_users WHERE id = ${hint.userId}::uuid FOR UPDATE`;
-      const token = await tx.authToken.findUnique({
-        where: { tokenHash: hash },
-      });
-      const now = new Date();
-      if (
-        !rows[0] ||
-        !token ||
-        token.purpose !== purpose ||
-        token.consumedAt ||
-        token.revokedAt ||
-        token.expiresAt <= now ||
-        token.credentialVersion !== rows[0].credentialVersion
-      )
-        throw new AuthError('INVALID_OR_EXPIRED_TOKEN');
-      await tx.authToken.update({
-        where: { id: token.id },
-        data: { consumedAt: now },
-      });
-      if (purpose === 'EMAIL_VERIFICATION') {
-        await tx.user.update({
-          where: { id: token.userId },
-          data: { emailVerifiedAt: now },
+        const token = await tx.authToken.findUnique({
+          where: { tokenHash: hash },
         });
-        await tx.authToken.updateMany({
-          where: {
-            userId: token.userId,
-            purpose,
-            consumedAt: null,
-            revokedAt: null,
-          },
-          data: { revokedAt: now },
+        const now = new Date();
+        if (
+          !rows[0] ||
+          !token ||
+          token.purpose !== purpose ||
+          token.consumedAt ||
+          token.revokedAt ||
+          token.expiresAt <= now ||
+          token.credentialVersion !== rows[0].credentialVersion
+        )
+          throw new AuthError('INVALID_OR_EXPIRED_TOKEN');
+        await tx.authToken.update({
+          where: { id: token.id },
+          data: { consumedAt: now },
         });
-        await this.mail.cancel(tx, token.userId, purpose);
-      } else {
-        if (!passwordHash) throw new AuthError('INVALID_REQUEST');
-        await tx.user.update({
-          where: { id: token.userId },
-          data: { passwordHash, credentialVersion: { increment: 1 } },
-        });
-        await tx.authSession.updateMany({
-          where: { userId: token.userId, revokedAt: null },
-          data: { revokedAt: now },
-        });
-        await tx.authToken.updateMany({
-          where: { userId: token.userId, consumedAt: null, revokedAt: null },
-          data: { revokedAt: now },
-        });
-        await this.mail.cancel(tx, token.userId);
-      }
-    });
+        if (purpose === 'EMAIL_VERIFICATION') {
+          await tx.user.update({
+            where: { id: token.userId },
+            data: { emailVerifiedAt: now },
+          });
+          await tx.authToken.updateMany({
+            where: {
+              userId: token.userId,
+              purpose,
+              consumedAt: null,
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
+          await this.mail.cancel(tx, token.userId, purpose);
+          return false;
+        } else {
+          if (!passwordHash) throw new AuthError('INVALID_REQUEST');
+          await tx.user.update({
+            where: { id: token.userId },
+            data: { passwordHash, credentialVersion: { increment: 1 } },
+          });
+          await tx.authSession.updateMany({
+            where: { userId: token.userId, revokedAt: null },
+            data: { revokedAt: now },
+          });
+          await tx.authToken.updateMany({
+            where: { userId: token.userId, consumedAt: null, revokedAt: null },
+            data: { revokedAt: now },
+          });
+          await this.mail.cancel(tx, token.userId);
+          return true;
+        }
+      },
+    );
+    // A password reset signs out everywhere, including open streams.
+    if (revokedSessions) this.revocations.publish({ userId: hint.userId });
   }
 
   async verifyEmail(token: string): Promise<void> {
