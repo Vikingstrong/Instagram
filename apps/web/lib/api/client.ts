@@ -77,7 +77,9 @@ export function createApiClient({
     mode,
     async request(endpoint, schema, { body, signal, csrfToken } = {}) {
       const headers: Record<string, string> = { Accept: "application/json" };
-      if (body !== undefined) {
+      // FormData (uploads) sets its own multipart boundary header.
+      const multipart = body instanceof FormData;
+      if (body !== undefined && !multipart) {
         headers["Content-Type"] = "application/json";
       }
       if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -87,7 +89,10 @@ export function createApiClient({
         response = await fetchImpl(`${baseUrl}${endpoint.path}`, {
           method: endpoint.method,
           headers,
-          body: body === undefined ? undefined : JSON.stringify(body),
+          body:
+            body === undefined || multipart
+              ? (body as FormData | undefined)
+              : JSON.stringify(body),
           // Personalized responses must never land in a shared cache.
           cache: "no-store",
           credentials: "same-origin",

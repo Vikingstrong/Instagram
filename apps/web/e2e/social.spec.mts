@@ -49,10 +49,12 @@ test('two users: search, private follow request, approval and unfollow', async (
     const ownerPage = await ownerContext.newPage();
     await login(ownerPage, owner.account);
     await ownerPage.goto('/accounts/edit');
-    await ownerPage.getByRole('textbox', { name: /^Имя$/ }).fill('Закрытый Владелец');
-    await ownerPage.getByRole('switch').check();
+    await ownerPage.getByRole('textbox', { name: 'Имя', exact: true }).fill('Закрытый Владелец');
     await ownerPage.getByRole('button', { name: 'Отправить' }).click();
     await expect(ownerPage.getByText('Профиль сохранён.')).toBeVisible();
+    await ownerPage.goto('/accounts/privacy');
+    await ownerPage.getByRole('switch', { name: 'Закрытый аккаунт' }).click();
+    await expect(ownerPage.getByText('Аккаунт закрыт. Текущие подписчики сохранены.')).toBeVisible();
 
     await login(page, requester.account);
     await page.goto('/search');
@@ -62,8 +64,8 @@ test('two users: search, private follow request, approval and unfollow', async (
     await expect(page).toHaveURL(new RegExp(`/${name}$`));
     await expect(page.getByRole('heading', { name })).toBeVisible();
     await expect(page.getByText('Это закрытый аккаунт')).toBeVisible();
-    await page.getByRole('button', { name: `Подписаться: ${name}` }).click();
-    await expect(page.getByRole('button', { name: `Запрос отправлен: ${name}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Подписаться', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Запрос отправлен', exact: true })).toBeVisible();
     await expect(page.getByText('Это закрытый аккаунт')).toBeVisible();
 
     await ownerPage.goto('/notifications');
@@ -71,13 +73,15 @@ test('two users: search, private follow request, approval and unfollow', async (
     await expect(ownerPage.getByText('Новых запросов нет.')).toBeVisible();
 
     await page.reload();
-    await expect(page.getByRole('button', { name: `Вы подписаны: ${name}` })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Подписки', exact: true })).toBeVisible();
     await expect(page.getByText('1 подписчик', { exact: true })).toBeVisible();
     await expect(page.getByText('Публикаций пока нет')).toBeVisible();
     await expect(page.getByText('Это закрытый аккаунт')).toHaveCount(0);
 
-    await page.getByRole('button', { name: `Вы подписаны: ${name}` }).click();
-    await expect(page.getByRole('button', { name: `Подписаться: ${name}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Подписки', exact: true }).click();
+    const confirm = page.getByRole('dialog', { name: `Отменить подписку на @${name}?` });
+    await confirm.getByRole('button', { name: 'Отменить подписку' }).click();
+    await expect(page.getByRole('button', { name: 'Подписаться', exact: true })).toBeVisible();
     await expect(page.getByText('Это закрытый аккаунт')).toBeVisible();
     await expect(page.getByText('0 подписчиков', { exact: true })).toBeVisible();
   } finally {

@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 
+import { MediaImage } from "./media-image";
+
 const gradients = [
   "from-amber-400 to-rose-500",
   "from-sky-400 to-indigo-600",
@@ -20,13 +22,16 @@ function pickGradient(seed: string) {
 type AvatarProps = {
   name: string;
   size: number;
+  // Access-checked avatar image; initials on a gradient when there is none.
+  src?: string | null;
   storyRing?: boolean;
   className?: string;
 };
 
-// Placeholder avatar: initials on a gradient until real media arrives (stage 4).
-export function Avatar({ name, size, storyRing, className }: AvatarProps) {
-  const face = (
+export function Avatar({ name, size, src, storyRing, className }: AvatarProps) {
+  const face = src ? (
+    <AvatarPhoto src={src} size={size} className={cn(!storyRing && className)} />
+  ) : (
     <span
       aria-hidden
       style={{ width: size, height: size, fontSize: size * 0.4 }}
@@ -56,16 +61,51 @@ export function Avatar({ name, size, storyRing, className }: AvatarProps) {
   );
 }
 
-// Grey silhouette shown for a user without a photo.
+function AvatarPhoto({
+  src,
+  size,
+  className,
+}: {
+  src: string;
+  size: number;
+  className?: string;
+}) {
+  return (
+    <MediaImage
+      src={src}
+      alt=""
+      aria-hidden
+      width={size}
+      height={size}
+      style={{ width: size, height: size }}
+      className={cn("shrink-0 rounded-full bg-secondary object-cover", className)}
+    />
+  );
+}
+
+// The user's photo, or a grey silhouette for a user without one.
 export function DefaultAvatar({
   size,
+  src,
   active,
   className,
 }: {
   size: number;
+  src?: string | null;
   active?: boolean;
   className?: string;
 }) {
+  if (src)
+    return (
+      <AvatarPhoto
+        src={src}
+        size={size}
+        className={cn(
+          active && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
+          className,
+        )}
+      />
+    );
   return (
     <span
       aria-hidden

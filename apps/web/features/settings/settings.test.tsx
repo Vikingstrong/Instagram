@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/accounts/edit" }));
 vi.mock("@/lib/navigation", () => ({ replaceLocation: vi.fn() }));
 
 const csrfToken = `${"a".repeat(43)}.1792640000.${"b".repeat(43)}`;
-const own = { id: viewer.id, username: "person", displayName: "", bio: "", isPrivate: false };
+const own = { id: viewer.id, username: "person", displayName: "", bio: "", avatarUrl: null, isPrivate: false };
 const errorBody = (code: string, message: string) => ({
   error: { code, message, requestId: "8f4c5d1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f" },
 });
@@ -68,7 +68,9 @@ describe("edit profile", () => {
     const bio = await screen.findByRole("textbox", { name: /О себе/ });
     const submit = screen.getByRole("button", { name: "Отправить" }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
-    await user.type(bio, "x".repeat(151));
+    // Paste instead of typing 151 keystrokes: same input, much faster.
+    await user.click(bio);
+    await user.paste("x".repeat(151));
     expect(submit.disabled).toBe(true);
     expect(screen.getByRole("alert").textContent).toBe("Проверьте введённые данные.");
     await user.clear(bio);

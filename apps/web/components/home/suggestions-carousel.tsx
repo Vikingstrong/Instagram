@@ -52,7 +52,7 @@ export function SuggestionsCarousel() {
               </button>
 
               <Link href={`/${user.username}`} className="flex flex-col items-center">
-                <Avatar name={user.username} size={92} />
+                <Avatar name={user.username} src={user.avatarUrl} size={92} />
                 <span className="mt-3 w-full truncate text-center text-sm font-semibold">
                   {user.displayName || user.username}
                 </span>

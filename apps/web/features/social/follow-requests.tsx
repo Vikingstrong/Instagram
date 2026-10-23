@@ -55,7 +55,7 @@ export function FollowRequests() {
       <ul className="flex flex-col">
         {list.items.map((item) => (
           <li key={item.user.id} className="flex items-center gap-3 py-2">
-            <Avatar name={item.user.username} size={44} />
+            <Avatar name={item.user.username} src={item.user.avatarUrl} size={44} />
             <div className="min-w-0 flex-1 leading-tight">
               <Link
                 href={`/${item.user.username}`}

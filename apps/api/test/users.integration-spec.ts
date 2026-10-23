@@ -137,6 +137,7 @@ describe('Users profile HTTP with real PostgreSQL', () => {
         username: user.username,
         displayName: '',
         bio: '',
+        avatarUrl: null,
         isPrivate: false,
       },
     });
@@ -295,6 +296,7 @@ describe('Users profile HTTP with real PostgreSQL', () => {
       username: renamed,
       displayName: 'Новое имя',
       bio: 'Био\nв две строки',
+      avatarUrl: null,
       isPrivate: false,
     });
     expect(

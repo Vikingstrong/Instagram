@@ -38,6 +38,7 @@ export {
   ProfileRelationshipSchema,
   UserProfileSchema,
   UserProfileResponseSchema,
+  MediaUrlSchema,
   OwnProfileSchema,
   OwnProfileResponseSchema,
   UpdateOwnProfileRequestSchema,
@@ -70,6 +71,21 @@ export {
   type FollowRequest,
   type FollowResponse,
 } from "./social.js";
+
+export {
+  imageUploadRules,
+  PostCaptionSchema,
+  CreatePostFieldsSchema,
+  PostImageSchema,
+  PostSchema,
+  PostResponseSchema,
+  PostListResponseSchema,
+  DeletePostResponseSchema,
+  AvatarResponseSchema,
+  postsEndpoints,
+  type Post,
+  type PostListResponse,
+} from "./posts.js";
 
 // This describes the future FND-04 endpoint; FND-02 does not expose an HTTP route.
 export const readinessEndpoint = {

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
+  imageUploadRules,
   UpdateOwnProfileRequestSchema,
   type OwnProfile,
   type UpdateOwnProfileRequest,
@@ -11,8 +12,10 @@ import {
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { DefaultAvatar } from "@/components/ui-ig/avatar";
 import { describeFailure } from "@/lib/api/messages";
+import { checkImageFile, createPostsClient, type PostsClient } from "@/lib/api/posts";
 import { createSocialClient } from "@/lib/api/social";
 import { replaceLocation } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
 
 import { settingsField, settingsPrimaryButton } from "./settings-shell";
 import { useOwnProfile } from "./use-own-profile";
@@ -34,8 +37,13 @@ export function ProfileSettings() {
     return <ApiErrorNotice failure={load.failure} onRetry={retry} />;
   return (
     <>
+      <AvatarCard
+        profile={load.profile}
+        onChange={(url) => saved({ ...load.profile, avatarUrl: url })}
+      />
+      {/* A new photo must not reset text the user is still editing. */}
       <ProfileForm
-        key={JSON.stringify(load.profile)}
+        key={JSON.stringify({ ...load.profile, avatarUrl: undefined })}
         saved={load.profile}
         onEdit={() => setNotice(false)}
         onSaved={(profile) => {
@@ -103,59 +111,52 @@ function ProfileForm({
 
   return (
     <form onSubmit={submit} className="flex w-full max-w-150 flex-col gap-6" noValidate>
-      <div className="flex items-center gap-4 rounded-2xl bg-secondary p-4">
-        <DefaultAvatar size={56} />
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate font-semibold">{saved.username}</p>
-          <p className="truncate text-sm text-muted-foreground">
-            {saved.displayName || "Имя не указано"}
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled
-          title="Загрузка фото появится вместе с публикациями"
-          className="h-8 rounded-lg bg-ig-blue px-4 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          Новое фото
-        </button>
-      </div>
-
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">Имя пользователя</span>
-        <input
-          className={settingsField}
-          value={form.username}
-          autoComplete="username"
-          onChange={(event) => set({ username: event.target.value })}
-        />
-        <span className="text-xs text-muted-foreground">
-          3–30 символов: латиница, цифры, точка и подчёркивание.
-        </span>
-      </label>
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">Имя</span>
-        <input
-          className={settingsField}
-          value={form.displayName}
-          autoComplete="name"
-          onChange={(event) => set({ displayName: event.target.value })}
-        />
-        <span className="text-right text-xs text-muted-foreground">
-          {codePoints(form.displayName)} / 30
-        </span>
-      </label>
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">О себе</span>
-        <textarea
-          className={`${settingsField} min-h-24 resize-y`}
-          value={form.bio}
-          onChange={(event) => set({ bio: event.target.value })}
-        />
-        <span className="text-right text-xs text-muted-foreground">
-          {codePoints(form.bio)} / 150
-        </span>
-      </label>
+      <Field
+        id="settings-username"
+        label="Имя пользователя"
+        hint="3–30 символов: латиница, цифры, точка и подчёркивание."
+      >
+        {(props) => (
+          <input
+            {...props}
+            className={settingsField}
+            value={form.username}
+            autoComplete="username"
+            onChange={(event) => set({ username: event.target.value })}
+          />
+        )}
+      </Field>
+      <Field
+        id="settings-name"
+        label="Имя"
+        hint={`${codePoints(form.displayName)} / 30`}
+        counter
+      >
+        {(props) => (
+          <input
+            {...props}
+            className={settingsField}
+            value={form.displayName}
+            autoComplete="name"
+            onChange={(event) => set({ displayName: event.target.value })}
+          />
+        )}
+      </Field>
+      <Field
+        id="settings-bio"
+        label="О себе"
+        hint={`${codePoints(form.bio)} / 150`}
+        counter
+      >
+        {(props) => (
+          <textarea
+            {...props}
+            className={`${settingsField} min-h-24 resize-y`}
+            value={form.bio}
+            onChange={(event) => set({ bio: event.target.value })}
+          />
+        )}
+      </Field>
       {!valid && (
         <p role="alert" className="text-sm text-destructive">
           Проверьте введённые данные.
@@ -179,5 +180,124 @@ function ProfileForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// Profile photo (FR-03): upload replaces the previous one at once, removal
+// returns to the silhouette. The API checks the file like a post photo.
+function AvatarCard({
+  profile,
+  onChange,
+}: {
+  profile: OwnProfile;
+  onChange: (avatarUrl: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string>();
+  const input = useRef<HTMLInputElement>(null);
+  const pending = useRef(false);
+
+  async function run(action: () => ReturnType<PostsClient["removeAvatar"]>) {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setMessage(undefined);
+    const result = await action();
+    pending.current = false;
+    setBusy(false);
+    if (result.ok) onChange(result.data.avatarUrl);
+    else setMessage(describeFailure(result.failure));
+  }
+
+  function upload(file: File | undefined) {
+    if (!file) return;
+    const problem = checkImageFile(file);
+    if (problem) {
+      setMessage(problem);
+      return;
+    }
+    void run(() => createPostsClient().setAvatar(file));
+  }
+
+  return (
+    <div className="flex w-full max-w-150 flex-col gap-2">
+      <div className="flex items-center gap-4 rounded-2xl bg-secondary p-4">
+        <DefaultAvatar size={56} src={profile.avatarUrl} />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate font-semibold">{profile.username}</p>
+          <p className="truncate text-sm text-muted-foreground">
+            {profile.displayName || "Имя не указано"}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => input.current?.click()}
+            className="h-8 rounded-lg bg-ig-blue px-4 text-sm font-semibold text-white hover:bg-ig-blue-hover disabled:opacity-50"
+          >
+            {busy ? "Подождите…" : "Новое фото"}
+          </button>
+          {profile.avatarUrl && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void run(() => createPostsClient().removeAvatar())}
+              className="text-xs font-semibold text-destructive disabled:opacity-50"
+            >
+              Удалить фото
+            </button>
+          )}
+        </div>
+        <input
+          ref={input}
+          type="file"
+          accept={imageUploadRules.formats.join(",")}
+          className="sr-only"
+          tabIndex={-1}
+          aria-label="Фото профиля"
+          onChange={(event) => {
+            upload(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+      </div>
+      {message && (
+        <p role="alert" className="text-sm text-destructive">
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Label names the control; hints and counters are its description, so the
+// accessible name stays exactly the label text.
+function Field({
+  id,
+  label,
+  hint,
+  counter,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  counter?: boolean;
+  children: (props: { id: string; "aria-describedby": string }) => ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="font-semibold">
+        {label}
+      </label>
+      {children({ id, "aria-describedby": `${id}-hint` })}
+      <span
+        id={`${id}-hint`}
+        className={cn("text-xs text-muted-foreground", counter && "text-right")}
+      >
+        {hint}
+      </span>
+    </div>
   );
 }

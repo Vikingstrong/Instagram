@@ -199,9 +199,10 @@ export class SocialService {
         username: string;
         displayName: string;
         isPrivate: boolean;
+        avatarMediaId: string | null;
       }[]
     >`
-      SELECT u.id, u.username, u."displayName", u."isPrivate"
+      SELECT u.id, u.username, u."displayName", u."isPrivate", u."avatarMediaId"
       FROM auth_users u
       WHERE u."emailVerifiedAt" IS NOT NULL
         AND u.id <> ${viewerId}::uuid

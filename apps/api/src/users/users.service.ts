@@ -13,6 +13,7 @@ import { DatabaseService } from '../infrastructure/database/database.service.js'
 import { Prisma } from '../generated/prisma/client.js';
 import { AuthError } from '../auth/auth.error.js';
 import {
+  avatarUrl,
   decodeCursor,
   encodeCursor,
   summarySelect,
@@ -25,7 +26,12 @@ const ownSelect = {
   displayName: true,
   bio: true,
   isPrivate: true,
+  avatarMediaId: true,
 } as const;
+
+type OwnRow = { avatarMediaId: string | null } & Omit<OwnProfile, 'avatarUrl'>;
+const toOwnProfile = ({ avatarMediaId, ...user }: OwnRow): OwnProfile =>
+  OwnProfileSchema.parse({ ...user, avatarUrl: avatarUrl(avatarMediaId) });
 
 @Injectable()
 export class UsersService {
@@ -44,6 +50,7 @@ export class UsersService {
         ...ownSelect,
         _count: {
           select: {
+            posts: true,
             followers: { where: { status: 'ACCEPTED' } },
             following: { where: { status: 'ACCEPTED' } },
           },
@@ -70,11 +77,11 @@ export class UsersService {
       username: user.username,
       displayName: user.displayName,
       bio: user.bio,
-      avatarUrl: null,
+      avatarUrl: avatarUrl(user.avatarMediaId),
       isPrivate: user.isPrivate,
-      // Posts arrive with stage 4; there is nothing to count yet.
+      // Counters are public (FR-02), including posts of private profiles.
       counts: {
-        posts: 0,
+        posts: user._count.posts,
         followers: user._count.followers,
         following: user._count.following,
       },
@@ -88,7 +95,7 @@ export class UsersService {
       select: ownSelect,
     });
     if (!user) throw new AuthError('AUTHENTICATION_REQUIRED');
-    return OwnProfileSchema.parse(user);
+    return toOwnProfile(user);
   }
 
   async updateOwnProfile(
@@ -107,6 +114,7 @@ export class UsersService {
           where: { id: userId },
           data: {
             displayName: input.displayName,
+            displayNameKey: input.displayName?.toLowerCase(),
             bio: input.bio,
             isPrivate: input.isPrivate,
             ...(input.username !== undefined && {
@@ -123,7 +131,7 @@ export class UsersService {
             where: { followeeId: userId, status: 'PENDING' },
             data: { status: 'ACCEPTED', acceptedAt: new Date() },
           });
-        return OwnProfileSchema.parse(updated);
+        return toOwnProfile(updated);
       });
     } catch (error) {
       if (
@@ -135,7 +143,8 @@ export class UsersService {
     }
   }
 
-  // Case-insensitive substring match on username or display name, ordered by
+  // Case-insensitive (Unicode) substring match on username or display name
+  // keys written by the API, ordered by
   // username key so the keyset cursor is stable. Prisma passes contains into
   // LIKE unescaped, so %, _ and the escape character are escaped here.
   async search(query: UserSearchQuery): Promise<UserListResponse> {
@@ -146,7 +155,7 @@ export class UsersService {
         emailVerifiedAt: { not: null },
         OR: [
           { usernameKey: { contains: text.toLowerCase() } },
-          { displayName: { contains: text, mode: 'insensitive' } },
+          { displayNameKey: { contains: text.toLowerCase() } },
         ],
         ...(after && { usernameKey: { gt: after.username } }),
       },

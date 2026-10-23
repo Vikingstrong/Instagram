@@ -105,6 +105,7 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
         emailVerifiedAt: options.verified === false ? null : new Date(),
         isPrivate: options.isPrivate ?? false,
         displayName: options.displayName ?? '',
+        displayNameKey: (options.displayName ?? '').toLowerCase(),
       },
     });
     return { client, id: user.id, username: user.username };
@@ -481,6 +482,8 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
       ),
     );
     await account({ verified: false, displayName: `Hidden Zq${token}` });
+    // Unicode case folding must not depend on the database collation.
+    const cyrillic = await account({ displayName: `Ёжик Ж${token}` });
     const search = (query: string) =>
       viewer.client.get(
         `${socialEndpoints.search.path}?q=${encodeURIComponent(query)}`,
@@ -496,6 +499,13 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
       (await search(named[1]!.username.toUpperCase()).expect(200)).body,
     );
     expect(byName.items.map((item) => item.id)).toEqual([named[1]!.id]);
+    for (const query of [`ёЖИК ж${token}`, `ЁЖИК`]) {
+      expect(
+        UserListResponseSchema.parse(
+          (await search(query).expect(200)).body,
+        ).items.map((item) => item.id),
+      ).toContain(cyrillic.id);
+    }
     // LIKE wildcards are literal characters.
     for (const query of [`%${token}`, `_q${token}`, `\\${token}`]) {
       expect(

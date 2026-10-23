@@ -52,7 +52,9 @@ export function configureApp(app: INestApplication): void {
           const target = new URL(request.url, window.location.href);
           if (
             target.origin === window.location.origin &&
-            /^\/api\/v1\/(?:auth|users|me|search)\//.test(target.pathname) &&
+            /^\/api\/v1\/(?:auth|users|me|search|posts)\//.test(
+              target.pathname,
+            ) &&
             request.method.toUpperCase() !== 'GET'
           ) {
             const response = await fetch('/api/v1/auth/csrf', {

@@ -104,3 +104,26 @@ export class AuthMutationGuard implements CanActivate {
     return true;
   }
 }
+
+// File uploads: the same Origin/CSRF/rate checks as JSON mutations, but the
+// body must be multipart. Guards run before Multer parses any file bytes.
+@Injectable()
+export class UploadMutationGuard implements CanActivate {
+  constructor(
+    @Inject(AuthSecurity) private readonly security: AuthSecurity,
+    @Inject(AuthRateLimiter) private readonly limiter: AuthRateLimiter,
+  ) {}
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+    this.limiter.consume(
+      'mutation-ip',
+      request.socket.remoteAddress ?? 'unknown',
+      60,
+      300_000,
+    );
+    this.security.assertMutation(request);
+    if (!request.is('multipart/form-data'))
+      throw new AuthError('INVALID_REQUEST');
+    return true;
+  }
+}

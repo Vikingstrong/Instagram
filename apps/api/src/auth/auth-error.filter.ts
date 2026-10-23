@@ -17,7 +17,7 @@ import { Prisma } from '../generated/prisma/client.js';
 
 // Route groups that answer with the Auth error contract, including Nest's own
 // 404/400 for unknown or malformed requests under them.
-const contractPath = /^\/api\/v1\/(?:auth|users|me|search)(?:\/|$)/;
+const contractPath = /^\/api\/v1\/(?:auth|users|me|search|posts|media)(?:\/|$)/;
 
 @Catch()
 export class AuthErrorFilter {
@@ -61,7 +61,11 @@ export class AuthErrorFilter {
     let code: AuthErrorCode =
       exception instanceof AuthError ? exception.code : 'INTERNAL_ERROR';
     if (!(exception instanceof AuthError)) {
-      if ([400, 404, 405, 413, 415].includes(status)) code = 'INVALID_REQUEST';
+      // Multer rejects an oversized upload before the handler runs.
+      if (status === 413 && request.is('multipart/form-data'))
+        code = 'IMAGE_TOO_LARGE';
+      else if ([400, 404, 405, 413, 415].includes(status))
+        code = 'INVALID_REQUEST';
       else if (status === 503) code = 'SERVICE_UNAVAILABLE';
     }
     // Never log/serialize the exception, Zod input, credentials or driver error.
