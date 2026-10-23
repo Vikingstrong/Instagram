@@ -7,7 +7,7 @@ import type { UserProfile } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { SettingsIcon } from "@/components/icons/ig-icons";
-import { DefaultAvatar } from "@/components/ui-ig/avatar";
+import { ProfileStoryAvatar } from "@/features/stories/profile-story-avatar";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
 import { MessageButton } from "@/features/direct/message-button";
 import { ProfileGrid } from "@/features/posts/profile-grid";
@@ -126,8 +126,8 @@ function ProfileContent({ username }: { username: string }) {
   return (
     <div className="mx-auto w-full max-w-233.75 px-4 pt-6 md:px-5 md:pt-8">
       <header className="flex gap-6 md:gap-20 md:px-12">
-        <DefaultAvatar size={150} src={profile.avatarUrl} className="hidden md:flex" />
-        <DefaultAvatar size={77} src={profile.avatarUrl} className="md:hidden" />
+        <ProfileStoryAvatar key={`${profile.id}-desktop`} userId={profile.id} username={profile.username} size={150} src={profile.avatarUrl} className="hidden md:flex" />
+        <ProfileStoryAvatar key={`${profile.id}-mobile`} userId={profile.id} username={profile.username} size={77} src={profile.avatarUrl} className="md:hidden" />
         <section className="flex min-w-0 flex-1 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="truncate text-xl">{profile.username}</h1>

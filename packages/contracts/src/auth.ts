@@ -90,6 +90,7 @@ export const AuthVerifiedResponseSchema = z.strictObject({ status: z.literal("ve
 export const AuthPasswordResetResponseSchema = z.strictObject({ status: z.literal("password_reset") });
 
 export const authErrors = {
+  STORY_NOT_FOUND: { status: 404, message: "Story is unavailable or expired." },
   INVALID_OR_EXPIRED_TOKEN: { status: 400, message: "Invalid or expired token." },
   INVALID_REQUEST: { status: 400, message: "Invalid request." },
   INVALID_IMAGE: {
@@ -180,6 +181,7 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("PROFILE_PRIVATE"),
     errorVariant("USER_NOT_FOUND"),
     errorVariant("FOLLOW_REQUEST_NOT_FOUND"),
+    errorVariant("STORY_NOT_FOUND"),
     errorVariant("POST_NOT_FOUND"),
     errorVariant("MEDIA_NOT_FOUND"),
     errorVariant("COMMENT_NOT_FOUND"),

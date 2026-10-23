@@ -29,6 +29,6 @@ import { MEDIA_CLEANUP, MediaService } from './media.service.js';
           : process.env.MEDIA_CLEANUP_ENABLED === 'true',
     },
   ],
-  exports: [MediaService, VideoProcessor],
+  exports: [MediaService, VideoProcessor, MEDIA_CLEANUP],
 })
 export class MediaModule {}

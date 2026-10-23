@@ -18,6 +18,7 @@ import {
   summarySelect,
   userSummary,
 } from '../users/user-summary.js';
+import { visibleStory } from '../stories/story-policy.js';
 import { visibleAuthor, visiblePost } from './post-policy.js';
 
 // Counters and the viewer's own like are read with the post in one query.
@@ -333,6 +334,7 @@ export class PostsService {
         state: 'READY',
         OR: [
           { kind: 'POST', post: visiblePost(viewerId) },
+          { kind: 'STORY', story: visibleStory(viewerId) },
           {
             kind: 'AVATAR',
             avatarOf: { emailVerifiedAt: { not: null } },
@@ -353,10 +355,12 @@ export class PostsService {
     const allowed = await this.database.prisma.media.findFirst({
       where: {
         id,
-        kind: 'POST',
         type: 'VIDEO',
         state: 'READY',
-        post: visiblePost(viewerId),
+        OR: [
+          { kind: 'POST', post: visiblePost(viewerId) },
+          { kind: 'STORY', story: visibleStory(viewerId) },
+        ],
       },
       select: { id: true },
     });

@@ -21,6 +21,8 @@ export function describeFailure(failure: ApiFailure): string {
           return "Видео больше 100 МБ. Выберите файл поменьше.";
         case "VIDEO_TOO_LONG":
           return "Видео длиннее 90 секунд. Обрежьте его и попробуйте снова.";
+        case "STORY_NOT_FOUND":
+          return "История недоступна или срок её действия истёк.";
         case "POST_NOT_FOUND":
           return "Публикация недоступна или удалена.";
         case "MEDIA_NOT_FOUND":

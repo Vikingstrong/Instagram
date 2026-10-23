@@ -1,6 +1,17 @@
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import { login, verifiedAccount, type Fixture } from "./helpers/app.mjs";
 
+// Headless CI has no physical camera or microphone. Scope synthetic devices
+// to call tests; real-network/TURN acceptance remains a separate check.
+test.use({
+  launchOptions: {
+    args: [
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
+    ],
+  },
+});
+
 type Instrumented = Window & { __callPeers?: RTCPeerConnection[] };
 async function instrument(context: BrowserContext) {
   await context.grantPermissions(["microphone", "camera"]);
