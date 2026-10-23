@@ -93,12 +93,12 @@ describe("create post", () => {
     const fetch = api({});
     render(<CreatePost />);
     const user = userEvent.setup({ applyAccept: false });
-    await user.upload(screen.getByLabelText("Фото для публикации"), photo("image/gif"));
+    await user.upload(screen.getByLabelText("Фото или видео для публикации"), photo("image/gif"));
     expect(screen.getByRole("alert").textContent).toBe(
       "Выберите фото в формате JPEG, PNG или WebP.",
     );
     await user.upload(
-      screen.getByLabelText("Фото для публикации"),
+      screen.getByLabelText("Фото или видео для публикации"),
       photo("image/jpeg", 10 * 1024 * 1024 + 1),
     );
     expect(screen.getByRole("alert").textContent).toBe("Фото больше 10 МБ. Выберите файл поменьше.");
@@ -119,7 +119,7 @@ describe("create post", () => {
     render(<CreatePost />);
     const user = userEvent.setup();
     const file = photo();
-    await user.upload(screen.getByLabelText("Фото для публикации"), file);
+    await user.upload(screen.getByLabelText("Фото или видео для публикации"), file);
     expect(screen.getByRole("img", { name: "Выбранное фото" }).getAttribute("src")).toBe("blob:preview");
     await user.type(screen.getByRole("textbox", { name: "Подпись" }), "Закат");
     await user.click(screen.getByRole("button", { name: "Поделиться" }));
@@ -139,7 +139,7 @@ describe("create post", () => {
     api({});
     render(<CreatePost />);
     const user = userEvent.setup();
-    await user.upload(screen.getByLabelText("Фото для публикации"), photo());
+    await user.upload(screen.getByLabelText("Фото или видео для публикации"), photo());
     await user.click(screen.getByRole("textbox", { name: "Подпись" }));
     await user.paste("x".repeat(2201));
     expect((screen.getByRole("button", { name: "Поделиться" }) as HTMLButtonElement).disabled).toBe(true);

@@ -1,35 +1,54 @@
 "use client";
 
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { imageUploadRules, PostCaptionSchema } from "@instagram/contracts";
+import {
+  imageUploadRules,
+  PostCaptionSchema,
+  videoUploadRules,
+} from "@instagram/contracts";
 
 import { CreateIcon } from "@/components/icons/ig-icons";
 import { Avatar } from "@/components/ui-ig/avatar";
 import { MediaImage } from "@/components/ui-ig/media-image";
 import { useHomeIdentity } from "@/features/auth/home-access";
 import { describeFailure } from "@/lib/api/messages";
-import { checkImageFile, createPostsClient } from "@/lib/api/posts";
+import {
+  checkImageFile,
+  checkVideoFile,
+  createPostsClient,
+  isVideoFile,
+} from "@/lib/api/posts";
 import { replaceLocation } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 const CAPTION_LIMIT = 2200;
+const POLL_MS = 2000;
 const codePoints = (value: string) => [...value].length;
 
-type Picked = { file: File; preview: string };
+type Picked = { file: File; preview: string; video: boolean };
+// After a video upload the server prepares it; the page waits for that.
+type Phase =
+  | { state: "editing" }
+  | { state: "uploading"; progress: number }
+  | { state: "processing"; postId: string }
+  | { state: "failed" };
 
-// FR-04 create: one photo and an optional caption. The file is checked here
-// for type and size only; the API decodes it and has the final word. A failed
-// upload keeps the photo and caption so "Повторить" sends them again.
+// FR-04/FR-10 create: one photo or one video and an optional caption. The
+// file is checked here for type and size only; the API decodes it and has
+// the final word. A failed upload keeps the file and caption so "Повторить"
+// sends them again. A video is shown as processing until the server has
+// prepared it, then the post opens.
 export function CreatePost() {
   const viewer = useHomeIdentity();
   const [picked, setPicked] = useState<Picked>();
   const [caption, setCaption] = useState("");
   const [error, setError] = useState<string>();
   const [failed, setFailed] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [phase, setPhase] = useState<Phase>({ state: "editing" });
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const pending = useRef(false);
+  const busy = phase.state !== "editing";
 
   // Each preview URL is released once it is replaced or the page closes.
   const preview = picked?.preview;
@@ -37,35 +56,77 @@ export function CreatePost() {
     if (preview) URL.revokeObjectURL(preview);
   }, [preview]);
 
+  // Waits for the server to finish the video, then opens the post.
+  const processingId = phase.state === "processing" ? phase.postId : undefined;
+  useEffect(() => {
+    if (!processingId) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
+    const check = async () => {
+      const result = await createPostsClient().get(processingId, controller.signal);
+      if (controller.signal.aborted) return;
+      if (result.ok && result.data.post.status === "ready") {
+        replaceLocation(`/p/${processingId}`);
+        return;
+      }
+      if (result.ok && result.data.post.status === "failed") {
+        setPhase({ state: "failed" });
+        return;
+      }
+      // Still processing, or a passing network problem: ask again.
+      timer = setTimeout(check, POLL_MS);
+    };
+    timer = setTimeout(check, POLL_MS);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [processingId]);
+
   function pick(file: File | undefined) {
     if (!file || pending.current) return;
     setFailed(false);
-    const problem = checkImageFile(file);
+    const video = isVideoFile(file);
+    const problem = video ? checkVideoFile(file) : checkImageFile(file);
     if (problem) {
-      setError(problem);
+      setError(
+        video || file.type.startsWith("image/")
+          ? problem
+          : "Выберите фото (JPEG, PNG, WebP) или видео (MP4, MOV, WebM).",
+      );
       return;
     }
     setError(undefined);
-    setPicked({ file, preview: URL.createObjectURL(file) });
+    setPhase({ state: "editing" });
+    setPicked({ file, preview: URL.createObjectURL(file), video });
   }
 
   const captionValid = PostCaptionSchema.safeParse(caption).success;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!picked || !captionValid || pending.current) return;
+    if (!picked || !captionValid || pending.current || busy) return;
     pending.current = true;
-    setSending(true);
     setError(undefined);
-    const result = await createPostsClient().create(picked.file, caption);
+    setPhase({ state: "uploading", progress: 0 });
+    const client = createPostsClient();
+    const result = picked.video
+      ? await client.createVideo(picked.file, caption, (progress) =>
+          setPhase({ state: "uploading", progress }),
+        )
+      : await client.create(picked.file, caption);
     pending.current = false;
-    setSending(false);
-    if (result.ok) {
+    if (!result.ok) {
+      setPhase({ state: "editing" });
+      setFailed(true);
+      setError(describeFailure(result.failure));
+      return;
+    }
+    if (result.data.post.status === "ready") {
       replaceLocation(`/p/${result.data.post.id}`);
       return;
     }
-    setFailed(true);
-    setError(describeFailure(result.failure));
+    setPhase({ state: "processing", postId: result.data.post.id });
   }
 
   function drop(event: DragEvent) {
@@ -74,6 +135,7 @@ export function CreatePost() {
     pick(event.dataTransfer.files[0]);
   }
 
+  const kind = picked?.video ? "видео" : "фото";
   return (
     <div className="mx-auto w-full max-w-233.75 px-4 py-6 md:px-5 md:py-10">
       <form
@@ -83,13 +145,13 @@ export function CreatePost() {
       >
         <header className="relative flex h-11 items-center justify-center border-b px-4">
           <h1 className="text-base font-semibold">Создание публикации</h1>
-          {picked && (
+          {picked && phase.state === "editing" && (
             <button
               type="submit"
-              disabled={sending || !captionValid}
+              disabled={!captionValid}
               className="absolute right-4 text-sm font-semibold text-ig-blue hover:text-foreground disabled:opacity-50"
             >
-              {sending ? "Публикуем…" : failed ? "Повторить" : "Поделиться"}
+              {failed ? "Повторить" : "Поделиться"}
             </button>
           )}
         </header>
@@ -97,10 +159,10 @@ export function CreatePost() {
         <input
           ref={input}
           type="file"
-          accept={imageUploadRules.formats.join(",")}
+          accept={[...imageUploadRules.formats, ...videoUploadRules.formats].join(",")}
           className="sr-only"
           tabIndex={-1}
-          aria-label="Фото для публикации"
+          aria-label="Фото или видео для публикации"
           onChange={(event) => {
             pick(event.target.files?.[0]);
             // Choosing the same file again must fire change again.
@@ -122,8 +184,11 @@ export function CreatePost() {
             )}
           >
             <CreateIcon className="size-20 stroke-1" />
-            <p className="text-xl">Перетащите сюда фото</p>
-            <p className="text-sm text-muted-foreground">JPEG, PNG или WebP, до 10 МБ</p>
+            <p className="text-xl">Перетащите сюда фото или видео</p>
+            <p className="text-sm text-muted-foreground">
+              Фото: JPEG, PNG или WebP до 10 МБ. Видео: MP4, MOV или WebM до 100 МБ и
+              90 секунд.
+            </p>
             <button
               type="button"
               onClick={() => input.current?.click()}
@@ -139,12 +204,25 @@ export function CreatePost() {
           </div>
         ) : (
           <div className="flex flex-col md:flex-row">
-            <div className="flex items-center justify-center bg-black md:min-w-0 md:flex-[1_1_60%]">
-              <MediaImage
-                src={picked.preview}
-                alt="Выбранное фото"
-                className="max-h-[70dvh] w-full object-contain"
-              />
+            <div className="relative flex items-center justify-center bg-black md:min-w-0 md:flex-[1_1_60%]">
+              {picked.video ? (
+                <video
+                  src={picked.preview}
+                  aria-label="Выбранное видео"
+                  controls
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="max-h-[70dvh] w-full"
+                />
+              ) : (
+                <MediaImage
+                  src={picked.preview}
+                  alt="Выбранное фото"
+                  className="max-h-[70dvh] w-full object-contain"
+                />
+              )}
+              <PhaseOverlay phase={phase} />
             </div>
             <div className="flex flex-col gap-3 p-4 md:w-84 md:shrink-0 md:border-l lg:w-100">
               {viewer && (
@@ -163,7 +241,7 @@ export function CreatePost() {
                   setCaption(event.target.value);
                   setFailed(false);
                 }}
-                disabled={sending}
+                disabled={busy}
                 placeholder="Добавьте подпись…"
                 aria-describedby="post-caption-count"
                 className="min-h-40 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
@@ -182,18 +260,54 @@ export function CreatePost() {
                   {error}
                 </p>
               )}
+              {phase.state === "failed" && (
+                <p role="alert" className="text-sm text-destructive">
+                  Не удалось обработать видео. Попробуйте другой файл.
+                </p>
+              )}
               <button
                 type="button"
-                disabled={sending}
+                disabled={busy && phase.state !== "failed"}
                 onClick={() => input.current?.click()}
                 className="self-start text-sm font-semibold text-ig-link hover:text-foreground disabled:opacity-50"
               >
-                Выбрать другое фото
+                Выбрать другой файл
               </button>
+              <span className="sr-only">Сейчас выбрано: {kind}</span>
             </div>
           </div>
         )}
       </form>
+    </div>
+  );
+}
+
+// Upload progress and the wait for server-side video processing.
+function PhaseOverlay({ phase }: { phase: Phase }) {
+  if (phase.state !== "uploading" && phase.state !== "processing") return null;
+  const percent =
+    phase.state === "uploading" ? Math.round(phase.progress * 100) : undefined;
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 px-6 text-center text-white">
+      {percent !== undefined ? (
+        <>
+          <p role="status">Загрузка… {percent}%</p>
+          <progress
+            value={percent}
+            max={100}
+            aria-label="Загрузка"
+            className="h-1.5 w-48 overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-white/30 [&::-webkit-progress-value]:bg-white"
+          />
+        </>
+      ) : (
+        <>
+          <span
+            aria-hidden
+            className="size-8 animate-spin rounded-full border-2 border-white border-r-transparent"
+          />
+          <p role="status">Обрабатываем видео… Это займёт до минуты.</p>
+        </>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   PostListResponseSchema,
   PostResponseSchema,
   postsEndpoints,
+  videoUploadRules,
 } from "@instagram/contracts";
 
 import {
@@ -20,6 +21,7 @@ import {
   type ResponseSchema,
 } from "./client";
 import { withPath } from "./social";
+import { uploadWithProgress, type UploadProgress } from "./upload";
 
 // Posts, avatars and their images (stage 4); feed, likes and comments
 // (stage 5). Uploads are multipart with the file in the agreed field;
@@ -48,6 +50,33 @@ export function createPostsClient(api: ApiClient = createApiClient()) {
   return {
     create: (image: Blob, caption: string) =>
       mutate(postsEndpoints.create, PostResponseSchema, upload(image, caption)),
+    // FR-10: answers at once with status "processing"; poll get() after.
+    createVideo: async (
+      video: Blob,
+      caption: string,
+      onProgress?: UploadProgress,
+      signal?: AbortSignal,
+    ) => {
+      const csrf = await api.request(authEndpoints.csrf, AuthCsrfResponseSchema);
+      if (!csrf.ok) return csrf;
+      const form = new FormData();
+      form.append(videoUploadRules.multipartField, video);
+      if (caption) form.append("caption", caption);
+      return uploadWithProgress({
+        endpoint: postsEndpoints.createVideo,
+        schema: PostResponseSchema,
+        form,
+        csrfToken: csrf.data.csrfToken,
+        onProgress,
+        signal,
+      });
+    },
+    reels: (cursor?: string, signal?: AbortSignal) =>
+      api.request(
+        withPath(postsEndpoints.reels, {}, { cursor }),
+        PostListResponseSchema,
+        { signal },
+      ),
     get: (id: string, signal?: AbortSignal) =>
       api.request(withPath(postsEndpoints.get, { id }), PostResponseSchema, {
         signal,
@@ -93,6 +122,17 @@ export function createPostsClient(api: ApiClient = createApiClient()) {
 }
 
 export type PostsClient = ReturnType<typeof createPostsClient>;
+
+export const isVideoFile = (file: File) =>
+  (videoUploadRules.formats as readonly string[]).includes(file.type);
+
+// Quick checks before uploading; the API validates the decoded file again.
+export function checkVideoFile(file: File): string | undefined {
+  if (!isVideoFile(file)) return "Выберите видео в формате MP4, MOV или WebM.";
+  if (file.size > videoUploadRules.maxBytes)
+    return "Видео больше 100 МБ. Выберите файл поменьше.";
+  return undefined;
+}
 
 // Quick checks before uploading; the API validates the decoded file again.
 export function checkImageFile(file: File): string | undefined {
