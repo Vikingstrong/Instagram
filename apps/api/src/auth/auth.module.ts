@@ -14,6 +14,7 @@ import { AuthRateLimiter } from './auth-rate-limiter.js';
 import { AuthErrorFilter } from './auth-error.filter.js';
 import { VerifiedSessionGuard } from './auth-session.guard.js';
 import { MailModule } from '../mail/mail.module.js';
+import { SessionRevocations } from './session-revocations.js';
 
 @Module({
   imports: [DatabaseModule, MailModule],
@@ -30,6 +31,7 @@ import { MailModule } from '../mail/mail.module.js';
     UploadMutationGuard,
     AuthRateLimiter,
     VerifiedSessionGuard,
+    SessionRevocations,
     { provide: APP_FILTER, useClass: AuthErrorFilter },
   ],
   exports: [
@@ -39,6 +41,7 @@ import { MailModule } from '../mail/mail.module.js';
     UploadMutationGuard,
     AuthRateLimiter,
     VerifiedSessionGuard,
+    SessionRevocations,
   ],
 })
 export class AuthModule {}

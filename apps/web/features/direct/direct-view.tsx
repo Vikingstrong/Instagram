@@ -10,18 +10,35 @@ import { cn } from "@/lib/utils";
 
 import { Inbox } from "./inbox";
 import { Thread } from "./thread";
+import { useDirectEvents } from "./use-direct-events";
 
 // /direct and /direct/t/[id]. Wide screens show the list and the open
-// conversation side by side; phones show one of them.
+// conversation side by side; phones show one of them. The page keeps one
+// SSE stream for the tab (stage 7).
 export function DirectView() {
   const params = useParams<{ id?: string }>();
   const selectedId = params.id;
   const viewer = useHomeIdentity();
   const checking = useHomeChecking();
   const [version, setVersion] = useState(0);
+  const [syncKey, setSyncKey] = useState(0);
   const [shown, setShown] = useState(viewer);
   // Keep the open chat during a brief session recheck (identity is null).
   if (viewer && viewer.id !== shown?.id) setShown(viewer);
+
+  const connection = useDirectEvents({
+    enabled: Boolean(shown),
+    // Any new message moves its conversation up the list; the open one
+    // also reads the new messages.
+    onNotice: (notice) => {
+      setVersion((value) => value + 1);
+      if (notice.conversationId === selectedId) setSyncKey((value) => value + 1);
+    },
+    onSync: () => {
+      setVersion((value) => value + 1);
+      setSyncKey((value) => value + 1);
+    },
+  });
 
   if (!shown || (!viewer && !checking))
     return (
@@ -51,6 +68,8 @@ export function DirectView() {
             key={selectedId}
             conversationId={selectedId}
             viewerId={shown.id}
+            syncKey={syncKey}
+            connection={connection}
             onActivity={() => setVersion((value) => value + 1)}
           />
         ) : (

@@ -92,6 +92,14 @@ describe("inbox", () => {
   });
 });
 
+const threadProps = {
+  conversationId,
+  viewerId: me,
+  syncKey: 0,
+  connection: "live" as const,
+  onActivity: () => {},
+};
+
 describe("conversation", () => {
   function routes(extra: Record<string, Handler>) {
     return {
@@ -112,7 +120,7 @@ describe("conversation", () => {
           ),
       }),
     );
-    render(<Thread conversationId={conversationId} viewerId={me} onActivity={() => {}} />);
+    render(<Thread {...threadProps} />);
     expect(await screen.findByRole("region", { name: "Диалог с friend" })).toBeTruthy();
     await screen.findByText("m3");
     expect(texts()).toEqual(["m2", "m3"]);
@@ -145,7 +153,7 @@ describe("conversation", () => {
         },
       }),
     );
-    render(<Thread conversationId={conversationId} viewerId={me} onActivity={onActivity} />);
+    const view = render(<Thread {...threadProps} onActivity={onActivity} />);
     const user = userEvent.setup();
     expect(await screen.findByText("Напишите первое сообщение.")).toBeTruthy();
     const field = screen.getByRole("textbox", { name: "Сообщение" });
@@ -158,8 +166,10 @@ describe("conversation", () => {
       "Не отправлено. Сервис временно недоступен. Попробуйте позже.",
     );
 
-    // A manual refresh already brings the stored copy; retry must not add one.
-    await user.click(screen.getByRole("button", { name: "Обновить" }));
+    // A sync (stream notice) already brings the stored copy; retry must not
+    // add another one.
+    view.rerender(<Thread {...threadProps} onActivity={onActivity} syncKey={1} />);
+    await screen.findByText("Привет", { selector: "li > div:not(.opacity-60)" });
     await user.click(screen.getByRole("button", { name: "Повторить" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(texts()).toEqual(["Привет"]);
@@ -177,7 +187,7 @@ describe("conversation", () => {
           Response.json(errorBody("TOO_MANY_REQUESTS", "Too many requests. Try again later."), { status: 429 }),
       }),
     );
-    render(<Thread conversationId={conversationId} viewerId={me} onActivity={() => {}} />);
+    render(<Thread {...threadProps} />);
     const user = userEvent.setup();
     await user.type(await screen.findByRole("textbox", { name: "Сообщение" }), "спам{Enter}");
     await screen.findByRole("alert");
@@ -190,7 +200,7 @@ describe("conversation", () => {
       [`GET /api/v1/direct/conversations/${conversationId}`]: () =>
         Response.json(errorBody("CONVERSATION_NOT_FOUND", "Conversation not found."), { status: 404 }),
     });
-    render(<Thread conversationId={conversationId} viewerId={me} onActivity={() => {}} />);
+    render(<Thread {...threadProps} />);
     expect(await screen.findByRole("heading", { name: "Диалог не найден" })).toBeTruthy();
   });
 });

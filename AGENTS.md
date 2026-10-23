@@ -109,7 +109,10 @@ apps/web/features/posts; see docs/development/feed-api.md.
 Stage 6 (FR-09 over REST): DirectModule (apps/api/src/direct) with
 /api/v1/direct/conversations; idempotent sends by clientMessageId; web in
 apps/web/features/direct (/direct, /direct/t/[id]); see
-docs/development/direct-api.md. Realtime (SSE) is stage 7.
+docs/development/direct-api.md. Stage 7 realtime: SSE GET /api/v1/direct/events
+(DirectEvents in-memory hub, ids only; SessionRevocations closes streams on
+logout/reset); web subscribes, waits for "ready", then syncs over REST; see
+docs/development/direct-realtime.md.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.

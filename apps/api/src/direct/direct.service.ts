@@ -16,6 +16,7 @@ import {
   summarySelect,
   userSummary,
 } from '../users/user-summary.js';
+import { DirectEvents } from './direct-events.js';
 
 const messageSelect = {
   id: true,
@@ -90,6 +91,7 @@ const uniqueViolation = (error: unknown) =>
 export class DirectService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(DirectEvents) private readonly events: DirectEvents,
   ) {}
 
   // Any verified user may write to any other verified user (FR-09),
@@ -171,10 +173,12 @@ export class DirectService {
   }
 
   private async requireParticipant(viewerId: string, id: string) {
-    const found = await this.database.prisma.conversation.count({
+    const found = await this.database.prisma.conversation.findFirst({
       where: { id, ...participant(viewerId) },
+      select: { userAId: true, userBId: true },
     });
     if (!found) throw new AuthError('CONVERSATION_NOT_FOUND');
+    return found;
   }
 
   // Newest first (createdAt DESC, id DESC); nextCursor reads older pages.
@@ -218,7 +222,7 @@ export class DirectService {
     id: string,
     input: SendMessageRequest,
   ): Promise<DirectMessage> {
-    await this.requireParticipant(viewerId, id);
+    const pair = await this.requireParticipant(viewerId, id);
     const replay = () => this.replay(viewerId, id, input);
     const previous = await replay();
     if (previous) return previous;
@@ -239,6 +243,12 @@ export class DirectService {
           data: { lastActivityAt: message.createdAt },
         });
         return message;
+      });
+      // After commit, to both participants (the sender's other tabs too).
+      // A replayed retry was already announced.
+      this.events.notify([pair.userAId, pair.userBId], {
+        conversationId: id,
+        messageId: row.id,
       });
       return toMessage(row);
     } catch (error) {

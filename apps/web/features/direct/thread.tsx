@@ -11,6 +11,7 @@ import type { ApiFailure } from "@/lib/api/client";
 import { createDirectClient } from "@/lib/api/direct";
 import { cn } from "@/lib/utils";
 
+import type { ConnectionState } from "./use-direct-events";
 import { useThread, type Outgoing } from "./use-thread";
 
 const MESSAGE_LIMIT = 1000;
@@ -26,10 +27,16 @@ type Load =
 export function Thread({
   conversationId,
   viewerId,
+  syncKey,
+  connection,
   onActivity,
 }: {
   conversationId: string;
   viewerId: string;
+  // Changes when the stream says this conversation (or everything) may
+  // have news: ready after (re)connect, a notice, focus or the timer.
+  syncKey: number;
+  connection: ConnectionState;
   onActivity: () => void;
 }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -77,6 +84,8 @@ export function Thread({
     <ThreadBody
       conversation={load.conversation}
       viewerId={viewerId}
+      syncKey={syncKey}
+      connection={connection}
       onActivity={onActivity}
     />
   );
@@ -85,13 +94,22 @@ export function Thread({
 function ThreadBody({
   conversation,
   viewerId,
+  syncKey,
+  connection,
   onActivity,
 }: {
   conversation: Conversation;
   viewerId: string;
+  syncKey: number;
+  connection: ConnectionState;
   onActivity: () => void;
 }) {
   const thread = useThread(conversation.id, onActivity);
+  const sync = useRef(thread.sync);
+  useEffect(() => {
+    sync.current = thread.sync;
+  });
+  useEffect(() => sync.current(), [syncKey]);
   const { peer } = conversation;
   const bottom = useRef<HTMLDivElement>(null);
   const count = thread.messages.length + thread.outbox.length;
@@ -115,14 +133,7 @@ function ThreadBody({
             <span className="block truncate text-xs text-muted-foreground">{peer.username}</span>
           </span>
         </Link>
-        <button
-          type="button"
-          onClick={thread.refresh}
-          disabled={thread.loading}
-          className="text-sm font-semibold text-ig-link hover:text-foreground disabled:opacity-50"
-        >
-          Обновить
-        </button>
+        <ConnectionBadge state={connection} />
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3">
@@ -137,7 +148,7 @@ function ThreadBody({
           </button>
         )}
         {thread.failure && (
-          <ApiErrorNotice failure={thread.failure} onRetry={thread.refresh} />
+          <ApiErrorNotice failure={thread.failure} onRetry={thread.reload} />
         )}
         {thread.loaded && count === 0 && (
           <div className="m-auto flex flex-col items-center gap-2 text-center">
@@ -166,6 +177,23 @@ function ThreadBody({
 
       <Composer onSend={thread.send} />
     </section>
+  );
+}
+
+// Live: messages arrive by themselves. Otherwise the user knows that new
+// ones may be late; sent messages still go out over REST.
+function ConnectionBadge({ state }: { state: ConnectionState }) {
+  return (
+    <span role="status" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <span
+        aria-hidden
+        className={cn(
+          "size-2 rounded-full",
+          state === "live" ? "bg-emerald-500" : state === "offline" ? "bg-destructive" : "bg-amber-400",
+        )}
+      />
+      {state === "live" ? "В сети" : state === "offline" ? "Нет соединения. Переподключаемся…" : "Подключение…"}
+    </span>
   );
 }
 

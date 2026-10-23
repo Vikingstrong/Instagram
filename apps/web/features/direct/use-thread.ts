@@ -48,7 +48,7 @@ function reduce(state: State, action: Action): State {
       return {
         ...state,
         byId: merge(state.byId, action.items),
-        // A refresh of the newest page keeps the existing older cursor.
+        // A sync of the newest pages keeps the existing older cursor.
         older: action.older === undefined ? state.older : action.older,
         loaded: true,
         loading: false,
@@ -93,7 +93,6 @@ async function fetchPage(
   conversationId: string,
   cursor: string | undefined,
   signal: AbortSignal,
-  refresh: boolean,
   dispatch: (action: Action) => void,
 ) {
   const result = await createDirectClient().messages(conversationId, cursor, signal);
@@ -102,18 +101,16 @@ async function fetchPage(
     dispatch({ type: "fail", failure: result.failure });
     return;
   }
-  dispatch({
-    type: "page",
-    items: result.data.items,
-    // A refresh of the newest page keeps the cursor for older history.
-    older: refresh ? undefined : result.data.nextCursor,
-  });
+  dispatch({ type: "page", items: result.data.items, older: result.data.nextCursor });
 }
 
+// Most pages a sync reads back while looking for a message it already has.
+const MAX_SYNC_PAGES = 10;
+
 // History of one conversation, oldest at the top. Pages from the server and
-// confirmed sends are merged by id, so a refresh or a retried send never
-// shows a message twice. Until realtime (stage 7) refresh() re-reads the
-// newest page.
+// confirmed sends are merged by id, so a sync, a notice or a retried send
+// never shows a message twice. sync() reads newest pages until it reaches a
+// known message, which also closes a gap left by a long disconnection.
 export function useThread(conversationId: string, onSent?: () => void) {
   const [state, dispatch] = useReducer(reduce, {
     byId: {},
@@ -123,20 +120,56 @@ export function useThread(conversationId: string, onSent?: () => void) {
     outbox: [],
   });
   const request = useRef<AbortController | undefined>(undefined);
+  const known = useRef(new Set<string>());
+  const syncing = useRef(false);
+  const syncAgain = useRef(false);
+  useEffect(() => {
+    known.current = new Set(Object.keys(state.byId));
+  });
 
-  function load(cursor?: string, refresh = false) {
+  function load(cursor?: string) {
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
-    void fetchPage(conversationId, cursor, controller.signal, refresh, dispatch);
+    void fetchPage(conversationId, cursor, controller.signal, dispatch);
   }
 
   useEffect(() => {
     const controller = new AbortController();
     request.current = controller;
-    void fetchPage(conversationId, undefined, controller.signal, false, dispatch);
+    void fetchPage(conversationId, undefined, controller.signal, dispatch);
     return () => request.current?.abort();
   }, [conversationId]);
+
+  async function sync(): Promise<void> {
+    // One sync at a time; a request made meanwhile runs once afterwards.
+    if (syncing.current) {
+      syncAgain.current = true;
+      return;
+    }
+    syncing.current = true;
+    try {
+      const client = createDirectClient();
+      let cursor: string | undefined;
+      for (let page = 0; page < MAX_SYNC_PAGES; page++) {
+        const result = await client.messages(conversationId, cursor);
+        // A failed sync stays silent; the next notice or timer repeats it.
+        if (!result.ok) return;
+        const { items, nextCursor } = result.data;
+        const reached =
+          known.current.size === 0 || items.some((item) => known.current.has(item.id));
+        dispatch({ type: "page", items, older: undefined });
+        if (reached || !nextCursor) return;
+        cursor = nextCursor;
+      }
+    } finally {
+      syncing.current = false;
+      if (syncAgain.current) {
+        syncAgain.current = false;
+        void sync();
+      }
+    }
+  }
 
   async function deliver(message: Outgoing) {
     const result = await createDirectClient().send(conversationId, {
@@ -166,9 +199,13 @@ export function useThread(conversationId: string, onSent?: () => void) {
       dispatch({ type: "start" });
       load(state.older);
     },
-    refresh() {
+    sync() {
+      void sync();
+    },
+    // Repeats the failed history read: the first page or the older one.
+    reload() {
       dispatch({ type: "start" });
-      load(undefined, state.loaded);
+      load(state.loaded ? (state.older ?? undefined) : undefined);
     },
     send(text: string) {
       const message: Outgoing = {
