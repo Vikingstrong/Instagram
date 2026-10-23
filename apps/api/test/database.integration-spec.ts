@@ -93,7 +93,7 @@ describe('Database Foundation (real PostgreSQL)', () => {
     }
   });
 
-  it('has the versioned Auth, profile and post tables after migration deploy', async () => {
+  it('has the versioned Auth, profile, post, Direct and live tables after migration deploy', async () => {
     const rows = await client.$queryRaw<{ name: string }[]>`
       SELECT tablename AS name FROM pg_tables
       WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
@@ -110,6 +110,8 @@ describe('Database Foundation (real PostgreSQL)', () => {
       { name: 'direct_conversations' },
       { name: 'direct_messages' },
       { name: 'follows' },
+      { name: 'live_comments' },
+      { name: 'lives' },
       { name: 'mail_deliveries' },
       { name: 'media' },
       { name: 'post_likes' },

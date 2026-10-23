@@ -106,6 +106,14 @@ export class DirectEvents implements OnModuleInit, OnModuleDestroy {
         this.write(stream, frame);
   }
 
+  // Live streams (FR-12) share the tab stream: ids only, state over REST.
+  notifyLive(userIds: string[], notice: { liveId: string }): void {
+    const frame = `event: live\ndata: ${JSON.stringify(notice)}\n\n`;
+    for (const userId of new Set(userIds))
+      for (const stream of this.streams.get(userId) ?? [])
+        this.write(stream, frame);
+  }
+
   count(userId?: string): number {
     if (userId) return this.streams.get(userId)?.size ?? 0;
     let total = 0;

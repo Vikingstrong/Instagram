@@ -72,6 +72,8 @@ model User {
   callsMade Call[] @relation("callCaller")
   callsReceived Call[] @relation("callCallee")
   callSeat CallSeat?
+  lives Live[] @relation("liveHost")
+  liveComments LiveComment[]
   messages          DirectMessage[]
 
   @@map("auth_users")
@@ -322,4 +324,48 @@ model CallSeat {
   call Call @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   @@index([callId])
   @@map("call_seats")
+}
+
+// FR-12 live streams (stage 10). Media goes from the host browser straight
+// to the viewers; only the state and, while on air, the chat are stored.
+enum LiveStatus {
+  LIVE
+  ENDED
+}
+enum LiveEndReason {
+  HOST
+  LOST
+  SIGNED_OUT
+  TIME_LIMIT
+}
+model Live {
+  id String @id @db.Uuid
+  hostId String @db.Uuid
+  // The host id while LIVE and NULL after it: one live per host at a time
+  // (NULLs are distinct in a PostgreSQL unique index).
+  activeHostId String? @unique @db.Uuid
+  hostSessionHash String @db.VarChar(64)
+  hostClientId String @db.Uuid
+  status LiveStatus @default(LIVE)
+  endReason LiveEndReason?
+  startedAt DateTime @default(now()) @db.Timestamptz(3)
+  endedAt DateTime? @db.Timestamptz(3)
+  hostSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  host User @relation("liveHost", fields: [hostId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  comments LiveComment[]
+  @@index([status, startedAt])
+  @@index([hostId, startedAt(sort: Desc)])
+  @@map("lives")
+}
+model LiveComment {
+  id String @id @db.Uuid
+  liveId String @db.Uuid
+  authorId String @db.Uuid
+  text String @db.VarChar(300)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  live Live @relation(fields: [liveId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  @@index([liveId, createdAt, id])
+  @@index([authorId])
+  @@map("live_comments")
 }

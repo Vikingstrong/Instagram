@@ -7,6 +7,8 @@ import { CallsService } from './calls.service.js';
 import { CALLS_CONFIG, readCallsConfig } from './calls.config.js';
 @Module({
   imports: [DatabaseModule, AuthModule, DirectModule],
+  // Live streams reuse the ICE/TURN configuration.
+  exports: [CALLS_CONFIG],
   controllers: [CallsController],
   providers: [
     CallsService,
