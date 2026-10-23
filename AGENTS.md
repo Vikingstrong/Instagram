@@ -103,6 +103,9 @@ access-checked image delivery and cleanup with sharp/multer and a private
 local storage adapter (MEDIA_ROOT); see docs/development/posts-api.md.
 Stage 4 web: /create, /p/[id], profile grid and avatar in settings; protected
 images use plain <img> via components/ui-ig/media-image.tsx, never next/image.
+Stage 5 (FR-05/06): GET /api/v1/feed, likes and comments live in PostsModule
+(interactions.service/controller); web feed, like and comments are in
+apps/web/features/posts; see docs/development/feed-api.md.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.

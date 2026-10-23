@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import type { Post } from "@instagram/contracts";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { Comment, Post } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
-import { MoreHorizontalIcon } from "@/components/icons/ig-icons";
+import { CommentIcon, MoreHorizontalIcon } from "@/components/icons/ig-icons";
 import { Avatar } from "@/components/ui-ig/avatar";
 import { ConfirmDialog } from "@/components/ui-ig/confirm-dialog";
 import { MediaImage } from "@/components/ui-ig/media-image";
@@ -16,17 +16,15 @@ import { describeFailure } from "@/lib/api/messages";
 import { createPostsClient } from "@/lib/api/posts";
 import { replaceLocation } from "@/lib/navigation";
 
+import { CommentForm, CommentList } from "./comments";
+import { LikeButton, likesLabel, useLike } from "./like-button";
+import { formatPostDate } from "./time";
+
 type Load =
   | { state: "loading" }
   | { state: "missing" }
   | { state: "error"; failure: ApiFailure }
   | { state: "ready"; post: Post };
-
-const postDate = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
 
 export function PostView() {
   const { id } = useParams<{ id: string }>();
@@ -98,7 +96,6 @@ function PostContent({ id }: { id: string }) {
 
   const { post } = load;
   const own = post.author.id === viewerId;
-  const created = new Date(post.createdAt);
   const author = (
     <header className="flex h-15 shrink-0 items-center gap-3 border-b px-4">
       <Link href={`/${post.author.username}`} aria-hidden tabIndex={-1}>
@@ -125,29 +122,69 @@ function PostContent({ id }: { id: string }) {
             className="max-h-[min(1350px,85dvh)] w-full object-contain"
           />
         </div>
-        <div className="flex flex-col md:w-84 md:shrink-0 md:border-l lg:w-100">
-          <div className="hidden md:block">{author}</div>
-          <div className="flex-1 px-4 py-3 text-sm">
-            {post.caption && (
-              <p className="break-words whitespace-pre-line">
-                <Link href={`/${post.author.username}`} className="mr-1 font-semibold">
-                  {post.author.username}
-                </Link>
-                {post.caption}
-              </p>
-            )}
-          </div>
-          <footer className="px-4 pb-4 md:border-t md:pt-3">
-            <time
-              dateTime={post.createdAt}
-              title={created.toLocaleString("ru-RU")}
-              className="text-xs text-muted-foreground"
-            >
-              {postDate.format(created)}
-            </time>
-          </footer>
-        </div>
+        <PostSide post={post} header={author} />
       </article>
+    </div>
+  );
+}
+
+// Caption and comments (scrolling on wide screens), then like, counters,
+// date and the comment field. On phones the actions come right after the
+// photo, as in Instagram.
+function PostSide({ post, header }: { post: Post; header: ReactNode }) {
+  const like = useLike(post.id, post);
+  const [added, setAdded] = useState<Comment[]>([]);
+  const created = new Date(post.createdAt);
+
+  return (
+    <div className="flex flex-col md:max-h-[min(1350px,85dvh)] md:w-84 md:shrink-0 md:border-l lg:w-100">
+      <div className="hidden md:block">{header}</div>
+      <div className="flex-1 px-4 py-3 text-sm max-md:order-2 md:overflow-y-auto">
+        {post.caption && (
+          <p className="mb-2 break-words whitespace-pre-line">
+            <Link href={`/${post.author.username}`} className="mr-1 font-semibold">
+              {post.author.username}
+            </Link>
+            {post.caption}
+          </p>
+        )}
+        <CommentList
+          postId={post.id}
+          added={added}
+          onDeleted={(id) => setAdded((list) => list.filter((item) => item.id !== id))}
+        />
+      </div>
+      <div className="flex flex-col gap-1 px-4 pt-3 max-md:order-1 md:border-t">
+        <div className="flex items-center gap-4">
+          <LikeButton liked={like.liked} onToggle={like.toggle} />
+          <button
+            type="button"
+            aria-label="Комментировать"
+            onClick={() => document.getElementById(`comment-${post.id}`)?.focus()}
+            className="hover:opacity-60"
+          >
+            <CommentIcon />
+          </button>
+        </div>
+        {like.error && (
+          <p role="alert" className="text-xs text-destructive">
+            {like.error}
+          </p>
+        )}
+        <p className="text-sm font-semibold">{likesLabel(like.likeCount)}</p>
+        <time
+          dateTime={post.createdAt}
+          title={created.toLocaleString("ru-RU")}
+          className="text-xs text-muted-foreground"
+        >
+          {formatPostDate(post.createdAt)}
+        </time>
+      </div>
+      <CommentForm
+        postId={post.id}
+        onAdded={(comment) => setAdded((list) => [...list, comment])}
+        className="border-t px-4 py-3 max-md:order-3 md:mt-3"
+      />
     </div>
   );
 }

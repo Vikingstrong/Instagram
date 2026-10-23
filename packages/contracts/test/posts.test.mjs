@@ -3,7 +3,10 @@ import test from "node:test";
 import { randomUUID } from "node:crypto";
 import {
   AuthApiErrorResponseSchema,
+  CommentListResponseSchema,
+  CreateCommentRequestSchema,
   CreatePostFieldsSchema,
+  LikeResponseSchema,
   MediaUrlSchema,
   PostResponseSchema,
   UserSummarySchema,
@@ -29,6 +32,9 @@ const post = {
     height: 810,
   },
   createdAt: new Date().toISOString(),
+  likeCount: 3,
+  commentCount: 1,
+  liked: true,
 };
 
 test("posts expose only API image paths, never storage locations", () => {
@@ -75,6 +81,8 @@ test("upload rules and media errors match the agreed limits", () => {
     ["IMAGE_TOO_LARGE", 413],
     ["POST_NOT_FOUND", 404],
     ["MEDIA_NOT_FOUND", 404],
+    ["COMMENT_NOT_FOUND", 404],
+    ["CANNOT_DELETE_COMMENT", 403],
   ]) {
     assert.equal(authErrors[code].status, status);
     const body = {
@@ -82,4 +90,38 @@ test("upload rules and media errors match the agreed limits", () => {
     };
     assert.deepEqual(AuthApiErrorResponseSchema.parse(body), body);
   }
+});
+
+test("comments are 1–2200 code points and never blank", () => {
+  assert.deepEqual(CreateCommentRequestSchema.parse({ text: "Класс\nфото" }), {
+    text: "Класс\nфото",
+  });
+  assert.equal(CreateCommentRequestSchema.safeParse({ text: "🙂".repeat(2200) }).success, true);
+  for (const body of [
+    { text: "" },
+    { text: "  \n " },
+    { text: "x".repeat(2201) },
+    { text: "tab\t" },
+    { text: "ok", authorId: randomUUID() },
+  ])
+    assert.equal(CreateCommentRequestSchema.safeParse(body).success, false);
+});
+
+test("comment lists carry delete rights; likes report the resulting state", () => {
+  const comment = {
+    id: randomUUID(),
+    postId: post.id,
+    author: post.author,
+    text: "Красиво",
+    createdAt: new Date().toISOString(),
+    canDelete: false,
+  };
+  const page = { items: [comment], nextCursor: null };
+  assert.deepEqual(CommentListResponseSchema.parse(page), page);
+  assert.equal(
+    CommentListResponseSchema.safeParse({ items: [{ ...comment, canDelete: undefined }], nextCursor: null }).success,
+    false,
+  );
+  assert.deepEqual(LikeResponseSchema.parse({ liked: true, likeCount: 1 }), { liked: true, likeCount: 1 });
+  assert.equal(LikeResponseSchema.safeParse({ liked: true, likeCount: -1 }).success, false);
 });

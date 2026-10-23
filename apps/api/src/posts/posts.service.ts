@@ -5,6 +5,7 @@ import {
   type Post,
   type PostListResponse,
 } from '@instagram/contracts';
+import type { Prisma } from '../generated/prisma/client.js';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
 import { AuthError } from '../auth/auth.error.js';
 import { MediaService, mediaUrl } from '../media/media.service.js';
@@ -18,13 +19,17 @@ import {
 } from '../users/user-summary.js';
 import { visibleAuthor, visiblePost } from './post-policy.js';
 
-const postSelect = {
-  id: true,
-  caption: true,
-  createdAt: true,
-  media: { select: { id: true, width: true, height: true } },
-  author: { select: summarySelect },
-} as const;
+// Counters and the viewer's own like are read with the post in one query.
+const postSelect = (viewerId: string) =>
+  ({
+    id: true,
+    caption: true,
+    createdAt: true,
+    media: { select: { id: true, width: true, height: true } },
+    author: { select: summarySelect },
+    _count: { select: { likes: true, comments: true } },
+    likes: { where: { userId: viewerId }, select: { userId: true }, take: 1 },
+  }) as const;
 
 type PostRow = {
   id: string;
@@ -32,6 +37,8 @@ type PostRow = {
   createdAt: Date;
   media: { id: string; width: number | null; height: number | null };
   author: Parameters<typeof userSummary>[0];
+  _count: { likes: number; comments: number };
+  likes: { userId: string }[];
 };
 
 function toPost(row: PostRow): Post {
@@ -46,7 +53,47 @@ function toPost(row: PostRow): Post {
       height: row.media.height,
     },
     createdAt: row.createdAt.toISOString(),
+    likeCount: row._count.likes,
+    commentCount: row._count.comments,
+    liked: row.likes.length > 0,
   });
+}
+
+// Keyset page, newest first: createdAt DESC, id DESC.
+async function postPage(
+  find: (args: {
+    where: Prisma.PostWhereInput;
+    take: number;
+  }) => Promise<PostRow[]>,
+  where: Prisma.PostWhereInput,
+  page: PageQuery,
+): Promise<PostListResponse> {
+  const after = decodeCursor(page.cursor, 'date');
+  const rows = await find({
+    where: {
+      AND: [
+        where,
+        after
+          ? {
+              OR: [
+                { createdAt: { lt: after.date } },
+                { createdAt: after.date, id: { lt: after.id } },
+              ],
+            }
+          : {},
+      ],
+    },
+    take: page.limit + 1,
+  });
+  const items = rows.slice(0, page.limit);
+  const last = items.at(-1);
+  return {
+    items: items.map(toPost),
+    nextCursor:
+      rows.length > page.limit && last
+        ? encodeCursor(last.createdAt.toISOString(), last.id)
+        : null,
+  };
 }
 
 @Injectable()
@@ -69,7 +116,7 @@ export class PostsService {
         await this.media.activate(tx, stored);
         return tx.post.create({
           data: { authorId, mediaId: stored.id, caption },
-          select: postSelect,
+          select: postSelect(authorId),
         });
       });
       return toPost(row);
@@ -82,7 +129,7 @@ export class PostsService {
   async get(viewerId: string, id: string): Promise<Post> {
     const row = await this.database.prisma.post.findFirst({
       where: { id, ...visiblePost(viewerId) },
-      select: postSelect,
+      select: postSelect(viewerId),
     });
     if (!row) throw new AuthError('POST_NOT_FOUND');
     return toPost(row);
@@ -103,31 +150,45 @@ export class PostsService {
       where: { id: userId, ...visibleAuthor(viewerId) },
     });
     if (!visible) throw new AuthError('PROFILE_PRIVATE');
-    const after = decodeCursor(page.cursor, 'date');
-    const rows = await this.database.prisma.post.findMany({
-      where: {
-        authorId: userId,
-        ...visiblePost(viewerId),
-        ...(after && {
-          OR: [
-            { createdAt: { lt: after.date } },
-            { createdAt: after.date, id: { lt: after.id } },
-          ],
-        }),
+    return this.page(viewerId, { authorId: userId }, page);
+  }
+
+  // FR-05: own posts and approved followings, newest first. Access is part
+  // of the WHERE clause, so a revoked follow drops posts before paging.
+  async feed(viewerId: string, page: PageQuery): Promise<PostListResponse> {
+    return this.page(
+      viewerId,
+      {
+        OR: [
+          { authorId: viewerId },
+          {
+            author: {
+              followers: {
+                some: { followerId: viewerId, status: 'ACCEPTED' },
+              },
+            },
+          },
+        ],
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: page.limit + 1,
-      select: postSelect,
-    });
-    const items = rows.slice(0, page.limit);
-    const last = items.at(-1);
-    return {
-      items: items.map(toPost),
-      nextCursor:
-        rows.length > page.limit && last
-          ? encodeCursor(last.createdAt.toISOString(), last.id)
-          : null,
-    };
+      page,
+    );
+  }
+
+  private page(
+    viewerId: string,
+    where: Prisma.PostWhereInput,
+    page: PageQuery,
+  ): Promise<PostListResponse> {
+    return postPage(
+      (args) =>
+        this.database.prisma.post.findMany({
+          ...args,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: postSelect(viewerId),
+        }),
+      { AND: [where, visiblePost(viewerId)] },
+      page,
+    );
   }
 
   // Only the author; others get 404 so a hidden post is not confirmed.

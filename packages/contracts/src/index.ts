@@ -82,9 +82,18 @@ export {
   PostListResponseSchema,
   DeletePostResponseSchema,
   AvatarResponseSchema,
+  LikeResponseSchema,
+  CommentTextSchema,
+  CreateCommentRequestSchema,
+  CommentSchema,
+  CommentResponseSchema,
+  CommentListResponseSchema,
+  DeleteCommentResponseSchema,
   postsEndpoints,
   type Post,
   type PostListResponse,
+  type Comment,
+  type LikeResponse,
 } from "./posts.js";
 
 // This describes the future FND-04 endpoint; FND-02 does not expose an HTTP route.
