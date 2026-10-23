@@ -6,6 +6,9 @@ import { uploadWithProgress } from "@/lib/api/upload";
 import { replaceLocation } from "@/lib/navigation";
 
 import { CreatePost } from "./create-post";
+import { Feed } from "./feed";
+import { PostView } from "./post-view";
+import { ProfileGrid } from "./profile-grid";
 
 const viewer = {
   id: "4f70d2ab-d6d6-4243-b0d3-f7b767434789",
@@ -19,6 +22,7 @@ vi.mock("@/features/auth/home-access", () => ({
 }));
 vi.mock("@/lib/navigation", () => ({ replaceLocation: vi.fn() }));
 vi.mock("@/lib/api/upload", () => ({ uploadWithProgress: vi.fn() }));
+vi.mock("next/navigation", () => ({ useParams: () => ({ id: uuid(1) }) }));
 
 const csrfToken = `${"a".repeat(43)}.1792640000.${"b".repeat(43)}`;
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -167,5 +171,73 @@ describe("create video post", () => {
     );
     expect(screen.getByRole("button", { name: "Повторить" })).toBeTruthy();
     expect(screen.getByLabelText("Выбранное видео")).toBeTruthy();
+  });
+});
+
+// Routes "METHOD path" to handlers; CSRF is always granted.
+function routes(map: Record<string, () => Response>) {
+  const fetch = vi.fn(async (input: string, init: RequestInit) => {
+    const path = new URL(input, "http://localhost").pathname;
+    if (path === "/api/v1/auth/csrf") return Response.json({ csrfToken });
+    const handler = map[`${init.method} ${path}`];
+    if (!handler) throw new Error(`Unexpected ${init.method} ${path}`);
+    return handler();
+  });
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+}
+
+describe("video playback", () => {
+  it("plays a ready video with its poster on the post page", async () => {
+    routes({
+      [`GET /api/v1/posts/${uuid(1)}`]: () => Response.json({ post: videoPost("ready") }),
+      [`GET /api/v1/posts/${uuid(1)}/comments`]: () => Response.json({ items: [], nextCursor: null }),
+    });
+    render(<PostView />);
+    const video = (await screen.findByLabelText("Закат")) as HTMLVideoElement;
+    expect(video.tagName).toBe("VIDEO");
+    expect(video.getAttribute("src")).toBe(`/api/v1/media/${uuid(9)}/video`);
+    expect(video.getAttribute("poster")).toBe(`/api/v1/media/${uuid(9)}/full`);
+    expect(video.hasAttribute("controls")).toBe(true);
+    expect(video.getAttribute("preload")).toBe("metadata");
+  });
+
+  it("shows the author an unfinished video without loading likes or comments", async () => {
+    const fetch = routes({
+      [`GET /api/v1/posts/${uuid(1)}`]: () => Response.json({ post: videoPost("processing") }),
+    });
+    render(<PostView />);
+    expect(await screen.findByText(/Видео обрабатывается/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Нравится" })).toBeNull();
+    expect(document.querySelector("video")).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains a broken video file", async () => {
+    routes({
+      [`GET /api/v1/posts/${uuid(1)}`]: () => Response.json({ post: videoPost("ready") }),
+      [`GET /api/v1/posts/${uuid(1)}/comments`]: () => Response.json({ items: [], nextCursor: null }),
+    });
+    render(<PostView />);
+    const video = await screen.findByLabelText("Закат");
+    video.dispatchEvent(new Event("error"));
+    expect(await screen.findByText("Видео недоступно")).toBeTruthy();
+  });
+
+  it("plays videos in the feed and marks them in the profile grid", async () => {
+    routes({
+      "GET /api/v1/feed": () => Response.json({ items: [videoPost("ready")], nextCursor: null }),
+      [`GET /api/v1/users/${viewer.id}/posts`]: () =>
+        Response.json({ items: [videoPost("ready")], nextCursor: null }),
+    });
+    const { unmount } = render(<Feed viewerId={viewer.id} />);
+    const video = await screen.findByLabelText("Закат");
+    expect(video.tagName).toBe("VIDEO");
+    expect(video.closest("a")).toBeNull();
+    unmount();
+    render(<ProfileGrid userId={viewer.id} self />);
+    const tile = await screen.findByRole("link", { name: /Закат/ });
+    expect(tile.textContent).toContain("Видео");
+    expect(tile.getAttribute("href")).toBe(`/p/${uuid(1)}`);
   });
 });
