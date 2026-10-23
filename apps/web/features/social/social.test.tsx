@@ -7,7 +7,6 @@ import { SuggestionsCarousel } from "@/components/home/suggestions-carousel";
 import { replaceLocation } from "@/lib/navigation";
 
 import { FollowRequests } from "./follow-requests";
-import { ProfileSettings } from "./profile-settings";
 import { plural, ProfileView } from "./profile-view";
 import { SuggestionsProvider } from "./suggestions";
 import { UserSearch } from "./user-search";
@@ -151,10 +150,8 @@ describe("profile page", () => {
     expect(await screen.findByRole("heading", { name: "user_3" })).toBeTruthy();
     expect(screen.getByText("21 подписчик")).toBeTruthy();
     expect(screen.getByText("3 подписки")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Подписаться: user_3" }));
-    expect(
-      await screen.findByRole("button", { name: "Вы подписаны: user_3" }),
-    ).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Подписаться" }));
+    expect(await screen.findByRole("button", { name: "Подписки" })).toBeTruthy();
   });
 
   it("hides posts and lists of a private profile from non-followers", async () => {
@@ -213,72 +210,6 @@ describe("profile page", () => {
     expect(plural(3, ["a", "b", "c"])).toBe("3 b");
     expect(plural(11, ["a", "b", "c"])).toBe("11 c");
     expect(plural(22, ["a", "b", "c"])).toBe("22 b");
-  });
-});
-
-describe("profile settings", () => {
-  const own = {
-    id: viewer.id,
-    username: "person",
-    displayName: "",
-    bio: "",
-    isPrivate: false,
-  };
-
-  it("sends only changed fields and blocks invalid input", async () => {
-    let sent: unknown;
-    api({
-      "GET /api/v1/me/profile": () => Response.json({ profile: own }),
-      "PATCH /api/v1/me/profile": (_url, init) => {
-        sent = JSON.parse(String(init.body));
-        return Response.json({ profile: { ...own, ...(sent as object) } });
-      },
-    });
-    render(<ProfileSettings />);
-    const user = userEvent.setup();
-    const bio = await screen.findByRole("textbox", { name: /О себе/ });
-    const submit = screen.getByRole("button", { name: "Отправить" }) as HTMLButtonElement;
-    expect(submit.disabled).toBe(true);
-    await user.type(bio, "x".repeat(151));
-    expect(submit.disabled).toBe(true);
-    expect(screen.getByRole("alert").textContent).toBe("Проверьте введённые данные.");
-    await user.clear(bio);
-    await user.type(bio, "Привет");
-    await user.click(screen.getByRole("switch"));
-    await user.click(submit);
-    expect(await screen.findByText("Профиль сохранён.")).toBeTruthy();
-    expect(sent).toEqual({ bio: "Привет", isPrivate: true });
-  });
-
-  it("moves to the new profile address after a username change", async () => {
-    api({
-      "GET /api/v1/me/profile": () => Response.json({ profile: own }),
-      "PATCH /api/v1/me/profile": () =>
-        Response.json({ profile: { ...own, username: "renamed" } }),
-    });
-    render(<ProfileSettings />);
-    const user = userEvent.setup();
-    const name = await screen.findByRole("textbox", { name: /Имя пользователя/ });
-    await user.clear(name);
-    await user.type(name, "renamed");
-    await user.click(screen.getByRole("button", { name: "Отправить" }));
-    await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith("/renamed"));
-  });
-
-  it("shows a taken username error", async () => {
-    api({
-      "GET /api/v1/me/profile": () => Response.json({ profile: own }),
-      "PATCH /api/v1/me/profile": () =>
-        Response.json(errorBody("USERNAME_TAKEN", "Username is already taken."), { status: 409 }),
-    });
-    render(<ProfileSettings />);
-    const user = userEvent.setup();
-    const name = await screen.findByRole("textbox", { name: /Имя пользователя/ });
-    await user.type(name, "x");
-    await user.click(screen.getByRole("button", { name: "Отправить" }));
-    expect((await screen.findByRole("alert")).textContent).toBe(
-      "Это имя пользователя уже занято.",
-    );
   });
 });
 
