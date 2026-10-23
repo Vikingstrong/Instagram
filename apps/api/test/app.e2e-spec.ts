@@ -124,6 +124,7 @@ describe('AppController (e2e)', () => {
       '/api/v1/posts/{id}/comments',
       '/api/v1/posts/{id}/like',
       '/api/v1/readiness',
+      '/api/v1/reels',
       '/api/v1/search/users',
       '/api/v1/users/{id}/follow',
       '/api/v1/users/{id}/followers',

@@ -12,6 +12,7 @@ import {
   AuthApiErrorResponseSchema,
   AuthCsrfResponseSchema,
   AuthUserResponseSchema,
+  PostListResponseSchema,
   PostResponseSchema,
   authEndpoints,
   postsEndpoints,
@@ -297,4 +298,156 @@ describe('Video posts with real PostgreSQL and ffmpeg', () => {
     expect(await media.failInterruptedVideos()).toBeGreaterThanOrEqual(1);
     expect(await read(owner, post.id)).toMatchObject({ status: 'failed' });
   });
+
+  async function ready(who: Account, caption = '') {
+    const created = PostResponseSchema.parse(
+      (await upload(who, clip, { caption })).body,
+    ).post;
+    await media.idle();
+    return (await read(who, created.id)) as Post;
+  }
+  const follow = (follower: Account, followee: Account) =>
+    database.prisma.follow.create({
+      data: {
+        followerId: follower.id,
+        followeeId: followee.id,
+        status: 'ACCEPTED',
+        acceptedAt: new Date(),
+      },
+    });
+  const bytes = (response: request.Response) => response.body as Buffer;
+  const binary = (req: request.Test) =>
+    req.buffer(true).parse((res, done) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => done(null, Buffer.concat(chunks)));
+    });
+
+  it('streams the video with Range support and checks access on every request', async () => {
+    const owner = await account();
+    await database.prisma.user.update({
+      where: { id: owner.id },
+      data: { isPrivate: true },
+    });
+    const post = await ready(owner);
+    const url = post.video!.url;
+    const file = await readFile(join(root, mediaId(post), 'video.mp4'));
+
+    const whole = await binary(owner.client.get(url));
+    expect(whole.status).toBe(200);
+    expect(whole.headers['content-type']).toBe('video/mp4');
+    expect(whole.headers['accept-ranges']).toBe('bytes');
+    expect(whole.headers['cache-control']).toBe('private, no-store');
+    expect(whole.headers['x-content-type-options']).toBe('nosniff');
+    expect(bytes(whole).equals(file)).toBe(true);
+
+    const part = await binary(
+      owner.client.get(url).set('Range', 'bytes=100-199'),
+    );
+    expect(part.status).toBe(206);
+    expect(part.headers['content-range']).toBe(`bytes 100-199/${file.length}`);
+    expect(bytes(part).equals(file.subarray(100, 200))).toBe(true);
+    const suffix = await binary(
+      owner.client.get(url).set('Range', 'bytes=-10'),
+    );
+    expect(bytes(suffix).equals(file.subarray(file.length - 10))).toBe(true);
+    const past = await owner.client
+      .get(url)
+      .set('Range', `bytes=${file.length}-`);
+    expect(past.status).toBe(416);
+    expect(past.headers['content-range']).toBe(`bytes */${file.length}`);
+
+    // Private author: a stranger gets nothing, an approved follower plays
+    // it, and loses it again on the very next request after unfollowing.
+    const fan = await account();
+    for (const target of [url, post.image.url])
+      expect(
+        (await fan.client.get(target).set('Range', 'bytes=0-9')).status,
+      ).toBe(404);
+    await follow(fan, owner);
+    expect((await fan.client.get(url).set('Range', 'bytes=0-9')).status).toBe(
+      206,
+    );
+    await database.prisma.follow.deleteMany({
+      where: { followerId: fan.id, followeeId: owner.id },
+    });
+    expect((await fan.client.get(url).set('Range', 'bytes=10-19')).status).toBe(
+      404,
+    );
+    expect(
+      (await owner.client.get(`/api/v1/media/${mediaId(post)}/raw`)).status,
+    ).toBe(404);
+  }, 60_000);
+
+  it('lists Reels: accessible videos only, newest first, without duplicates', async () => {
+    const open = await account();
+    const closed = await account();
+    await database.prisma.user.update({
+      where: { id: closed.id },
+      data: { isPrivate: true },
+    });
+    const viewer = await account();
+    const first = await ready(open, 'первое');
+    const hidden = await ready(closed, 'закрытое');
+    const second = await ready(open, 'второе');
+    // A photo and a video that failed processing never appear in Reels.
+    const still = await database.prisma.media.create({
+      data: {
+        ownerId: open.id,
+        kind: 'POST',
+        state: 'READY',
+        width: 10,
+        height: 10,
+      },
+    });
+    await database.prisma.post.create({
+      data: { authorId: open.id, mediaId: still.id, caption: 'фото' },
+    });
+    vi.spyOn(app.get(VideoProcessor), 'process').mockRejectedValueOnce(
+      new Error('encoder crashed'),
+    );
+    await upload(open, clip);
+    await media.idle();
+
+    const reels = async (query = '') => {
+      const response = await viewer.client
+        .get(postsEndpoints.reels.path + query)
+        .expect(200);
+      expect(response.headers['cache-control']).toBe('no-store');
+      return PostListResponseSchema.parse(response.body);
+    };
+    const mine = (items: Post[]) =>
+      items
+        .filter((item) => [open.id, closed.id].includes(item.author.id))
+        .map((item) => item.id);
+    expect(mine((await reels('?limit=50')).items)).toEqual([
+      second.id,
+      first.id,
+    ]);
+
+    await follow(viewer, closed);
+    const all = await reels('?limit=50');
+    expect(mine(all.items)).toEqual([second.id, hidden.id, first.id]);
+    expect(
+      all.items.every(
+        (item) => item.type === 'video' && item.status === 'ready',
+      ),
+    ).toBe(true);
+
+    const seen: string[] = [];
+    let cursor: string | null = '';
+    while (cursor !== null) {
+      const page = await reels(`?limit=1${cursor ? `&cursor=${cursor}` : ''}`);
+      seen.push(...page.items.map((item) => item.id));
+      cursor = page.nextCursor;
+    }
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(
+      mine(
+        seen
+          .map((id) => all.items.find((item) => item.id === id)!)
+          .filter(Boolean),
+      ),
+    ).toEqual([second.id, hidden.id, first.id]);
+  }, 120_000);
 });

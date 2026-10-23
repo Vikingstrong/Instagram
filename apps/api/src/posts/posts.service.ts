@@ -239,6 +239,12 @@ export class PostsService {
     );
   }
 
+  // FR-10 Reels: every video post the viewer may see (own, approved
+  // followings and public accounts), newest first, no ranking.
+  async reels(viewerId: string, page: PageQuery): Promise<PostListResponse> {
+    return this.page(viewerId, { media: { type: 'VIDEO' } }, page);
+  }
+
   private page(
     viewerId: string,
     where: Prisma.PostWhereInput,
@@ -339,5 +345,24 @@ export class PostsService {
     const data = await this.media.read(id, variant);
     if (!data) throw new AuthError('MEDIA_NOT_FOUND');
     return data;
+  }
+
+  // The video file of a READY post the viewer may see, checked again for
+  // every (Range) request, so a revoked follow stops playback at once.
+  async openVideo(viewerId: string, id: string) {
+    const allowed = await this.database.prisma.media.findFirst({
+      where: {
+        id,
+        kind: 'POST',
+        type: 'VIDEO',
+        state: 'READY',
+        post: visiblePost(viewerId),
+      },
+      select: { id: true },
+    });
+    if (!allowed) throw new AuthError('MEDIA_NOT_FOUND');
+    const file = await this.media.open(id, 'video');
+    if (!file) throw new AuthError('MEDIA_NOT_FOUND');
+    return file;
   }
 }
