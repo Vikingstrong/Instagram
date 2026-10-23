@@ -16,3 +16,9 @@ Stories: `20261024110000_stories` adds the STORY media kind, 24h story rows
 and unique audience records; see [Stories](../../../../docs/development/stories.md).
 The enum addition is committed before the transactional table/index creation.
 Apply with migrate deploy; existing media, posts and migration SQL are preserved.
+
+Coins: `20261024140000_coins` adds bigint wallets and the operation journal,
+SQL checks and unique daily reward/idempotency keys. No automatic credits or
+backfill are performed. Apply to dev/test with the commands above. Journal user
+FKs restrict account deletion until retention is decided; see
+[Coins API](../../../../docs/development/coins.md).

@@ -90,6 +90,9 @@ export const AuthVerifiedResponseSchema = z.strictObject({ status: z.literal("ve
 export const AuthPasswordResetResponseSchema = z.strictObject({ status: z.literal("password_reset") });
 
 export const authErrors = {
+  COINS_INSUFFICIENT_BALANCE: { status: 409, message: "Not enough coins." },
+  COINS_OPERATION_CONFLICT: { status: 409, message: "Coin operation key was already used for a different gift." },
+  COINS_BALANCE_LIMIT: { status: 409, message: "Coin balance limit reached." },
   STORY_NOT_FOUND: { status: 404, message: "Story is unavailable or expired." },
   INVALID_OR_EXPIRED_TOKEN: { status: 400, message: "Invalid or expired token." },
   INVALID_REQUEST: { status: 400, message: "Invalid request." },
@@ -166,6 +169,9 @@ function errorVariant<C extends AuthErrorCode>(code: C) {
 }
 export const AuthApiErrorResponseSchema = z.strictObject({
   error: z.discriminatedUnion("code", [
+    errorVariant("COINS_INSUFFICIENT_BALANCE"),
+    errorVariant("COINS_OPERATION_CONFLICT"),
+    errorVariant("COINS_BALANCE_LIMIT"),
     errorVariant("INVALID_OR_EXPIRED_TOKEN"),
     errorVariant("INVALID_REQUEST"),
     errorVariant("INVALID_IMAGE"),

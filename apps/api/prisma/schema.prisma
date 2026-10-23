@@ -76,8 +76,50 @@ model User {
   callsReceived Call[] @relation("callCallee")
   callSeat CallSeat?
   messages          DirectMessage[]
+  coinWallet        CoinWallet?
+  coinsSent         CoinOperation[] @relation("coinSender")
+  coinsReceived     CoinOperation[] @relation("coinRecipient")
 
   @@map("auth_users")
+}
+
+enum CoinOperationKind {
+  DAILY_REWARD
+  GIFT_TRANSFER
+}
+
+model CoinWallet {
+  userId    String   @id @db.Uuid
+  balance   BigInt   @default(0)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("coin_wallets")
+}
+
+// Immutable journal; account deletion needs an explicit retention policy.
+model CoinOperation {
+  id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind                  CoinOperationKind
+  senderId              String? @db.Uuid
+  recipientId           String @db.Uuid
+  amount                BigInt
+  senderBalanceAfter    BigInt?
+  recipientBalanceAfter BigInt
+  claimDate             DateTime? @db.Date
+  streamId              String? @db.Uuid
+  giftKey               String? @db.VarChar(80)
+  idempotencyKey        String? @db.Uuid
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+  sender                User? @relation("coinSender", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  recipient             User @relation("coinRecipient", fields: [recipientId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([recipientId, claimDate])
+  @@unique([senderId, idempotencyKey])
+  @@index([recipientId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([senderId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([streamId])
+  @@map("coin_operations")
 }
 
 model AuthSession {
