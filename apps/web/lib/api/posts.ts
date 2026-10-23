@@ -2,8 +2,12 @@ import {
   authEndpoints,
   AuthCsrfResponseSchema,
   AvatarResponseSchema,
+  CommentListResponseSchema,
+  CommentResponseSchema,
+  DeleteCommentResponseSchema,
   DeletePostResponseSchema,
   imageUploadRules,
+  LikeResponseSchema,
   PostListResponseSchema,
   PostResponseSchema,
   postsEndpoints,
@@ -17,9 +21,10 @@ import {
 } from "./client";
 import { withPath } from "./social";
 
-// Posts, avatars and their images (stage 4). Uploads are multipart with the
-// file in the agreed field; mutations fetch a fresh CSRF token each time and
-// are never retried automatically.
+// Posts, avatars and their images (stage 4); feed, likes and comments
+// (stage 5). Uploads are multipart with the file in the agreed field;
+// mutations fetch a fresh CSRF token each time and are never retried
+// automatically.
 export function createPostsClient(api: ApiClient = createApiClient()) {
   async function mutate<T>(
     endpoint: ApiEndpoint,
@@ -59,6 +64,31 @@ export function createPostsClient(api: ApiClient = createApiClient()) {
       mutate(postsEndpoints.setAvatar, AvatarResponseSchema, upload(image)),
     removeAvatar: () =>
       mutate(postsEndpoints.removeAvatar, AvatarResponseSchema),
+    feed: (cursor?: string, signal?: AbortSignal) =>
+      api.request(
+        withPath(postsEndpoints.feed, {}, { cursor }),
+        PostListResponseSchema,
+        { signal },
+      ),
+    like: (id: string) =>
+      mutate(withPath(postsEndpoints.like, { id }), LikeResponseSchema),
+    unlike: (id: string) =>
+      mutate(withPath(postsEndpoints.unlike, { id }), LikeResponseSchema),
+    comments: (id: string, cursor?: string, signal?: AbortSignal) =>
+      api.request(
+        withPath(postsEndpoints.comments, { id }, { cursor }),
+        CommentListResponseSchema,
+        { signal },
+      ),
+    addComment: (id: string, text: string) =>
+      mutate(withPath(postsEndpoints.addComment, { id }), CommentResponseSchema, {
+        text,
+      }),
+    removeComment: (id: string) =>
+      mutate(
+        withPath(postsEndpoints.removeComment, { id }),
+        DeleteCommentResponseSchema,
+      ),
   };
 }
 

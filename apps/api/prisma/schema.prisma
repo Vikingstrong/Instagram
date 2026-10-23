@@ -56,6 +56,8 @@ model User {
   avatar            Media?        @relation("avatar", fields: [avatarMediaId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   media             Media[]       @relation("owner")
   posts             Post[]
+  likes             PostLike[]
+  comments          Comment[]
 
   @@map("auth_users")
 }
@@ -158,7 +160,38 @@ model Post {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   media     Media    @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
+  likes     PostLike[]
+  comments  Comment[]
 
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
+  // Feed keyset over many authors.
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
   @@map("posts")
+}
+
+// FR-06: at most one like per user and post (the primary key).
+model PostLike {
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model Comment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  text      String   @db.VarChar(2200)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([postId, createdAt, id])
+  @@index([authorId])
+  @@map("comments")
 }

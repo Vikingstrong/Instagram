@@ -33,6 +33,10 @@ export const PostSchema = z.strictObject({
   caption: PostCaptionSchema,
   image: PostImageSchema,
   createdAt: z.iso.datetime(),
+  // FR-06: counters and the viewer's own like, read with the post.
+  likeCount: z.int().nonnegative(),
+  commentCount: z.int().nonnegative(),
+  liked: z.boolean(),
 });
 export const PostResponseSchema = z.strictObject({ post: PostSchema });
 export const PostListResponseSchema = z.strictObject({
@@ -46,7 +50,41 @@ export const AvatarResponseSchema = z.strictObject({
   avatarUrl: MediaUrlSchema.nullable(),
 });
 
+// Like and unlike are idempotent and answer with the resulting state.
+export const LikeResponseSchema = z.strictObject({
+  liked: z.boolean(),
+  likeCount: z.int().nonnegative(),
+});
+
+// P-09 comment: 1–2200 code points, line breaks allowed, not only spaces.
+export const CommentTextSchema = profileText(2200, true).refine(
+  (value) => value.trim().length > 0,
+  { message: "Comment must not be empty." },
+);
+export const CreateCommentRequestSchema = z.strictObject({
+  text: CommentTextSchema,
+});
+export const CommentSchema = z.strictObject({
+  id: z.uuid(),
+  postId: z.uuid(),
+  author: UserSummarySchema,
+  text: CommentTextSchema,
+  createdAt: z.iso.datetime(),
+  // Comment author or post author (FR-06).
+  canDelete: z.boolean(),
+});
+export const CommentResponseSchema = z.strictObject({ comment: CommentSchema });
+export const CommentListResponseSchema = z.strictObject({
+  items: z.array(CommentSchema),
+  nextCursor: PageCursorSchema.nullable(),
+});
+export const DeleteCommentResponseSchema = z.strictObject({
+  status: z.literal("deleted"),
+});
+
 export type Post = z.infer<typeof PostSchema>;
+export type Comment = z.infer<typeof CommentSchema>;
+export type LikeResponse = z.infer<typeof LikeResponseSchema>;
 export type PostListResponse = z.infer<typeof PostListResponseSchema>;
 
 export const postsEndpoints = {
@@ -58,6 +96,14 @@ export const postsEndpoints = {
   // multipart/form-data: image (file).
   setAvatar: { method: "PUT", path: "/api/v1/me/avatar", successStatus: 200 },
   removeAvatar: { method: "DELETE", path: "/api/v1/me/avatar", successStatus: 200 },
+  // FR-05: own posts and approved followings, newest first.
+  feed: { method: "GET", path: "/api/v1/feed", successStatus: 200 },
+  like: { method: "PUT", path: "/api/v1/posts/{id}/like", successStatus: 200 },
+  unlike: { method: "DELETE", path: "/api/v1/posts/{id}/like", successStatus: 200 },
+  // Oldest first, like a conversation under the post.
+  comments: { method: "GET", path: "/api/v1/posts/{id}/comments", successStatus: 200 },
+  addComment: { method: "POST", path: "/api/v1/posts/{id}/comments", successStatus: 201 },
+  removeComment: { method: "DELETE", path: "/api/v1/comments/{id}", successStatus: 200 },
   // Binary image/webp; same access rules as the post or profile it belongs to.
   media: { method: "GET", path: "/api/v1/media/{id}/{variant}", successStatus: 200 },
 } as const;

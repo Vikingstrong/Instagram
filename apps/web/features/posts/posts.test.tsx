@@ -46,6 +46,9 @@ const post = (n: number, extra: object = {}) => ({
     height: 1080,
   },
   createdAt: "2026-10-23T10:00:00.000Z",
+  likeCount: 0,
+  commentCount: 0,
+  liked: false,
   ...extra,
 });
 const errorBody = (code: string, message: string) => ({
@@ -146,6 +149,7 @@ describe("post details", () => {
     let deleted = false;
     api({
       [`GET /api/v1/posts/${uuid(1)}`]: () => Response.json({ post: post(1) }),
+      [`GET /api/v1/posts/${uuid(1)}/comments`]: () => Response.json({ items: [], nextCursor: null }),
       [`DELETE /api/v1/posts/${uuid(1)}`]: () => {
         deleted = true;
         return Response.json({ status: "deleted" });
@@ -172,6 +176,7 @@ describe("post details", () => {
   it("offers no deletion to other viewers and hides missing posts", async () => {
     route.id = uuid(2);
     api({
+      [`GET /api/v1/posts/${uuid(2)}/comments`]: () => Response.json({ items: [], nextCursor: null }),
       [`GET /api/v1/posts/${uuid(2)}`]: () =>
         Response.json({ post: post(2, { author: author(uuid(9), "other") }) }),
     });

@@ -17,7 +17,8 @@ import { Prisma } from '../generated/prisma/client.js';
 
 // Route groups that answer with the Auth error contract, including Nest's own
 // 404/400 for unknown or malformed requests under them.
-const contractPath = /^\/api\/v1\/(?:auth|users|me|search|posts|media)(?:\/|$)/;
+const contractPath =
+  /^\/api\/v1\/(?:auth|users|me|search|posts|media|feed|comments)(?:\/|$)/;
 
 @Catch()
 export class AuthErrorFilter {

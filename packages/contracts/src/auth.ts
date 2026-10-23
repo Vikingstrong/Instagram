@@ -112,6 +112,11 @@ export const authErrors = {
   USER_NOT_FOUND: { status: 404, message: "User not found." },
   POST_NOT_FOUND: { status: 404, message: "Post not found." },
   MEDIA_NOT_FOUND: { status: 404, message: "Image not found." },
+  COMMENT_NOT_FOUND: { status: 404, message: "Comment not found." },
+  CANNOT_DELETE_COMMENT: {
+    status: 403,
+    message: "You cannot delete this comment.",
+  },
   FOLLOW_REQUEST_NOT_FOUND: {
     status: 404,
     message: "Follow request not found.",
@@ -155,6 +160,8 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("FOLLOW_REQUEST_NOT_FOUND"),
     errorVariant("POST_NOT_FOUND"),
     errorVariant("MEDIA_NOT_FOUND"),
+    errorVariant("COMMENT_NOT_FOUND"),
+    errorVariant("CANNOT_DELETE_COMMENT"),
     errorVariant("USERNAME_TAKEN"),
     errorVariant("ACCOUNT_UNAVAILABLE"),
     errorVariant("TOO_MANY_REQUESTS"),

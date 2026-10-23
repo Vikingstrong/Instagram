@@ -19,6 +19,10 @@ export function describeFailure(failure: ApiFailure): string {
           return "Публикация недоступна или удалена.";
         case "MEDIA_NOT_FOUND":
           return "Изображение недоступно.";
+        case "COMMENT_NOT_FOUND":
+          return "Комментарий уже удалён.";
+        case "CANNOT_DELETE_COMMENT":
+          return "Этот комментарий нельзя удалить.";
         case "INVALID_REQUEST":
           return "Проверьте введённые данные.";
         case "INVALID_CREDENTIALS":
