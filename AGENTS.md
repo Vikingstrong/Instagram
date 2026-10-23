@@ -113,6 +113,11 @@ docs/development/direct-api.md. Stage 7 realtime: SSE GET /api/v1/direct/events
 (DirectEvents in-memory hub, ids only; SessionRevocations closes streams on
 logout/reset); web subscribes, waits for "ready", then syncs over REST; see
 docs/development/direct-realtime.md.
+Stage 8 (FR-10): video posts via POST /api/v1/posts/video (disk upload,
+background ffmpeg-static transcode in MediaService, VideoProcessor), video
+streaming with Range at /api/v1/media/{id}/video, GET /api/v1/reels; web
+/create (photo or video), VideoPlayer, /reels; see
+docs/development/video-reels.md.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.
