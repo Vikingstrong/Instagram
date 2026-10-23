@@ -93,7 +93,7 @@ export function UserSearch() {
                 href={`/${user.username}`}
                 className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-secondary"
               >
-                <Avatar name={user.username} size={44} />
+                <Avatar name={user.username} src={user.avatarUrl} size={44} />
                 <span className="min-w-0 flex-1 leading-tight">
                   <span className="block truncate text-sm font-semibold">
                     {user.username}

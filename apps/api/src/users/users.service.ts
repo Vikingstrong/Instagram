@@ -26,7 +26,12 @@ const ownSelect = {
   displayName: true,
   bio: true,
   isPrivate: true,
+  avatarMediaId: true,
 } as const;
+
+type OwnRow = { avatarMediaId: string | null } & Omit<OwnProfile, 'avatarUrl'>;
+const toOwnProfile = ({ avatarMediaId, ...user }: OwnRow): OwnProfile =>
+  OwnProfileSchema.parse({ ...user, avatarUrl: avatarUrl(avatarMediaId) });
 
 @Injectable()
 export class UsersService {
@@ -43,7 +48,6 @@ export class UsersService {
       },
       select: {
         ...ownSelect,
-        avatarMediaId: true,
         _count: {
           select: {
             posts: true,
@@ -91,7 +95,7 @@ export class UsersService {
       select: ownSelect,
     });
     if (!user) throw new AuthError('AUTHENTICATION_REQUIRED');
-    return OwnProfileSchema.parse(user);
+    return toOwnProfile(user);
   }
 
   async updateOwnProfile(
@@ -127,7 +131,7 @@ export class UsersService {
             where: { followeeId: userId, status: 'PENDING' },
             data: { status: 'ACCEPTED', acceptedAt: new Date() },
           });
-        return OwnProfileSchema.parse(updated);
+        return toOwnProfile(updated);
       });
     } catch (error) {
       if (

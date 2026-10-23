@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/accounts/edit" }));
 vi.mock("@/lib/navigation", () => ({ replaceLocation: vi.fn() }));
 
 const csrfToken = `${"a".repeat(43)}.1792640000.${"b".repeat(43)}`;
-const own = { id: viewer.id, username: "person", displayName: "", bio: "", isPrivate: false };
+const own = { id: viewer.id, username: "person", displayName: "", bio: "", avatarUrl: null, isPrivate: false };
 const errorBody = (code: string, message: string) => ({
   error: { code, message, requestId: "8f4c5d1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f" },
 });

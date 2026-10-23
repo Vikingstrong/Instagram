@@ -101,6 +101,8 @@ follower lists, suggestions (`/api/v1/me/suggestions`) and search
 `docs/development/users-api.md`. Stage 4 backend (PostsModule, MediaModule): posts with one image, avatars,
 access-checked image delivery and cleanup with sharp/multer and a private
 local storage adapter (MEDIA_ROOT); see docs/development/posts-api.md.
+Stage 4 web: /create, /p/[id], profile grid and avatar in settings; protected
+images use plain <img> via components/ui-ig/media-image.tsx, never next/image.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.

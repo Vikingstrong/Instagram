@@ -75,6 +75,7 @@ export const OwnProfileSchema = z.strictObject({
   username: AuthUsernameSchema,
   displayName: ProfileDisplayNameSchema,
   bio: ProfileBioSchema,
+  avatarUrl: MediaUrlSchema.nullable(),
   isPrivate: z.boolean(),
 });
 export const OwnProfileResponseSchema = z.strictObject({

@@ -31,12 +31,14 @@ function Spinner() {
 export function ProfileFollowActions({
   userId,
   username,
+  avatarUrl,
   isPrivate,
   relationship,
   onChange,
 }: {
   userId: string;
   username: string;
+  avatarUrl?: string | null;
   isPrivate: boolean;
   relationship: FollowState;
   onChange: (state: FollowState) => void;
@@ -98,7 +100,7 @@ export function ProfileFollowActions({
       )}
       {confirm && (
         <ConfirmDialog
-          media={<Avatar name={username} size={90} />}
+          media={<Avatar name={username} src={avatarUrl} size={90} />}
           title={
             state === "following"
               ? `Отменить подписку на @${username}?`

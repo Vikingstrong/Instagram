@@ -58,7 +58,7 @@ export function RightSidebar() {
             {suggestions.items.slice(0, 5).map((user) => (
               <li key={user.id} className="flex items-center gap-3 py-2">
                 <Link href={`/${user.username}`} aria-hidden tabIndex={-1}>
-                  <Avatar name={user.username} size={44} />
+                  <Avatar name={user.username} src={user.avatarUrl} size={44} />
                 </Link>
                 <div className="min-w-0 flex-1 leading-tight">
                   <Link

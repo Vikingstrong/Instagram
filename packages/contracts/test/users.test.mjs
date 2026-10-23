@@ -52,6 +52,7 @@ test("own profile excludes counters and relationship", () => {
     username: profile.username,
     displayName: "",
     bio: "",
+    avatarUrl: null,
     isPrivate: false,
   };
   assert.deepEqual(OwnProfileResponseSchema.parse({ profile: own }), {
