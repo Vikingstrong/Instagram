@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CallPreviewSchema } from "./calls.js";
 import { PageCursorSchema, UserSummarySchema } from "./social.js";
 import { profileText } from "./users.js";
 
@@ -37,6 +38,7 @@ export const ConversationSchema = z.strictObject({
   id: z.uuid(),
   peer: UserSummarySchema,
   lastMessage: DirectMessageSchema.nullable(),
+  lastCall: CallPreviewSchema.nullable().optional(),
   // Time of the last message, or of creation while there is none.
   lastActivityAt: z.iso.datetime(),
 });

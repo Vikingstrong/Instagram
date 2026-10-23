@@ -13,7 +13,11 @@ export type LikeState = { liked: boolean; likeCount: number };
 // Optimistic like: the heart and counter change at once, the server's answer
 // replaces them, and a failure restores the previous state with a message.
 // One request at a time, so quick double taps cannot reorder answers.
-export function useLike(postId: string, initial: LikeState) {
+export function useLike(
+  postId: string,
+  initial: LikeState,
+  kind: "post" | "comment" = "post",
+) {
   const [state, setState] = useState(initial);
   const [error, setError] = useState<string>();
   const pending = useRef(false);
@@ -29,7 +33,13 @@ export function useLike(postId: string, initial: LikeState) {
       likeCount: Math.max(0, previous.likeCount + (liked ? 1 : -1)),
     });
     const client = createPostsClient();
-    const result = await (liked ? client.like(postId) : client.unlike(postId));
+    const result = await (kind === "comment"
+      ? liked
+        ? client.likeComment(postId)
+        : client.unlikeComment(postId)
+      : liked
+        ? client.like(postId)
+        : client.unlike(postId));
     pending.current = false;
     if (result.ok) {
       setState(result.data);
@@ -66,4 +76,8 @@ export function LikeButton({
 }
 
 export const likesLabel = (count: number) =>
-  plural(count, ["отметка «Нравится»", "отметки «Нравится»", "отметок «Нравится»"]);
+  plural(count, [
+    "отметка «Нравится»",
+    "отметки «Нравится»",
+    "отметок «Нравится»",
+  ]);

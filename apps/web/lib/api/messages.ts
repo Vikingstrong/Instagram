@@ -29,6 +29,10 @@ export function describeFailure(failure: ApiFailure): string {
           return "Комментарий уже удалён.";
         case "CANNOT_DELETE_COMMENT":
           return "Этот комментарий нельзя удалить.";
+        case "CALL_NOT_FOUND": return "Звонок недоступен или уже завершён.";
+        case "CALL_BUSY": return "Вы или собеседник уже участвуете в звонке.";
+        case "CALL_STATE_CONFLICT": return "Звонок уже обработан на другом устройстве. Начните новый звонок.";
+        case "CALLS_UNAVAILABLE": return "Звонки пока не настроены на сервере.";
         case "CONVERSATION_NOT_FOUND":
           return "Диалог не найден.";
         case "CANNOT_MESSAGE_SELF":

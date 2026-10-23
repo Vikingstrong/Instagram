@@ -16,28 +16,33 @@ import {
 } from '../users/user-summary.js';
 import { visiblePost } from './post-policy.js';
 
-const commentSelect = {
-  id: true,
-  postId: true,
-  text: true,
-  createdAt: true,
-  author: { select: summarySelect },
-  post: { select: { authorId: true } },
-} as const;
+const commentSelect = (viewerId: string) =>
+  ({
+    id: true,
+    postId: true,
+    parentId: true,
+    replyTo: { select: summarySelect },
+    _count: { select: { likes: true, replies: true } },
+    likes: { where: { userId: viewerId }, select: { userId: true } },
+    text: true,
+    createdAt: true,
+    author: { select: summarySelect },
+    post: { select: { authorId: true } },
+  }) as const;
 
-type CommentRow = {
-  id: string;
-  postId: string;
-  text: string;
-  createdAt: Date;
-  author: Parameters<typeof userSummary>[0];
-  post: { authorId: string };
-};
+type CommentRow = Prisma.CommentGetPayload<{
+  select: ReturnType<typeof commentSelect>;
+}>;
 
 // FR-06: the comment author and the post author may delete a comment.
 function toComment(viewerId: string, row: CommentRow): Comment {
   return CommentSchema.parse({
     id: row.id,
+    parentId: row.parentId,
+    replyTo: row.replyTo ? userSummary(row.replyTo) : null,
+    replyCount: row._count.replies,
+    likeCount: row._count.likes,
+    liked: row.likes.length > 0,
     postId: row.postId,
     author: userSummary(row.author),
     text: row.text,
@@ -108,12 +113,14 @@ export class InteractionsService {
     viewerId: string,
     postId: string,
     page: PageQuery,
+    parentId: string | null = null,
   ): Promise<{ items: Comment[]; nextCursor: string | null }> {
     await this.requireVisible(viewerId, postId);
     const after = decodeCursor(page.cursor, 'date');
     const rows = await this.database.prisma.comment.findMany({
       where: {
         postId,
+        parentId,
         ...(after && {
           OR: [
             { createdAt: { gt: after.date } },
@@ -123,7 +130,7 @@ export class InteractionsService {
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: page.limit + 1,
-      select: commentSelect,
+      select: commentSelect(viewerId),
     });
     const items = rows.slice(0, page.limit);
     const last = items.at(-1);
@@ -136,18 +143,83 @@ export class InteractionsService {
     };
   }
 
-  async add(viewerId: string, postId: string, text: string): Promise<Comment> {
+  async add(
+    viewerId: string,
+    postId: string,
+    text: string,
+    replyToCommentId?: string,
+  ): Promise<Comment> {
     await this.requireVisible(viewerId, postId);
+    const target = replyToCommentId
+      ? await this.database.prisma.comment.findFirst({
+          where: { id: replyToCommentId, postId },
+          select: { id: true, parentId: true, authorId: true },
+        })
+      : null;
+    if (replyToCommentId && !target) throw new AuthError('COMMENT_NOT_FOUND');
     try {
       const row = await this.database.prisma.comment.create({
-        data: { postId, authorId: viewerId, text },
-        select: commentSelect,
+        data: {
+          postId,
+          authorId: viewerId,
+          text,
+          parentId: target ? (target.parentId ?? target.id) : null,
+          replyToUserId: target?.authorId ?? null,
+        },
+        select: commentSelect(viewerId),
       });
       return toComment(viewerId, row);
     } catch (error) {
-      if (missingPost(error)) throw new AuthError('POST_NOT_FOUND');
+      if (missingPost(error))
+        throw new AuthError(
+          replyToCommentId ? 'COMMENT_NOT_FOUND' : 'POST_NOT_FOUND',
+        );
       throw error;
     }
+  }
+
+  private async visibleComment(viewerId: string, id: string) {
+    const comment = await this.database.prisma.comment.findFirst({
+      where: { id, post: visiblePost(viewerId) },
+      select: { id: true, postId: true, parentId: true },
+    });
+    if (!comment) throw new AuthError('COMMENT_NOT_FOUND');
+    return comment;
+  }
+
+  async replies(viewerId: string, id: string, page: PageQuery) {
+    const root = await this.visibleComment(viewerId, id);
+    if (root.parentId) throw new AuthError('COMMENT_NOT_FOUND');
+    return this.list(viewerId, root.postId, { ...page, limit: 3 }, root.id);
+  }
+
+  async commentLike(
+    viewerId: string,
+    id: string,
+    liked: boolean,
+  ): Promise<LikeResponse> {
+    await this.visibleComment(viewerId, id);
+    try {
+      if (liked)
+        await this.database.prisma.commentLike.createMany({
+          data: { commentId: id, userId: viewerId },
+          skipDuplicates: true,
+        });
+      else
+        await this.database.prisma.commentLike.deleteMany({
+          where: { commentId: id, userId: viewerId },
+        });
+    } catch (error) {
+      if (missingPost(error)) throw new AuthError('COMMENT_NOT_FOUND');
+      throw error;
+    }
+    const [likeCount, own] = await Promise.all([
+      this.database.prisma.commentLike.count({ where: { commentId: id } }),
+      this.database.prisma.commentLike.count({
+        where: { commentId: id, userId: viewerId },
+      }),
+    ]);
+    return { liked: own > 0, likeCount };
   }
 
   // P-10: one's own comment can be deleted even after losing access to the

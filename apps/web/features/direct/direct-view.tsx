@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { DirectIcon } from "@/components/icons/ig-icons";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
@@ -26,13 +26,23 @@ export function DirectView() {
   // Keep the open chat during a brief session recheck (identity is null).
   if (viewer && viewer.id !== shown?.id) setShown(viewer);
 
+  useEffect(() => {
+    const refresh = () => {
+      setVersion((value) => value + 1);
+      setSyncKey((value) => value + 1);
+    };
+    window.addEventListener("instagram-call-history", refresh);
+    return () => window.removeEventListener("instagram-call-history", refresh);
+  }, []);
+
   const connection = useDirectEvents({
     enabled: Boolean(shown),
     // Any new message moves its conversation up the list; the open one
     // also reads the new messages.
     onNotice: (notice) => {
       setVersion((value) => value + 1);
-      if (notice.conversationId === selectedId) setSyncKey((value) => value + 1);
+      if (notice.conversationId === selectedId)
+        setSyncKey((value) => value + 1);
     },
     onSync: () => {
       setVersion((value) => value + 1);
@@ -43,7 +53,9 @@ export function DirectView() {
   if (!shown || (!viewer && !checking))
     return (
       <div className="m-auto flex flex-col items-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Войдите, чтобы читать сообщения.</p>
+        <p className="text-sm text-muted-foreground">
+          Войдите, чтобы читать сообщения.
+        </p>
         <Link href="/auth/login" className="font-semibold text-ig-link">
           Войти
         </Link>
@@ -62,7 +74,12 @@ export function DirectView() {
           selectedId && "max-md:hidden",
         )}
       />
-      <div className={cn("flex min-w-0 flex-1 flex-col", !selectedId && "max-md:hidden")}>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          !selectedId && "max-md:hidden",
+        )}
+      >
         {selectedId ? (
           <Thread
             key={selectedId}
@@ -79,7 +96,8 @@ export function DirectView() {
             </span>
             <h2 className="text-xl">Ваши сообщения</h2>
             <p className="text-sm text-muted-foreground">
-              Отправляйте личные сообщения друзьям. Откройте профиль и нажмите «Написать».
+              Отправляйте личные сообщения друзьям. Откройте профиль и нажмите
+              «Написать».
             </p>
             <Link
               href="/search"

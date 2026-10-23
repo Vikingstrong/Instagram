@@ -92,6 +92,7 @@ export function FeedPost({ post }: { post: Post }) {
               <CommentItem
                 key={comment.id}
                 comment={comment}
+                onReplyCountChange={(delta) => setComments((count) => Math.max(0, count + delta))}
                 onDeleted={(id) => {
                   setMine((list) => list.filter((item) => item.id !== id));
                   setComments((count) => Math.max(0, count - 1));

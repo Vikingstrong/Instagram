@@ -118,6 +118,7 @@ background ffmpeg-static transcode in MediaService, VideoProcessor), video
 streaming with Range at /api/v1/media/{id}/video, GET /api/v1/reels; web
 /create (photo or video), VideoPlayer, /reels; see
 docs/development/video-reels.md.
+Stage 9 calls slice: CallsModule and global web CallsProvider implement audio/video 1:1 with REST/SSE signaling; see `docs/development/calls-api.md`. TURN configuration and real-network acceptance remain required.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.
