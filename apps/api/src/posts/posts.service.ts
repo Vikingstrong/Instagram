@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { rm } from 'node:fs/promises';
 import {
   PostSchema,
   type PageQuery,
@@ -154,9 +155,45 @@ export class PostsService {
     }
   }
 
+  // FR-10: the original is checked before anything is recorded; then the
+  // post and its PENDING media are created together and the transcoding
+  // runs in the background. Others see the post only once it is READY.
+  async createVideo(
+    authorId: string,
+    original: string,
+    caption: string,
+  ): Promise<Post> {
+    try {
+      const info = await this.media.inspectVideo(original);
+      const row = await this.database.prisma.$transaction(async (tx) => {
+        const media = await this.media.createVideo(tx, authorId, info);
+        return tx.post.create({
+          data: { authorId, mediaId: media.id, caption },
+          select: postSelect(authorId),
+        });
+      });
+      void this.media.processVideo(row.media.id, original);
+      return toPost(row);
+    } catch (error) {
+      await rm(original, { force: true }).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  // Visible posts, plus the viewer's own video that is still processing or
+  // failed, so its author can follow it.
   async get(viewerId: string, id: string): Promise<Post> {
     const row = await this.database.prisma.post.findFirst({
-      where: { id, ...visiblePost(viewerId) },
+      where: {
+        id,
+        OR: [
+          visiblePost(viewerId),
+          {
+            authorId: viewerId,
+            media: { type: 'VIDEO', state: 'PENDING' },
+          },
+        ],
+      },
       select: postSelect(viewerId),
     });
     if (!row) throw new AuthError('POST_NOT_FOUND');

@@ -35,8 +35,9 @@ PRD v0.4 FR-10, roadmap этап 8. Параллельно Developer 1 ведё�
   Поле `image` остаётся у всех постов: у видео это обложка, поэтому сетка
   профиля и ленты работают без изменений.
 - `MediaUrlSchema` разрешает вариант `video`.
-- `POST /api/v1/posts` принимает поле `video` вместо `image` (ровно одно из
-  двух); ответ `201 { post }` со `status: "processing"`.
+- `POST /api/v1/posts/video` — отдельный путь (фото принимается в память,
+  видео сразу пишется на диск); поле `video`, ответ `201 { post }` со
+  `status: "processing"`. Превышение размера — `413 VIDEO_TOO_LARGE`.
 - `GET /api/v1/reels?cursor&limit` → `{ items: Post[], nextCursor }`.
 - Новые ошибки: `INVALID_VIDEO` 400, `VIDEO_TOO_LARGE` 413,
   `VIDEO_TOO_LONG` 400.

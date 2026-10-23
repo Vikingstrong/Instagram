@@ -38,8 +38,11 @@ import {
   PostResponseSchema,
   UserSummarySchema,
   imageUploadRules,
+  videoUploadRules,
 } from '@instagram/contracts';
+import { rm } from 'node:fs/promises';
 import { PostsService } from './posts.service.js';
+import { VideoUploadInterceptor } from './video-upload.interceptor.js';
 import {
   VerifiedSessionGuard,
   type AuthenticatedRequest,
@@ -149,6 +152,62 @@ export class PostsController {
       post: await this.posts.create(
         viewer(request),
         image(file),
+        fields.caption,
+      ),
+    });
+  }
+
+  @Post('posts/video')
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(UploadMutationGuard)
+  @UseInterceptors(VideoUploadInterceptor)
+  @ApiSecurity('csrfToken')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: [videoUploadRules.multipartField],
+      properties: {
+        [videoUploadRules.multipartField]: {
+          type: 'string',
+          format: 'binary',
+          description: 'MP4, MOV or WebM, up to 100 MB and 90 seconds.',
+        },
+        caption: {
+          type: 'string',
+          maxLength: 2200,
+          description: 'Optional, up to 2200 characters.',
+        },
+      },
+    },
+  })
+  @errorResponse(400)
+  @errorResponse(403)
+  @errorResponse(413)
+  @ApiOperation({
+    operationId: 'createVideoPost',
+    summary: 'Publish a post with one video',
+    description:
+      'The server checks the decoded video, then answers 201 with status "processing" and transcodes it to H.264/AAC MP4 with a poster in the background. Only the author can read the post until it is ready; a failed processing shows as status "failed" to the author. 10 uploads per hour.',
+  })
+  @ok(PostResponseSchema, 201)
+  async createVideo(
+    @UploadedFile() file: { path: string } | undefined,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    if (!file?.path) throw new AuthError('INVALID_VIDEO');
+    let fields: { caption: string };
+    try {
+      fields = parse(body ?? {}, CreatePostFieldsSchema);
+    } catch (error) {
+      await rm(file.path, { force: true });
+      throw error;
+    }
+    return PostResponseSchema.parse({
+      post: await this.posts.createVideo(
+        viewer(request),
+        file.path,
         fields.caption,
       ),
     });

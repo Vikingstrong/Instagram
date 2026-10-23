@@ -40,6 +40,7 @@
     "@prisma/client": "7.10.1",
     "ffmpeg-static": "5.3.0",
     "ffprobe-static": "3.1.0",
+    "multer": "2.4.0",
     "nodemailer": "10.1.7",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

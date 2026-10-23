@@ -119,6 +119,7 @@ describe('AppController (e2e)', () => {
       '/api/v1/me/suggestions',
       '/api/v1/media/{id}/{variant}',
       '/api/v1/posts',
+      '/api/v1/posts/video',
       '/api/v1/posts/{id}',
       '/api/v1/posts/{id}/comments',
       '/api/v1/posts/{id}/like',

@@ -90,12 +90,31 @@ export function parseInput(stderr: string): VideoInfo {
     throw new AuthError('INVALID_VIDEO');
   if (durationMs > videoUploadRules.maxDurationMs + DURATION_SLACK_MS)
     throw new AuthError('VIDEO_TOO_LONG');
+  // Phones store portrait video as rotated landscape; ffmpeg turns it upright
+  // when encoding, so report the size as it will be shown.
+  const rotation = /rotation of (-?\d+(?:\.\d+)?) degrees/.exec(stderr);
+  const quarter =
+    rotation !== null && Math.abs(Math.round(Number(rotation[1]))) % 180 === 90;
   return {
     durationMs,
-    width,
-    height,
+    width: quarter ? height : width,
+    height: quarter ? width : height,
     hasAudio: /Stream #0:\d+[^\n]*: Audio: /.test(stderr),
   };
+}
+
+// The size the SCALE filter produces: longest side up to 1080 px, both
+// sides even, aspect kept (rounded like ffmpeg's -2).
+export function outputSize(width: number, height: number) {
+  const even = (value: number) => Math.max(2, Math.round(value / 2) * 2);
+  const cap = (value: number) =>
+    Math.max(2, Math.trunc(Math.min(1080, value) / 2) * 2);
+  if (width >= height) {
+    const w = cap(width);
+    return { width: w, height: even((height * w) / width) };
+  }
+  const h = cap(height);
+  return { width: even((width * h) / height), height: h };
 }
 
 // FR-10 video pipeline: check the decoded input, transcode it to H.264/AAC

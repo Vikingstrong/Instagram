@@ -112,9 +112,11 @@ export type LikeResponse = z.infer<typeof LikeResponseSchema>;
 export type PostListResponse = z.infer<typeof PostListResponseSchema>;
 
 export const postsEndpoints = {
-  // multipart/form-data: image or video (file) + optional caption. A video
-  // post answers with status "processing" until the server has prepared it.
+  // multipart/form-data: image (file) + optional caption.
   create: { method: "POST", path: "/api/v1/posts", successStatus: 201 },
+  // multipart/form-data: video (file) + optional caption. Answers at once
+  // with status "processing"; the post appears to others once it is ready.
+  createVideo: { method: "POST", path: "/api/v1/posts/video", successStatus: 201 },
   get: { method: "GET", path: "/api/v1/posts/{id}", successStatus: 200 },
   remove: { method: "DELETE", path: "/api/v1/posts/{id}", successStatus: 200 },
   byUser: { method: "GET", path: "/api/v1/users/{id}/posts", successStatus: 200 },
