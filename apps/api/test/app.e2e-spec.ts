@@ -104,7 +104,23 @@ describe('AppController (e2e)', () => {
       '/api/v1/auth/session',
       '/api/v1/auth/verification/confirm',
       '/api/v1/auth/verification/request',
+      '/api/v1/me/avatar',
+      '/api/v1/me/follow-requests',
+      '/api/v1/me/follow-requests/{id}/accept',
+      '/api/v1/me/follow-requests/{id}/decline',
+      '/api/v1/me/followers/{id}',
+      '/api/v1/me/profile',
+      '/api/v1/me/suggestions',
+      '/api/v1/media/{id}/{variant}',
+      '/api/v1/posts',
+      '/api/v1/posts/{id}',
       '/api/v1/readiness',
+      '/api/v1/search/users',
+      '/api/v1/users/{id}/follow',
+      '/api/v1/users/{id}/followers',
+      '/api/v1/users/{id}/following',
+      '/api/v1/users/{id}/posts',
+      '/api/v1/users/{username}',
     ]);
     const operation = document.paths['/api/v1/readiness']!.get;
     expect(operation.operationId).toBe('getReadiness');

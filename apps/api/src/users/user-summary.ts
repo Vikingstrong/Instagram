@@ -1,20 +1,30 @@
 import { UserSummarySchema, type UserSummary } from '@instagram/contracts';
 import { AuthError } from '../auth/auth.error.js';
+import { mediaUrl } from '../media/media.service.js';
 
 export const summarySelect = {
   id: true,
   username: true,
   displayName: true,
   isPrivate: true,
+  avatarMediaId: true,
 } as const;
+
+export const avatarUrl = (id: string | null) =>
+  id ? mediaUrl(id, 'thumb') : null;
 
 export function userSummary(user: {
   id: string;
   username: string;
   displayName: string;
   isPrivate: boolean;
+  avatarMediaId: string | null;
 }): UserSummary {
-  return UserSummarySchema.parse({ ...user, avatarUrl: null });
+  const { avatarMediaId, ...rest } = user;
+  return UserSummarySchema.parse({
+    ...rest,
+    avatarUrl: avatarUrl(avatarMediaId),
+  });
 }
 
 // Keyset cursor: "<sort key>~<uuid>" in base64url. The sort key is an ISO

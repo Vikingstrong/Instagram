@@ -6,7 +6,9 @@ test("anonymous home opens login; explicit guest browse asks for auth on interac
   await expect(page.getByRole("heading", { name: "Войти в Instagram" })).toBeVisible();
   await page.getByRole("link", { name: /Продолжить как гость/ }).click();
   await expect(page).toHaveURL(/\?guest=1$/);
-  await expect(page.getByRole("heading", { name: "Рекомендации для вас" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Нравится", exact: true }).first()).toBeVisible();
+  // Suggestions are personal API data: guests never see or request them.
+  await expect(page.getByRole("heading", { name: "Рекомендации для вас" })).toHaveCount(0);
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await page.getByRole("button", { name: "Нравится", exact: true }).first().click();
   const dialog = page.getByRole("dialog");

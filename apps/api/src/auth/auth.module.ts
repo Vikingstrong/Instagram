@@ -5,7 +5,11 @@ import { AUTH_CONFIG, readAuthConfiguration } from './auth.config.js';
 import { PasswordHasher } from './password-hasher.js';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
-import { AuthSecurity, AuthMutationGuard } from './auth-security.js';
+import {
+  AuthSecurity,
+  AuthMutationGuard,
+  UploadMutationGuard,
+} from './auth-security.js';
 import { AuthRateLimiter } from './auth-rate-limiter.js';
 import { AuthErrorFilter } from './auth-error.filter.js';
 import { VerifiedSessionGuard } from './auth-session.guard.js';
@@ -23,6 +27,7 @@ import { MailModule } from '../mail/mail.module.js';
     AuthService,
     AuthSecurity,
     AuthMutationGuard,
+    UploadMutationGuard,
     AuthRateLimiter,
     VerifiedSessionGuard,
     { provide: APP_FILTER, useClass: AuthErrorFilter },
@@ -31,6 +36,7 @@ import { MailModule } from '../mail/mail.module.js';
     AuthService,
     AuthSecurity,
     AuthMutationGuard,
+    UploadMutationGuard,
     AuthRateLimiter,
     VerifiedSessionGuard,
   ],

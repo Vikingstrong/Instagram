@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AuthUsernameSchema } from "./auth.js";
-import { ProfileDisplayNameSchema } from "./users.js";
+import { MediaUrlSchema, ProfileDisplayNameSchema } from "./users.js";
 
 // Compact user card for lists, search and suggestions. Same visibility as the
 // profile summary: private accounts expose these fields too (FR-02).
@@ -8,7 +8,7 @@ export const UserSummarySchema = z.strictObject({
   id: z.uuid(),
   username: AuthUsernameSchema,
   displayName: ProfileDisplayNameSchema,
-  avatarUrl: z.null(),
+  avatarUrl: MediaUrlSchema.nullable(),
   isPrivate: z.boolean(),
 });
 

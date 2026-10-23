@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   UpdateOwnProfileRequestSchema,
   type OwnProfile,
@@ -13,6 +13,7 @@ import { DefaultAvatar } from "@/components/ui-ig/avatar";
 import { describeFailure } from "@/lib/api/messages";
 import { createSocialClient } from "@/lib/api/social";
 import { replaceLocation } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
 
 import { settingsField, settingsPrimaryButton } from "./settings-shell";
 import { useOwnProfile } from "./use-own-profile";
@@ -121,41 +122,52 @@ function ProfileForm({
         </button>
       </div>
 
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">Имя пользователя</span>
-        <input
-          className={settingsField}
-          value={form.username}
-          autoComplete="username"
-          onChange={(event) => set({ username: event.target.value })}
-        />
-        <span className="text-xs text-muted-foreground">
-          3–30 символов: латиница, цифры, точка и подчёркивание.
-        </span>
-      </label>
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">Имя</span>
-        <input
-          className={settingsField}
-          value={form.displayName}
-          autoComplete="name"
-          onChange={(event) => set({ displayName: event.target.value })}
-        />
-        <span className="text-right text-xs text-muted-foreground">
-          {codePoints(form.displayName)} / 30
-        </span>
-      </label>
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">О себе</span>
-        <textarea
-          className={`${settingsField} min-h-24 resize-y`}
-          value={form.bio}
-          onChange={(event) => set({ bio: event.target.value })}
-        />
-        <span className="text-right text-xs text-muted-foreground">
-          {codePoints(form.bio)} / 150
-        </span>
-      </label>
+      <Field
+        id="settings-username"
+        label="Имя пользователя"
+        hint="3–30 символов: латиница, цифры, точка и подчёркивание."
+      >
+        {(props) => (
+          <input
+            {...props}
+            className={settingsField}
+            value={form.username}
+            autoComplete="username"
+            onChange={(event) => set({ username: event.target.value })}
+          />
+        )}
+      </Field>
+      <Field
+        id="settings-name"
+        label="Имя"
+        hint={`${codePoints(form.displayName)} / 30`}
+        counter
+      >
+        {(props) => (
+          <input
+            {...props}
+            className={settingsField}
+            value={form.displayName}
+            autoComplete="name"
+            onChange={(event) => set({ displayName: event.target.value })}
+          />
+        )}
+      </Field>
+      <Field
+        id="settings-bio"
+        label="О себе"
+        hint={`${codePoints(form.bio)} / 150`}
+        counter
+      >
+        {(props) => (
+          <textarea
+            {...props}
+            className={`${settingsField} min-h-24 resize-y`}
+            value={form.bio}
+            onChange={(event) => set({ bio: event.target.value })}
+          />
+        )}
+      </Field>
       {!valid && (
         <p role="alert" className="text-sm text-destructive">
           Проверьте введённые данные.
@@ -179,5 +191,36 @@ function ProfileForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// Label names the control; hints and counters are its description, so the
+// accessible name stays exactly the label text.
+function Field({
+  id,
+  label,
+  hint,
+  counter,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  counter?: boolean;
+  children: (props: { id: string; "aria-describedby": string }) => ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="font-semibold">
+        {label}
+      </label>
+      {children({ id, "aria-describedby": `${id}-hint` })}
+      <span
+        id={`${id}-hint`}
+        className={cn("text-xs text-muted-foreground", counter && "text-right")}
+      >
+        {hint}
+      </span>
+    </div>
   );
 }

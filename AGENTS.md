@@ -98,7 +98,10 @@ product scenarios and joint Foundation acceptance remain pending.
 Stage 3 backend (UsersModule, SocialModule): profiles, follows and requests,
 follower lists, suggestions (`/api/v1/me/suggestions`) and search
 (`/api/v1/search/users`); decisions P-04–P-09, routes and race rules are in
-`docs/development/users-api.md`. Stage 3 web pages (profile, settings,
+`docs/development/users-api.md`. Stage 4 backend (PostsModule, MediaModule): posts with one image, avatars,
+access-checked image delivery and cleanup with sharp/multer and a private
+local storage adapter (MEDIA_ROOT); see docs/development/posts-api.md.
+Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.
 All future protected product routes must enforce verified sessions server-side

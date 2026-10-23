@@ -68,7 +68,9 @@ describe("edit profile", () => {
     const bio = await screen.findByRole("textbox", { name: /О себе/ });
     const submit = screen.getByRole("button", { name: "Отправить" }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
-    await user.type(bio, "x".repeat(151));
+    // Paste instead of typing 151 keystrokes: same input, much faster.
+    await user.click(bio);
+    await user.paste("x".repeat(151));
     expect(submit.disabled).toBe(true);
     expect(screen.getByRole("alert").textContent).toBe("Проверьте введённые данные.");
     await user.clear(bio);

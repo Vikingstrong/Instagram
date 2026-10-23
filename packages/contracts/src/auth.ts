@@ -92,6 +92,11 @@ export const AuthPasswordResetResponseSchema = z.strictObject({ status: z.litera
 export const authErrors = {
   INVALID_OR_EXPIRED_TOKEN: { status: 400, message: "Invalid or expired token." },
   INVALID_REQUEST: { status: 400, message: "Invalid request." },
+  INVALID_IMAGE: {
+    status: 400,
+    message: "The image is damaged or its format is not supported.",
+  },
+  IMAGE_TOO_LARGE: { status: 413, message: "The image is larger than allowed." },
   INVALID_CREDENTIALS: { status: 401, message: "Invalid email or password." },
   AUTHENTICATION_REQUIRED: {
     status: 401,
@@ -105,6 +110,8 @@ export const authErrors = {
   CANNOT_FOLLOW_SELF: { status: 400, message: "You cannot follow yourself." },
   PROFILE_PRIVATE: { status: 403, message: "This account is private." },
   USER_NOT_FOUND: { status: 404, message: "User not found." },
+  POST_NOT_FOUND: { status: 404, message: "Post not found." },
+  MEDIA_NOT_FOUND: { status: 404, message: "Image not found." },
   FOLLOW_REQUEST_NOT_FOUND: {
     status: 404,
     message: "Follow request not found.",
@@ -136,6 +143,8 @@ export const AuthApiErrorResponseSchema = z.strictObject({
   error: z.discriminatedUnion("code", [
     errorVariant("INVALID_OR_EXPIRED_TOKEN"),
     errorVariant("INVALID_REQUEST"),
+    errorVariant("INVALID_IMAGE"),
+    errorVariant("IMAGE_TOO_LARGE"),
     errorVariant("INVALID_CREDENTIALS"),
     errorVariant("AUTHENTICATION_REQUIRED"),
     errorVariant("EMAIL_VERIFICATION_REQUIRED"),
@@ -144,6 +153,8 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("PROFILE_PRIVATE"),
     errorVariant("USER_NOT_FOUND"),
     errorVariant("FOLLOW_REQUEST_NOT_FOUND"),
+    errorVariant("POST_NOT_FOUND"),
+    errorVariant("MEDIA_NOT_FOUND"),
     errorVariant("USERNAME_TAKEN"),
     errorVariant("ACCOUNT_UNAVAILABLE"),
     errorVariant("TOO_MANY_REQUESTS"),

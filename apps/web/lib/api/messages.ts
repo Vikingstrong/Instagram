@@ -11,6 +11,14 @@ export function describeFailure(failure: ApiFailure): string {
           return "Ссылка недействительна или срок её действия истёк. Запросите новое письмо.";
         case "SERVICE_UNAVAILABLE":
           return "Сервис временно недоступен. Попробуйте позже.";
+        case "INVALID_IMAGE":
+          return "Файл повреждён или это не JPEG, PNG или WebP.";
+        case "IMAGE_TOO_LARGE":
+          return "Фото больше 10 МБ. Выберите файл поменьше.";
+        case "POST_NOT_FOUND":
+          return "Публикация недоступна или удалена.";
+        case "MEDIA_NOT_FOUND":
+          return "Изображение недоступно.";
         case "INVALID_REQUEST":
           return "Проверьте введённые данные.";
         case "INVALID_CREDENTIALS":

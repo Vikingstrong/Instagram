@@ -6,7 +6,10 @@ test.describe("app shell", () => {
 
     await expect(page).toHaveTitle("Instagram");
     await expect(
-      page.getByRole("heading", { name: "Рекомендации для вас" }).first(),
+      page.getByRole("heading", { name: "Главная" }),
+    ).toBeAttached();
+    await expect(
+      page.getByRole("button", { name: "Нравится", exact: true }).first(),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Главная", exact: true }).filter({ visible: true }),

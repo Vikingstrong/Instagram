@@ -65,8 +65,9 @@ test('two users verify, resend and recover through real forms and SMTP mail', as
     await other.getByLabel('Имя пользователя', { exact: true }).fill(second.account.username);
     await other.getByLabel('Пароль', { exact: true }).fill(second.account.password);
     await other.getByRole('button', { name: 'Создать аккаунт', exact: true }).click();
-    // Registration signs in and goes straight to the confirmation page.
-    await expect(other).toHaveURL(/\/auth\/session$/);
+    // Registration signs in and goes straight to the confirmation page. It
+    // hashes the password (scrypt), so allow slower machines more than 5 s.
+    await expect(other).toHaveURL(/\/auth\/session$/, { timeout: 30_000 });
     await expect(other.getByRole('heading', { name: 'Подтвердите email' })).toBeVisible();
     const registeredAt = Date.now();
     expect((await (await other.request.get('/api/v1/auth/session')).json()).user.email).toBe(second.account.email);

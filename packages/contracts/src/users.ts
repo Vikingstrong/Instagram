@@ -4,7 +4,7 @@ import { AuthUsernameSchema } from "./auth.js";
 // Limits count Unicode code points, matching the PostgreSQL VARCHAR columns.
 // Input is kept as sent: no trimming or normalization. Lone surrogates and
 // control characters are rejected; the bio alone may contain line breaks.
-function profileText(max: number, multiline: boolean) {
+export function profileText(max: number, multiline: boolean) {
   return z
     .string()
     .superRefine((value, context) => {
@@ -41,14 +41,22 @@ export const ProfileRelationshipSchema = z.enum([
   "following",
 ]);
 
+// Same-origin API path of an access-checked image variant; never a public
+// object URL. The browser sends its session cookie when loading it.
+export const MediaUrlSchema = z
+  .string()
+  .regex(
+    /^\/api\/v1\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:full|thumb)$/,
+  );
+
 // Allowed FR-02 summary. Private profiles return the same fields; their posts
-// are served by separate, access-checked endpoints. Avatar arrives in stage 4.
+// are served by separate, access-checked endpoints.
 export const UserProfileSchema = z.strictObject({
   id: z.uuid(),
   username: AuthUsernameSchema,
   displayName: ProfileDisplayNameSchema,
   bio: ProfileBioSchema,
-  avatarUrl: z.null(),
+  avatarUrl: MediaUrlSchema.nullable(),
   isPrivate: z.boolean(),
   counts: z.strictObject({
     posts: z.int().nonnegative(),

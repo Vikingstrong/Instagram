@@ -13,6 +13,7 @@ import { DatabaseService } from '../infrastructure/database/database.service.js'
 import { Prisma } from '../generated/prisma/client.js';
 import { AuthError } from '../auth/auth.error.js';
 import {
+  avatarUrl,
   decodeCursor,
   encodeCursor,
   summarySelect,
@@ -42,8 +43,10 @@ export class UsersService {
       },
       select: {
         ...ownSelect,
+        avatarMediaId: true,
         _count: {
           select: {
+            posts: true,
             followers: { where: { status: 'ACCEPTED' } },
             following: { where: { status: 'ACCEPTED' } },
           },
@@ -70,11 +73,11 @@ export class UsersService {
       username: user.username,
       displayName: user.displayName,
       bio: user.bio,
-      avatarUrl: null,
+      avatarUrl: avatarUrl(user.avatarMediaId),
       isPrivate: user.isPrivate,
-      // Posts arrive with stage 4; there is nothing to count yet.
+      // Counters are public (FR-02), including posts of private profiles.
       counts: {
-        posts: 0,
+        posts: user._count.posts,
         followers: user._count.followers,
         following: user._count.following,
       },
@@ -107,6 +110,7 @@ export class UsersService {
           where: { id: userId },
           data: {
             displayName: input.displayName,
+            displayNameKey: input.displayName?.toLowerCase(),
             bio: input.bio,
             isPrivate: input.isPrivate,
             ...(input.username !== undefined && {
@@ -135,7 +139,8 @@ export class UsersService {
     }
   }
 
-  // Case-insensitive substring match on username or display name, ordered by
+  // Case-insensitive (Unicode) substring match on username or display name
+  // keys written by the API, ordered by
   // username key so the keyset cursor is stable. Prisma passes contains into
   // LIKE unescaped, so %, _ and the escape character are escaped here.
   async search(query: UserSearchQuery): Promise<UserListResponse> {
@@ -146,7 +151,7 @@ export class UsersService {
         emailVerifiedAt: { not: null },
         OR: [
           { usernameKey: { contains: text.toLowerCase() } },
-          { displayName: { contains: text, mode: 'insensitive' } },
+          { displayNameKey: { contains: text.toLowerCase() } },
         ],
         ...(after && { usernameKey: { gt: after.username } }),
       },
