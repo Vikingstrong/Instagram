@@ -30,7 +30,8 @@ test("create a story, view as another user, inspect viewers and delete", async (
     const other = await verifiedAccount();
     fixtures.push(other);
     await login(page, owner.account);
-    await page.getByRole("link", { name: "Ваша история", exact: true }).click();
+    await page.getByRole("button", { name: "Создать", exact: true }).filter({ visible: true }).click();
+    await page.getByRole("dialog", { name: "Что создадим?" }).getByRole("link", { name: "История", exact: true }).click();
     await page.getByLabel("Фото или видео для истории").setInputFiles({
       name: "story.png",
       mimeType: "image/png",
