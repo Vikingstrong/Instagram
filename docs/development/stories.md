@@ -114,6 +114,7 @@ Root `.env` и прежние dev-данные не менялись. Init-ск�
 | Текст default interval отличается после нормализации PostgreSQL | Prisma default приведён к канонической форме; повторный diff пуст |
 | Вспомогательный Auth AppModule запускал global recovery во время чужого video job | Fixture теперь использует только настоящие AuthModule/ReadinessModule; полный AppModule остаётся у основного API; полный browser run зелёный |
 | Звонки в headless без камеры/микрофона | Synthetic devices только в calls.spec; четыре call browser scenarios прошли в общей регрессии |
+| Первый GitHub CI: Reels test обращался к observer до passive effect React | Тест ожидает готовности observer через waitFor, без sleep и без изменения Reels |
 | Устаревший OpenAPI expected list | Добавлены действующие routes Stories, Calls и replies; 4 API e2e прошли |
 | Тест искал Mailpit на 8025 при изолированном порте 18063 | Исправлена только временная конфигурация прогона; SMTP integration прошёл |
 | Декоративный плюс в имени ссылки и второй alert от Next route announcer | Исправлена доступная разметка и уточнён locator; оба viewport прошли |
