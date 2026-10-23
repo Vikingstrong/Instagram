@@ -63,6 +63,7 @@ export const CommentTextSchema = profileText(2200, true).refine(
 );
 export const CreateCommentRequestSchema = z.strictObject({
   text: CommentTextSchema,
+  replyToCommentId: z.uuid().optional(),
 });
 export const CommentSchema = z.strictObject({
   id: z.uuid(),
@@ -72,6 +73,11 @@ export const CommentSchema = z.strictObject({
   createdAt: z.iso.datetime(),
   // Comment author or post author (FR-06).
   canDelete: z.boolean(),
+  parentId: z.uuid().nullable(),
+  replyTo: UserSummarySchema.nullable(),
+  replyCount: z.int().nonnegative(),
+  liked: z.boolean(),
+  likeCount: z.int().nonnegative(),
 });
 export const CommentResponseSchema = z.strictObject({ comment: CommentSchema });
 export const CommentListResponseSchema = z.strictObject({
@@ -103,6 +109,9 @@ export const postsEndpoints = {
   // Oldest first, like a conversation under the post.
   comments: { method: "GET", path: "/api/v1/posts/{id}/comments", successStatus: 200 },
   addComment: { method: "POST", path: "/api/v1/posts/{id}/comments", successStatus: 201 },
+  replies: { method: "GET", path: "/api/v1/comments/{id}/replies", successStatus: 200 },
+  likeComment: { method: "PUT", path: "/api/v1/comments/{id}/like", successStatus: 200 },
+  unlikeComment: { method: "DELETE", path: "/api/v1/comments/{id}/like", successStatus: 200 },
   removeComment: { method: "DELETE", path: "/api/v1/comments/{id}", successStatus: 200 },
   // Binary image/webp; same access rules as the post or profile it belongs to.
   media: { method: "GET", path: "/api/v1/media/{id}/{variant}", successStatus: 200 },

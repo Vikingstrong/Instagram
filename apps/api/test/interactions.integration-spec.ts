@@ -434,4 +434,237 @@ describe('Feed, likes and comments with real PostgreSQL', () => {
     ).toBe(0);
     expect((await send(fan, 'put', likeUrl(target.id))).status).toBe(404);
   });
+  it('flattens replies, binds the recipient on the server and pages three at a time', async () => {
+    const author = await account();
+    const reader = await account();
+    const target = await post(author, 'ветка');
+    const root = CommentResponseSchema.parse(
+      (await send(author, 'post', commentsUrl(target.id), { text: 'root' }))
+        .body,
+    ).comment;
+    const addReply = async (
+      who: Account,
+      replyToCommentId: string,
+      text: string,
+    ) => {
+      const response = await send(who, 'post', commentsUrl(target.id), {
+        text,
+        replyToCommentId,
+      });
+      expect(response.status).toBe(201);
+      return CommentResponseSchema.parse(response.body).comment;
+    };
+    const first = await addReply(reader, root.id, 'one');
+    const second = await addReply(author, first.id, 'two');
+    expect(first).toMatchObject({
+      parentId: root.id,
+      replyTo: { id: author.id },
+    });
+    expect(second).toMatchObject({
+      parentId: root.id,
+      replyTo: { id: reader.id },
+    });
+    await addReply(reader, second.id, 'three');
+    await addReply(reader, root.id, 'four');
+    // Stable pagination when every reply has the same timestamp.
+    await database.prisma.comment.updateMany({
+      where: { parentId: root.id },
+      data: { createdAt: new Date('2026-10-23T10:00:00.000Z') },
+    });
+    const orderedReplies = await database.prisma.comment.findMany({
+      where: { parentId: root.id },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+    const roots = CommentListResponseSchema.parse(
+      (await reader.client.get(commentsUrl(target.id))).body,
+    );
+    expect(roots.items).toHaveLength(1);
+    expect(roots.items[0]).toMatchObject({ id: root.id, replyCount: 4 });
+    const url = path(postsEndpoints.replies.path, { id: root.id });
+    const firstPage = CommentListResponseSchema.parse(
+      (await reader.client.get(url + '?limit=50')).body,
+    );
+    expect(firstPage.items).toHaveLength(3);
+    expect(firstPage.nextCursor).not.toBeNull();
+    const lastPage = CommentListResponseSchema.parse(
+      (await reader.client.get(url + '?cursor=' + firstPage.nextCursor)).body,
+    );
+    expect(
+      [...firstPage.items, ...lastPage.items].map((item) => item.id),
+    ).toEqual(orderedReplies.map((item) => item.id));
+    expect(lastPage.nextCursor).toBeNull();
+    expect(
+      new Set([...firstPage.items, ...lastPage.items].map((item) => item.id))
+        .size,
+    ).toBe(4);
+    expect(
+      (
+        await reader.client.get(
+          path(postsEndpoints.replies.path, { id: first.id }),
+        )
+      ).status,
+    ).toBe(404);
+    const another = await post(author, 'другой');
+    expect(
+      (
+        await send(reader, 'post', commentsUrl(another.id), {
+          text: 'no',
+          replyToCommentId: root.id,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await send(reader, 'post', commentsUrl(target.id), {
+          text: 'no',
+          replyToCommentId: root.id,
+          replyToUserId: author.id,
+        })
+      ).status,
+    ).toBe(400);
+    await expect(
+      database.prisma.comment.create({
+        data: {
+          postId: target.id,
+          authorId: reader.id,
+          text: 'invalid depth',
+          parentId: first.id,
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      database.prisma.comment.create({
+        data: {
+          postId: another.id,
+          authorId: reader.id,
+          text: 'wrong post',
+          parentId: root.id,
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      database.prisma.comment.update({
+        where: { id: second.id },
+        data: { parentId: null },
+      }),
+    ).rejects.toThrow();
+    await send(
+      reader,
+      'put',
+      path(postsEndpoints.likeComment.path, { id: second.id }),
+    );
+    await send(
+      reader,
+      'put',
+      path(postsEndpoints.likeComment.path, { id: root.id }),
+    );
+    // A reply can be removed by the post author; removing a root removes its thread.
+    expect((await send(author, 'delete', commentUrl(first.id))).status).toBe(
+      200,
+    );
+    expect((await reader.client.get(url)).body.items).toHaveLength(3);
+    expect(
+      (await reader.client.get(url)).body.items.find(
+        (item: { id: string }) => item.id === second.id,
+      ),
+    ).toMatchObject({ replyTo: { id: reader.id } });
+    expect((await send(author, 'delete', commentUrl(root.id))).status).toBe(
+      200,
+    );
+    expect(
+      await database.prisma.comment.count({ where: { postId: target.id } }),
+    ).toBe(0);
+    expect(
+      await database.prisma.commentLike.count({
+        where: { commentId: { in: [root.id, second.id] } },
+      }),
+    ).toBe(0);
+  });
+
+  it('keeps one comment like under concurrent requests, revokes access and cascades likes', async () => {
+    const author = await account(true);
+    const fan = await account();
+    const stranger = await account();
+    await follow(fan, author);
+    const target = await post(author, 'private');
+    const root = CommentResponseSchema.parse(
+      (await send(author, 'post', commentsUrl(target.id), { text: 'root' }))
+        .body,
+    ).comment;
+    const reply = CommentResponseSchema.parse(
+      (
+        await send(fan, 'post', commentsUrl(target.id), {
+          text: 'reply',
+          replyToCommentId: root.id,
+        })
+      ).body,
+    ).comment;
+    const url = path(postsEndpoints.likeComment.path, { id: reply.id });
+    // Use one CSRF cookie/token for all concurrent requests from the same browser.
+    const token = await csrf(fan.client);
+    const responses = await Promise.all(
+      Array.from({ length: 6 }, () =>
+        fan.client
+          .put(url)
+          .set('Origin', origin)
+          .set('X-CSRF-Token', token)
+          .send({}),
+      ),
+    );
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(
+      await database.prisma.commentLike.count({
+        where: { commentId: reply.id },
+      }),
+    ).toBe(1);
+    expect((await send(fan, 'put', url)).body).toEqual({
+      liked: true,
+      likeCount: 1,
+    });
+    expect(
+      (await fan.client.get(path(postsEndpoints.replies.path, { id: root.id })))
+        .body.items[0],
+    ).toMatchObject({ liked: true, likeCount: 1 });
+    expect((await send(fan, 'delete', url)).body).toEqual({
+      liked: false,
+      likeCount: 0,
+    });
+    expect((await send(fan, 'delete', url)).body).toEqual({
+      liked: false,
+      likeCount: 0,
+    });
+    expect((await send(stranger, 'put', url)).status).toBe(404);
+    expect(
+      (
+        await request(app.getHttpServer()).get(
+          path(postsEndpoints.replies.path, { id: root.id }),
+        )
+      ).status,
+    ).toBe(401);
+    expect((await fan.client.put(url).send({})).status).toBe(403);
+    await send(fan, 'put', url);
+    await unfollow(fan, author);
+    expect(
+      (await fan.client.get(path(postsEndpoints.replies.path, { id: root.id })))
+        .status,
+    ).toBe(404);
+    expect((await send(fan, 'put', url)).status).toBe(404);
+    expect((await send(fan, 'delete', url)).status).toBe(404);
+    expect(
+      (
+        await send(fan, 'post', commentsUrl(target.id), {
+          text: 'no',
+          replyToCommentId: reply.id,
+        })
+      ).status,
+    ).toBe(404);
+    // P-10 still permits deleting one's own reply after losing access.
+    expect((await send(fan, 'delete', commentUrl(reply.id))).status).toBe(200);
+    expect(
+      await database.prisma.commentLike.count({
+        where: { commentId: reply.id },
+      }),
+    ).toBe(0);
+  });
 });

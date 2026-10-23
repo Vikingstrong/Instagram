@@ -56,6 +56,35 @@ test('feed, like and comment between two users', async ({ page, browser, baseURL
     await authorPage.reload();
     const comments = authorPage.getByRole('region', { name: 'Комментарии' });
     await expect(comments.getByText('Красота!')).toBeVisible();
+    // Replies stay one level deep; reload exercises the real three-item API pages.
+    for (let index = 1; index <= 4; index += 1) {
+      await comments.getByRole('button', { name: 'Ответить', exact: true }).first().click();
+      await comments.getByRole('textbox', { name: 'Ответ', exact: true }).fill(`Ответ ${index}`);
+      await comments.getByRole('textbox', { name: 'Ответ', exact: true }).press('Enter');
+      await expect(comments.getByText(`Ответ ${index}`, { exact: true })).toBeVisible();
+    }
+    await page.reload();
+    const readerComments = page.getByRole('region', { name: 'Комментарии' });
+    await readerComments.getByRole('button', { name: 'Посмотреть ответы (4)' }).click();
+    const replies = readerComments.getByRole('list', { name: `Ответы на комментарий ${reader.account.username}` });
+    await expect(replies.getByRole('listitem')).toHaveCount(3);
+    await readerComments.getByRole('button', { name: 'Показать ещё ответы' }).click();
+    await expect(replies.getByRole('listitem')).toHaveCount(4);
+    const firstReply = replies.getByRole('listitem').first();
+    await firstReply.getByRole('button', { name: 'Нравится', exact: true }).click();
+    await expect(firstReply.getByRole('button', { name: 'Не нравится', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await firstReply.getByRole('button', { name: 'Ответить', exact: true }).click();
+    await expect(readerComments.getByText(`@${name}`, { exact: true })).toBeVisible();
+    await readerComments.getByRole('textbox', { name: 'Ответ', exact: true }).fill('Ответ на ответ');
+    await readerComments.getByRole('textbox', { name: 'Ответ', exact: true }).press('Enter');
+    await expect(replies.getByText('Ответ на ответ', { exact: false })).toBeVisible();
+    await page.reload();
+    await readerComments.getByRole('button', { name: 'Посмотреть ответы (5)' }).click();
+    await expect(readerComments.getByRole('button', { name: 'Не нравится', exact: true })).toBeVisible();
+    await readerComments.getByRole('button', { name: 'Показать ещё ответы' }).click();
+    await expect(replies.getByText('Ответ на ответ', { exact: false })).toBeVisible();
+    await expect(replies.getByRole('listitem').last().getByRole('link', { name: `@${name}`, exact: true })).toBeVisible();
+
     await comments.getByRole('button', { name: `Удалить комментарий ${reader.account.username}` }).click();
     await authorPage
       .getByRole('dialog', { name: 'Удалить комментарий?' })

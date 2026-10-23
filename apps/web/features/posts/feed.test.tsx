@@ -2,6 +2,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CommentItem } from "./comments";
+
 import { Feed } from "./feed";
 import { PostView } from "./post-view";
 import { timeAgo } from "./time";
@@ -52,6 +54,7 @@ const comment = (n: number, extra: object = {}) => ({
   text: `Комментарий ${n}`,
   createdAt: new Date().toISOString(),
   canDelete: false,
+  parentId: null, replyTo: null, replyCount: 0, liked: false, likeCount: 0,
   ...extra,
 });
 const errorBody = (code: string, message: string) => ({
@@ -229,4 +232,121 @@ it("formats post age like Instagram", () => {
   expect(timeAgo("2026-10-23T02:00:00.000Z", now)).toBe("10 ч.");
   expect(timeAgo("2026-10-20T12:00:00.000Z", now)).toBe("3 д.");
   expect(timeAgo("2026-09-01T12:00:00.000Z", now)).toBe("1 сентября 2026 г.");
+});
+
+describe("comment threads", () => {
+  it("loads three replies per click and sends reply-to-reply with an immutable recipient label", async () => {
+    const root = comment(1, { replyCount: 4 });
+    const replies = [2, 3, 4, 5].map((id) =>
+      comment(id, { parentId: root.id, replyTo: root.author }),
+    );
+    const fetch = api({
+      [`GET /api/v1/comments/${root.id}/replies`]: (url) =>
+        Response.json(
+          url.searchParams.has("cursor")
+            ? { items: replies.slice(3), nextCursor: null }
+            : { items: replies.slice(0, 3), nextCursor: "bmV4dA" },
+        ),
+      ["POST /api/v1/posts/" + uuid(1) + "/comments"]: () =>
+        Response.json(
+          {
+            comment: comment(6, {
+              parentId: root.id,
+              replyTo: replies[0].author,
+              text: "Спасибо",
+            }),
+          },
+          { status: 201 },
+        ),
+    });
+    render(
+      <ul>
+        <CommentItem comment={root} onDeleted={vi.fn()} />
+      </ul>,
+    );
+    const userEventInstance = userEvent.setup();
+    expect(fetch).not.toHaveBeenCalled();
+    await userEventInstance.click(
+      screen.getByRole("button", { name: "Посмотреть ответы (4)" }),
+    );
+    const list = await screen.findByRole("list", {
+      name: "Ответы на комментарий user_1",
+    });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    await userEventInstance.click(
+      screen.getByRole("button", { name: "Показать ещё ответы" }),
+    );
+    await waitFor(() =>
+      expect(within(list).getAllByRole("listitem")).toHaveLength(4),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Показать ещё ответы" }),
+    ).toBeNull();
+    await userEventInstance.click(
+      within(within(list).getAllByRole("listitem")[0]).getByRole("button", {
+        name: "Ответить",
+      }),
+    );
+    expect(screen.getByText("@user_2")).toBeTruthy();
+    const textbox = screen.getByRole("textbox", { name: "Ответ" });
+    expect((textbox as HTMLTextAreaElement).value).toBe("");
+    await userEventInstance.type(textbox, "Спасибо{Enter}");
+    await screen.findByText("Спасибо");
+    const sent = fetch.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith("/comments") && init.method === "POST",
+    );
+    expect(JSON.parse(sent![1].body as string)).toEqual({
+      text: "Спасибо",
+      replyToCommentId: replies[0].id,
+    });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(5);
+  });
+
+  it("rolls back a failed comment like and preserves reply text on failure", async () => {
+    const root = comment(1);
+    api({
+      [`PUT /api/v1/comments/${root.id}/like`]: () =>
+        Response.json(errorBody("COMMENT_NOT_FOUND", "Comment not found."), {
+          status: 404,
+        }),
+      ["POST /api/v1/posts/" + uuid(1) + "/comments"]: () =>
+        Response.json(errorBody("COMMENT_NOT_FOUND", "Comment not found."), {
+          status: 404,
+        }),
+    });
+    render(
+      <ul>
+        <CommentItem comment={root} onDeleted={vi.fn()} />
+      </ul>,
+    );
+    const userEventInstance = userEvent.setup();
+    await userEventInstance.click(
+      screen.getByRole("button", { name: "Нравится" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Нравится" })
+          .getAttribute("aria-pressed"),
+      ).toBe("false"),
+    );
+    expect(screen.getByText("0 нравится")).toBeTruthy();
+    await userEventInstance.click(
+      screen.getByRole("button", { name: "Ответить" }),
+    );
+    await userEventInstance.type(
+      screen.getByRole("textbox", { name: "Ответ" }),
+      "Не потерять{Enter}",
+    );
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("textbox", {
+            name: "Ответ",
+          }) as HTMLTextAreaElement
+        ).value,
+      ).toBe("Не потерять"),
+    );
+  });
 });

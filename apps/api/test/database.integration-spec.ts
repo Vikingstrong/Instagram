@@ -103,6 +103,7 @@ describe('Database Foundation (real PostgreSQL)', () => {
       { name: 'auth_sessions' },
       { name: 'auth_tokens' },
       { name: 'auth_users' },
+      { name: 'comment_likes' },
       { name: 'comments' },
       { name: 'direct_conversations' },
       { name: 'direct_messages' },
