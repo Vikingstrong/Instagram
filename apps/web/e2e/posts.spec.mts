@@ -26,6 +26,8 @@ test('publish, view, set an avatar and delete a post', async ({ page, playwright
     await expectLoaded(full);
     const fullUrl = await full.getAttribute('src');
     expect(fullUrl).toMatch(/^\/api\/v1\/media\/[0-9a-f-]{36}\/full$/);
+    // Even the owner cannot send protected media through Next's shared cache.
+    expect((await page.request.get('/_next/image', { params: { url: fullUrl!, w: '128', q: '75' } })).status()).toBe(400);
 
     // A request without the session cookie gets no image.
     const guest = await playwright.request.newContext({ baseURL });

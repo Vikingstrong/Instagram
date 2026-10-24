@@ -7,6 +7,9 @@ export function describeFailure(failure: ApiFailure): string {
   switch (failure.kind) {
     case "api":
       switch (failure.error.code) {
+        case "COINS_INSUFFICIENT_BALANCE": return "Недостаточно монет для этого подарка.";
+        case "COINS_OPERATION_CONFLICT": return "Этот запрос уже использован для другого подарка. Обновите страницу.";
+        case "COINS_BALANCE_LIMIT": return "Достигнут предел баланса монет.";
         case "INVALID_OR_EXPIRED_TOKEN":
           return "Ссылка недействительна или срок её действия истёк. Запросите новое письмо.";
         case "SERVICE_UNAVAILABLE":

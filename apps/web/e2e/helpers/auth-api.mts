@@ -88,6 +88,8 @@ export async function startAuthApi() {
     `await app.get(DatabaseService).prisma.user.updateMany({ where: { emailKey: ${JSON.stringify(account.email)} }, data: { emailVerifiedAt: new Date() } });`,
     "process.send({ verified: true }); });",
     "process.on('message', async (message) => { if (message !== 'stop') return; let status = 0; try {",
+    `const db = app.get(DatabaseService).prisma; const owner = await db.user.findUnique({ where: { emailKey: ${JSON.stringify(account.email)} }, select: { id: true } });`,
+    "if (owner) await db.coinOperation.deleteMany({ where: { OR: [{ senderId: owner.id }, { recipientId: owner.id }] } });",
     `await app.get(DatabaseService).prisma.user.deleteMany({ where: { emailKey: ${JSON.stringify(account.email)}, usernameKey: ${JSON.stringify(account.username)} } });`,
     "} catch { status = 1; } finally { await app.close(); process.exit(status); } });",
     "process.send({ origin });",

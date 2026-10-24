@@ -20,6 +20,10 @@ test("anonymous home opens login; explicit guest browse asks for auth on interac
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Продолжить просмотр" }).click();
   await expect(dialog).not.toBeVisible();
+  await page.getByRole("button", { name: "Создать", exact: true }).filter({ visible: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Что создадим?" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Продолжить просмотр" }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.goto("/auth/register");
   await expect(page.getByRole("heading", { name: "Создайте аккаунт" })).toBeVisible();

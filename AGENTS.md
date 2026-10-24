@@ -118,6 +118,12 @@ background ffmpeg-static transcode in MediaService, VideoProcessor), video
 streaming with Range at /api/v1/media/{id}/video, GET /api/v1/reels; web
 /create (photo or video), VideoPlayer, /reels; see
 docs/development/video-reels.md.
+Stage 13 Coins (FR-14): CoinsModule owns bigint wallets, Dushanbe calendar
+rewards and the immutable operation journal; /api/v1/coins wallet/daily-claim/
+transactions, web /coins and More menu. CoinsService.transferGift(tx, command)
+is an internal transaction primitive for future Live, not an arbitrary HTTP
+transfer; Live must resolve author/price and enforce access/lifecycle in the
+same transaction. See docs/development/coins.md. Wire amounts are decimal strings.
 Stage 11 Stories (FR-13): StoriesModule, `/api/v1/stories`, photo/video uploads,
 24h expiry, subscription tray, per-story views and owner-only audience list;
 web `/stories/create`, `/stories/[id]`, `/stories/user/[id]`.
