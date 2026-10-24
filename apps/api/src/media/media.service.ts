@@ -54,7 +54,9 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     kind: MediaKind,
     input: Buffer,
   ): Promise<{ id: string; width: number; height: number }> {
-    const image = await this.images.process(input);
+    const image = await (kind === 'COMMENT'
+      ? this.images.processComment(input)
+      : this.images.process(input));
     const media = await this.database.prisma.media.create({
       data: { ownerId, kind },
       select: { id: true },
@@ -205,7 +207,11 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     const cutoff = new Date(now.getTime() - PENDING_TTL_MS);
     // Failed videos were kept for their author to see; their posts go now.
     const failed = await this.database.prisma.media.findMany({
-      where: { kind: 'POST', failedAt: { lt: cutoff }, state: { not: 'DELETED' } },
+      where: {
+        kind: 'POST',
+        failedAt: { lt: cutoff },
+        state: { not: 'DELETED' },
+      },
       select: { id: true },
       take: 100,
     });
@@ -216,6 +222,10 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
           await this.markDeleted(tx, id);
         })
         .catch(() => undefined);
+    await this.database.prisma.media.updateMany({
+      where: { kind: 'COMMENT', state: 'READY', comment: null },
+      data: { state: 'DELETED', deletedAt: now },
+    });
     await this.storage.sweepIncoming(cutoff).catch(() => 0);
     const rows = await this.database.prisma.media.findMany({
       where: {
@@ -228,6 +238,7 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
         ],
         post: null,
         story: null,
+        comment: null,
       },
       select: { id: true },
       take: 100,
@@ -247,7 +258,13 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
   private async purge(id: string): Promise<void> {
     await this.storage.remove(id);
     await this.database.prisma.media.deleteMany({
-      where: { id, state: { not: 'READY' }, post: null, story: null },
+      where: {
+        id,
+        state: { not: 'READY' },
+        post: null,
+        story: null,
+        comment: null,
+      },
     });
   }
 

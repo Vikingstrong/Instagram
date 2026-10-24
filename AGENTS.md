@@ -106,6 +106,10 @@ images use plain <img> via components/ui-ig/media-image.tsx, never next/image.
 Stage 5 (FR-05/06): GET /api/v1/feed, likes and comments live in PostsModule
 (interactions.service/controller); web feed, like and comments are in
 apps/web/features/posts; see docs/development/feed-api.md.
+Comment photo/GIF attachments use MediaKind.COMMENT and multipart
+/posts/{id}/comments/image; Sharp preserves GIF animation as WebP. Access follows
+the owning post and orphan files are cleaned by MediaService; see
+docs/development/comment-attachments.md.
 Stage 6 (FR-09 over REST): DirectModule (apps/api/src/direct) with
 /api/v1/direct/conversations; idempotent sends by clientMessageId; web in
 apps/web/features/direct (/direct, /direct/t/[id]); see

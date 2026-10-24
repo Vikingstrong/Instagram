@@ -1,4 +1,6 @@
 import {
+  UploadedFile,
+  UseInterceptors,
   Body,
   Controller,
   Delete,
@@ -15,6 +17,8 @@ import {
   applyDecorators,
 } from '@nestjs/common';
 import {
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -23,6 +27,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  CreateMediaCommentFieldsSchema,
+  commentAttachmentRules,
   CommentListResponseSchema,
   CommentResponseSchema,
   CreateCommentRequestSchema,
@@ -33,6 +39,9 @@ import {
   PostListResponseSchema,
   UserSummarySchema,
 } from '@instagram/contracts';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadMutationGuard } from '../auth/auth-security.js';
+import { AuthError } from '../auth/auth.error.js';
 import { PostsService } from './posts.service.js';
 import { InteractionsService } from './interactions.service.js';
 import {
@@ -195,6 +204,69 @@ export class InteractionsController {
         uuid(id),
         input.text,
         input.replyToCommentId,
+      ),
+    });
+  }
+
+  @Post('posts/:id/comments/image')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(UploadMutationGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      limits: {
+        fileSize: commentAttachmentRules.maxBytes,
+        files: 1,
+        fields: 2,
+        parts: 3,
+        fieldSize: 16384,
+      },
+    }),
+  )
+  @ApiSecurity('csrfToken')
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['image'],
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description:
+            'JPEG, PNG, WebP or GIF, max 10 MiB, 100 frames and 40M total decoded pixels. GIF becomes animated WebP.',
+        },
+        text: { type: 'string', maxLength: 2200 },
+        replyToCommentId: { type: 'string', format: 'uuid' },
+      },
+    },
+  })
+  @ApiOperation({
+    operationId: 'addMediaComment',
+    summary:
+      'Comment or reply with one photo or animated GIF and optional text',
+  })
+  @ok(CommentResponseSchema, 201)
+  @errorResponse(400)
+  @errorResponse(404)
+  @errorResponse(413)
+  async addMediaComment(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const input = parse(body, CreateMediaCommentFieldsSchema);
+    this.limiter.consume('comment', viewer(request), 60, 600_000);
+    if (!file?.buffer.length) throw new AuthError('INVALID_IMAGE');
+    return CommentResponseSchema.parse({
+      comment: await this.interactions.add(
+        viewer(request),
+        uuid(id),
+        input.text,
+        input.replyToCommentId,
+        file.buffer,
       ),
     });
   }

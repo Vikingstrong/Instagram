@@ -21,6 +21,7 @@ enum FollowStatus {
 }
 
 enum MediaKind {
+  COMMENT
   STORY
   POST
   AVATAR
@@ -210,6 +211,7 @@ model Media {
   deletedAt  DateTime?  @db.Timestamptz(3)
   owner      User       @relation("owner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   avatarOf   User?      @relation("avatar")
+  comment    Comment?
   story      Story?
   post       Post?
 
@@ -252,6 +254,8 @@ model PostLike {
 }
 
 model Comment {
+  mediaId String? @unique @db.Uuid
+  media Media? @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   postId    String   @db.Uuid
   authorId  String   @db.Uuid

@@ -14,6 +14,7 @@ import {
   summarySelect,
   userSummary,
 } from '../users/user-summary.js';
+import { MediaService, mediaUrl } from '../media/media.service.js';
 import { visiblePost } from './post-policy.js';
 
 const commentSelect = (viewerId: string) =>
@@ -24,6 +25,7 @@ const commentSelect = (viewerId: string) =>
     replyTo: { select: summarySelect },
     _count: { select: { likes: true, replies: true } },
     likes: { where: { userId: viewerId }, select: { userId: true } },
+    media: { select: { id: true, width: true, height: true } },
     text: true,
     createdAt: true,
     author: { select: summarySelect },
@@ -45,6 +47,14 @@ function toComment(viewerId: string, row: CommentRow): Comment {
     liked: row.likes.length > 0,
     postId: row.postId,
     author: userSummary(row.author),
+    attachment: row.media
+      ? {
+          url: mediaUrl(row.media.id, 'full'),
+          thumbnailUrl: mediaUrl(row.media.id, 'thumb'),
+          width: row.media.width!,
+          height: row.media.height!,
+        }
+      : null,
     text: row.text,
     createdAt: row.createdAt.toISOString(),
     canDelete: row.author.id === viewerId || row.post.authorId === viewerId,
@@ -62,6 +72,7 @@ const missingPost = (error: unknown) =>
 export class InteractionsService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(MediaService) private readonly media: MediaService,
   ) {}
 
   private async requireVisible(viewerId: string, postId: string) {
@@ -148,6 +159,7 @@ export class InteractionsService {
     postId: string,
     text: string,
     replyToCommentId?: string,
+    image?: Buffer,
   ): Promise<Comment> {
     await this.requireVisible(viewerId, postId);
     const target = replyToCommentId
@@ -157,19 +169,27 @@ export class InteractionsService {
         })
       : null;
     if (replyToCommentId && !target) throw new AuthError('COMMENT_NOT_FOUND');
+    const stored = image
+      ? await this.media.store(viewerId, 'COMMENT', image)
+      : undefined;
     try {
-      const row = await this.database.prisma.comment.create({
-        data: {
-          postId,
-          authorId: viewerId,
-          text,
-          parentId: target ? (target.parentId ?? target.id) : null,
-          replyToUserId: target?.authorId ?? null,
-        },
-        select: commentSelect(viewerId),
+      const row = await this.database.prisma.$transaction(async (tx) => {
+        if (stored) await this.media.activate(tx, stored);
+        return tx.comment.create({
+          data: {
+            postId,
+            mediaId: stored?.id,
+            authorId: viewerId,
+            text,
+            parentId: target ? (target.parentId ?? target.id) : null,
+            replyToUserId: target?.authorId ?? null,
+          },
+          select: commentSelect(viewerId),
+        });
       });
       return toComment(viewerId, row);
     } catch (error) {
+      if (stored) await this.media.discard(stored.id);
       if (missingPost(error))
         throw new AuthError(
           replyToCommentId ? 'COMMENT_NOT_FOUND' : 'POST_NOT_FOUND',

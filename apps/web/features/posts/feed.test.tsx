@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CommentItem } from "./comments";
+import { CommentForm, CommentItem } from "./comments";
 
 import { Feed } from "./feed";
 import { PostView } from "./post-view";
@@ -23,7 +23,8 @@ vi.mock("next/navigation", () => ({ useParams: () => ({ id: route.id }) }));
 vi.mock("@/lib/navigation", () => ({ replaceLocation: vi.fn() }));
 
 const csrfToken = `${"a".repeat(43)}.1792640000.${"b".repeat(43)}`;
-const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+const uuid = (n: number) =>
+  `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const user = (n: number, username = `user_${n}`) => ({
   id: uuid(900 + n),
   username,
@@ -57,7 +58,11 @@ const comment = (n: number, extra: object = {}) => ({
   text: `Комментарий ${n}`,
   createdAt: new Date().toISOString(),
   canDelete: false,
-  parentId: null, replyTo: null, replyCount: 0, liked: false, likeCount: 0,
+  parentId: null,
+  replyTo: null,
+  replyCount: 0,
+  liked: false,
+  likeCount: 0,
   ...extra,
 });
 const errorBody = (code: string, message: string) => ({
@@ -103,13 +108,14 @@ describe("feed", () => {
     render(<Feed viewerId={viewer.id} />);
     const feed = await screen.findByRole("region", { name: "Лента" });
     const articles = within(feed).getAllByRole("article");
-    expect(articles.map((item) => item.getAttribute("aria-labelledby"))).toEqual([
-      `post-${uuid(1)}`,
-      `post-${uuid(2)}`,
-    ]);
-    expect(within(articles[0]!).getByRole("img", { name: "Пост 1" }).getAttribute("src")).toBe(
-      post(1).image.url,
-    );
+    expect(
+      articles.map((item) => item.getAttribute("aria-labelledby")),
+    ).toEqual([`post-${uuid(1)}`, `post-${uuid(2)}`]);
+    expect(
+      within(articles[0]!)
+        .getByRole("img", { name: "Пост 1" })
+        .getAttribute("src"),
+    ).toBe(post(1).image.url);
     expect(within(articles[0]!).getByText("2 ч.")).toBeTruthy();
     expect(within(articles[0]!).getByText("4 отметки «Нравится»")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Показать ещё" }));
@@ -118,31 +124,46 @@ describe("feed", () => {
   });
 
   it("explains an empty feed", async () => {
-    api({ "GET /api/v1/feed": () => Response.json({ items: [], nextCursor: null }) });
+    api({
+      "GET /api/v1/feed": () => Response.json({ items: [], nextCursor: null }),
+    });
     render(<Feed viewerId={viewer.id} />);
-    expect(await screen.findByRole("heading", { name: "В ленте пока пусто" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Найти людей" }).getAttribute("href")).toBe("/search");
+    expect(
+      await screen.findByRole("heading", { name: "В ленте пока пусто" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Найти людей" }).getAttribute("href"),
+    ).toBe("/search");
   });
 
   it("likes at once, keeps the server state and rolls back a refused like", async () => {
     let answer = deferred();
     api({
-      "GET /api/v1/feed": () => Response.json({ items: [post(1)], nextCursor: null }),
+      "GET /api/v1/feed": () =>
+        Response.json({ items: [post(1)], nextCursor: null }),
       [`PUT /api/v1/posts/${uuid(1)}/like`]: () => answer.promise,
       [`DELETE /api/v1/posts/${uuid(1)}/like`]: () =>
-        Response.json(errorBody("POST_NOT_FOUND", "Post not found."), { status: 404 }),
+        Response.json(errorBody("POST_NOT_FOUND", "Post not found."), {
+          status: 404,
+        }),
     });
     render(<Feed viewerId={viewer.id} />);
     const like = await screen.findByRole("button", { name: "Нравится" });
     await userEvent.click(like);
     // Optimistic: changed before the server answers.
-    expect(screen.getByRole("button", { name: "Не нравится" }).getAttribute("aria-pressed")).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: "Не нравится" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     expect(screen.getByText("5 отметок «Нравится»")).toBeTruthy();
     answer.resolve(Response.json({ liked: true, likeCount: 9 }));
     expect(await screen.findByText("9 отметок «Нравится»")).toBeTruthy();
 
     await userEvent.click(screen.getByRole("button", { name: "Не нравится" }));
-    expect((await screen.findByRole("alert")).textContent).toBe("Публикация недоступна или удалена.");
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Публикация недоступна или удалена.",
+    );
     expect(screen.getByRole("button", { name: "Не нравится" })).toBeTruthy();
     expect(screen.getByText("9 отметок «Нравится»")).toBeTruthy();
     answer = deferred();
@@ -153,34 +174,61 @@ describe("feed", () => {
     let sent: unknown;
     api({
       "GET /api/v1/feed": () =>
-        Response.json({ items: [post(1, { commentCount: 2 })], nextCursor: null }),
+        Response.json({
+          items: [post(1, { commentCount: 2 })],
+          nextCursor: null,
+        }),
       [`POST /api/v1/posts/${uuid(1)}/comments`]: (_url, init) => {
         sent = JSON.parse(String(init.body));
         return fail
-          ? Response.json(errorBody("TOO_MANY_REQUESTS", "Too many requests. Try again later."), {
-              status: 429,
-            })
+          ? Response.json(
+              errorBody(
+                "TOO_MANY_REQUESTS",
+                "Too many requests. Try again later.",
+              ),
+              {
+                status: 429,
+              },
+            )
           : Response.json(
-              { comment: comment(7, { author: user(0, "person"), text: "Класс", canDelete: true }) },
+              {
+                comment: comment(7, {
+                  author: user(0, "person"),
+                  text: "Класс",
+                  canDelete: true,
+                }),
+              },
               { status: 201 },
             );
       },
     });
     render(<Feed viewerId={viewer.id} />);
     const field = await screen.findByRole("textbox", { name: "Комментарий" });
-    expect(screen.getByRole("link", { name: "Посмотреть все комментарии (2)" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Посмотреть все комментарии (2)" }),
+    ).toBeTruthy();
     await userEvent.type(field, "   ");
-    expect((screen.getByRole("button", { name: "Опубликовать" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Опубликовать",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
     await userEvent.clear(field);
     await userEvent.type(field, "Класс{Enter}");
-    expect((await screen.findByRole("alert")).textContent).toBe("Слишком много запросов. Попробуйте позже.");
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Слишком много запросов. Попробуйте позже.",
+    );
     expect((field as HTMLTextAreaElement).value).toBe("Класс");
     fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Опубликовать" }));
     expect(await screen.findByText("Класс")).toBeTruthy();
     expect(sent).toEqual({ text: "Класс" });
     expect((field as HTMLTextAreaElement).value).toBe("");
-    expect(screen.getByRole("link", { name: "Посмотреть все комментарии (3)" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Посмотреть все комментарии (3)" }),
+    ).toBeTruthy();
   });
 });
 
@@ -189,15 +237,25 @@ describe("post comments", () => {
     route.id = uuid(1);
     let deleted = "";
     api({
-      [`GET /api/v1/posts/${uuid(1)}`]: () => Response.json({ post: post(1, { commentCount: 3 }) }),
+      [`GET /api/v1/posts/${uuid(1)}`]: () =>
+        Response.json({ post: post(1, { commentCount: 3 }) }),
       [`GET /api/v1/posts/${uuid(1)}/comments`]: (url) =>
         Response.json(
           url.searchParams.get("cursor")
-            ? { items: [comment(3), comment(9, { canDelete: true })], nextCursor: null }
-            : { items: [comment(1), comment(2, { canDelete: true })], nextCursor: "bmV4dA" },
+            ? {
+                items: [comment(3), comment(9, { canDelete: true })],
+                nextCursor: null,
+              }
+            : {
+                items: [comment(1), comment(2, { canDelete: true })],
+                nextCursor: "bmV4dA",
+              },
         ),
       [`POST /api/v1/posts/${uuid(1)}/comments`]: () =>
-        Response.json({ comment: comment(9, { canDelete: true }) }, { status: 201 }),
+        Response.json(
+          { comment: comment(9, { canDelete: true }) },
+          { status: 201 },
+        ),
       [`DELETE /api/v1/comments/${uuid(502)}`]: () => {
         deleted = uuid(502);
         return Response.json({ status: "deleted" });
@@ -206,24 +264,42 @@ describe("post comments", () => {
     render(<PostView />);
     const list = await screen.findByRole("region", { name: "Комментарии" });
     await within(list).findByText("Комментарий 1");
-    expect(within(list).queryByRole("button", { name: "Удалить комментарий user_1" })).toBeNull();
+    expect(
+      within(list).queryByRole("button", {
+        name: "Удалить комментарий user_1",
+      }),
+    ).toBeNull();
 
     const user = userEvent.setup();
-    await user.type(screen.getByRole("textbox", { name: "Комментарий" }), "Комментарий 9{Enter}");
+    await user.type(
+      screen.getByRole("textbox", { name: "Комментарий" }),
+      "Комментарий 9{Enter}",
+    );
     await within(list).findByText("Комментарий 9");
-    await user.click(within(list).getByRole("button", { name: "Показать ещё комментарии" }));
+    await user.click(
+      within(list).getByRole("button", { name: "Показать ещё комментарии" }),
+    );
     await within(list).findByText("Комментарий 3");
     expect(within(list).getAllByText("Комментарий 9")).toHaveLength(1);
     expect(
       within(list)
         .getAllByRole("listitem")
         .map((item) => item.textContent?.match(/Комментарий \d/)?.[0]),
-    ).toEqual(["Комментарий 1", "Комментарий 2", "Комментарий 3", "Комментарий 9"]);
+    ).toEqual([
+      "Комментарий 1",
+      "Комментарий 2",
+      "Комментарий 3",
+      "Комментарий 9",
+    ]);
 
-    await user.click(within(list).getByRole("button", { name: "Удалить комментарий user_2" }));
+    await user.click(
+      within(list).getByRole("button", { name: "Удалить комментарий user_2" }),
+    );
     const dialog = screen.getByRole("dialog", { name: "Удалить комментарий?" });
     await user.click(within(dialog).getByRole("button", { name: "Удалить" }));
-    await waitFor(() => expect(within(list).queryByText("Комментарий 2")).toBeNull());
+    await waitFor(() =>
+      expect(within(list).queryByText("Комментарий 2")).toBeNull(),
+    );
     expect(deleted).toBe(uuid(502));
   });
 });
@@ -352,4 +428,48 @@ describe("comment threads", () => {
       ).toBe("Не потерять"),
     );
   });
+});
+
+it("previews GIF, preserves it on failure, then sends multipart without text", async () => {
+  const create = vi
+    .spyOn(URL, "createObjectURL")
+    .mockReturnValue("blob:preview");
+  const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  let fail = true;
+  let sent: unknown;
+  api({
+    [`POST /api/v1/posts/${uuid(1)}/comments/image`]: (_url, init) => {
+      sent = init.body;
+      return fail
+        ? Response.json(errorBody("INVALID_IMAGE", "Invalid image."), {
+            status: 400,
+          })
+        : Response.json(
+            { comment: comment(1, { text: "", attachment: post(1).image }) },
+            { status: 201 },
+          );
+    },
+  });
+  const added = vi.fn();
+  render(<CommentForm postId={uuid(1)} onAdded={added} />);
+  await userEvent.upload(
+    screen.getByLabelText("Прикрепить фото или GIF"),
+    new File(["GIF89a"], "animation.gif", { type: "image/gif" }),
+  );
+  expect(screen.getByAltText("Превью вложения").getAttribute("src")).toBe(
+    "blob:preview",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Опубликовать" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByAltText("Превью вложения")).toBeTruthy();
+  fail = false;
+  await userEvent.click(screen.getByRole("button", { name: "Опубликовать" }));
+  await waitFor(() => expect(added).toHaveBeenCalledOnce());
+  expect(screen.queryByAltText("Превью вложения")).toBeNull();
+  expect(sent).toBeInstanceOf(FormData);
+  expect((sent as FormData).get("text")).toBe("");
+  expect((sent as FormData).get("image")).toBeTruthy();
+  expect(revoke).toHaveBeenCalledWith("blob:preview");
+  create.mockRestore();
+  revoke.mockRestore();
 });

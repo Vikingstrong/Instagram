@@ -333,6 +333,7 @@ export class PostsService {
         id,
         state: 'READY',
         OR: [
+          { kind: 'COMMENT', comment: { post: visiblePost(viewerId) } },
           { kind: 'POST', post: visiblePost(viewerId) },
           { kind: 'STORY', story: visibleStory(viewerId) },
           {
@@ -358,6 +359,7 @@ export class PostsService {
         type: 'VIDEO',
         state: 'READY',
         OR: [
+          { kind: 'COMMENT', comment: { post: visiblePost(viewerId) } },
           { kind: 'POST', post: visiblePost(viewerId) },
           { kind: 'STORY', story: visibleStory(viewerId) },
         ],
