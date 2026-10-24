@@ -10,6 +10,7 @@ import {
 } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
+import { X } from "lucide-react";
 import { MediaImage } from "@/components/ui-ig/media-image";
 import { Avatar } from "@/components/ui-ig/avatar";
 import { ConfirmDialog } from "@/components/ui-ig/confirm-dialog";
@@ -29,11 +30,13 @@ export function CommentForm({
   onAdded,
   className,
   replyTo,
+  onCancel,
 }: {
   postId: string;
   onAdded: (comment: Comment) => void;
   className?: string;
   replyTo?: Comment;
+  onCancel?: () => void;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -79,10 +82,25 @@ export function CommentForm({
       className={cn("flex flex-col gap-1", className)}
     >
       {replyTo && (
-        <p className="text-xs text-muted-foreground">
-          Ответ для{" "}
-          <span className="font-semibold">@{replyTo.author.username}</span>
-        </p>
+        // Instagram-style reply bar; replies are text only.
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          <span>
+            Ответ пользователю{" "}
+            <span className="font-semibold text-foreground">
+              @{replyTo.author.username}
+            </span>
+          </span>
+          {onCancel && (
+            <button
+              type="button"
+              aria-label="Отменить ответ"
+              onClick={onCancel}
+              className="grid size-5 place-items-center rounded-full hover:text-foreground"
+            >
+              <X aria-hidden className="size-4" />
+            </button>
+          )}
+        </div>
       )}
       {image && preview && (
         <div className="relative w-fit rounded-lg border p-2">
@@ -105,6 +123,7 @@ export function CommentForm({
           </button>
         </div>
       )}
+      {!replyTo && (
       <label className="w-fit cursor-pointer text-xs font-semibold text-muted-foreground">
         Фото / GIF
         <input
@@ -133,6 +152,7 @@ export function CommentForm({
           }}
         />
       </label>
+      )}
       <div className="flex items-center gap-2">
         <label htmlFor={`comment-${replyTo?.id ?? postId}`} className="sr-only">
           {replyTo ? "Ответ" : "Комментарий"}
@@ -231,16 +251,12 @@ export function CommentItem({
               {author.username}
             </Link>
             {comment.replyTo && (
-              <span className="mr-1 text-muted-foreground">
-                Ответ для{" "}
-                <Link
-                  href={`/${comment.replyTo.username}`}
-                  className="font-semibold"
-                >
-                  @{comment.replyTo.username}
-                </Link>{" "}
-                ·{" "}
-              </span>
+              <Link
+                href={`/${comment.replyTo.username}`}
+                className="mr-1 text-ig-link hover:opacity-80"
+              >
+                @{comment.replyTo.username}
+              </Link>
             )}
             {comment.text}
           </p>
@@ -320,18 +336,12 @@ export function CommentItem({
             />
           )}
           {replyTo && (
-            <div className="border-l pl-3">
-              <button
-                type="button"
-                className="text-xs text-muted-foreground"
-                onClick={() => setReplyTo(undefined)}
-              >
-                Отменить ответ
-              </button>
+            <div className="pt-1">
               <CommentForm
                 key={replyTo.id}
                 postId={comment.postId}
                 replyTo={replyTo}
+                onCancel={() => setReplyTo(undefined)}
                 onAdded={(reply) => {
                   setAddedReplies((items) => [...items, reply]);
                   setReplyCount((count) => count + 1);
