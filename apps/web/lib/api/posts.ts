@@ -11,6 +11,7 @@ import {
   PostListResponseSchema,
   PostResponseSchema,
   postsEndpoints,
+  SaveResponseSchema,
   videoUploadRules,
 } from "@instagram/contracts";
 
@@ -106,6 +107,22 @@ export function createPostsClient(api: ApiClient = createApiClient()) {
       mutate(withPath(postsEndpoints.like, { id }), LikeResponseSchema),
     unlike: (id: string) =>
       mutate(withPath(postsEndpoints.unlike, { id }), LikeResponseSchema),
+    save: (id: string) =>
+      mutate(withPath(postsEndpoints.save, { id }), SaveResponseSchema),
+    unsave: (id: string) =>
+      mutate(withPath(postsEndpoints.unsave, { id }), SaveResponseSchema),
+    saved: (cursor?: string, signal?: AbortSignal) =>
+      api.request(
+        withPath(postsEndpoints.saved, {}, { cursor }),
+        PostListResponseSchema,
+        { signal },
+      ),
+    liked: (cursor?: string, signal?: AbortSignal) =>
+      api.request(
+        withPath(postsEndpoints.liked, {}, { cursor }),
+        PostListResponseSchema,
+        { signal },
+      ),
     comments: (id: string, cursor?: string, signal?: AbortSignal) =>
       api.request(
         withPath(postsEndpoints.comments, { id }, { cursor }),

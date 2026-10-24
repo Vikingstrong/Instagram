@@ -86,6 +86,7 @@ export {
   DeletePostResponseSchema,
   AvatarResponseSchema,
   LikeResponseSchema,
+  SaveResponseSchema,
   CommentTextSchema,
   CreateCommentRequestSchema,
   CommentSchema,
@@ -98,6 +99,7 @@ export {
   type PostListResponse,
   type Comment,
   type LikeResponse,
+  type SaveResponse,
 } from "./posts.js";
 
 export {

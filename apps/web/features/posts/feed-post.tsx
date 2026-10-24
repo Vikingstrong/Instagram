@@ -11,6 +11,7 @@ import { MediaImage } from "@/components/ui-ig/media-image";
 
 import { CommentForm, CommentItem } from "./comments";
 import { LikeButton, likesLabel, useLike } from "./like-button";
+import { SaveButton } from "./save-button";
 import { PostMedia } from "./post-media";
 import { timeAgo } from "./time";
 
@@ -85,6 +86,11 @@ export function FeedPost({ post }: { post: Post }) {
             kind={post.type === "video" ? "reel" : "post"}
             contentId={post.id}
             initialCount={post.shareCount}
+          />
+          <SaveButton
+            postId={post.id}
+            initial={post.saved}
+            className="ml-auto"
           />
         </div>
         {like.error && (

@@ -19,6 +19,7 @@ import { usePagedList } from "@/features/social/use-paged-list";
 import { createPostsClient } from "@/lib/api/posts";
 
 import { LikeButton, useLike } from "./like-button";
+import { SaveButton } from "./save-button";
 
 // FR-10 Reels: accessible video posts, newest first, one per screen with
 // snap scrolling. Only the reel in view plays (muted until the viewer turns
@@ -255,6 +256,7 @@ function Reel({
             if (open) video.current?.pause();
           }}
         />
+        <SaveButton postId={post.id} initial={post.saved} />
         <Link
           href={`/p/${post.id}`}
           aria-label="Открыть публикацию"

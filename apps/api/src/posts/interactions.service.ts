@@ -3,6 +3,7 @@ import {
   CommentSchema,
   type Comment,
   type LikeResponse,
+  type SaveResponse,
   type PageQuery,
 } from '@instagram/contracts';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
@@ -117,6 +118,29 @@ export class InteractionsService {
       where: { postId, userId: viewerId },
     });
     return this.likeState(viewerId, postId);
+  }
+
+  // Idempotent like likes; saves are private, so no counter is returned.
+  async save(viewerId: string, postId: string): Promise<SaveResponse> {
+    await this.requireVisible(viewerId, postId);
+    try {
+      await this.database.prisma.postSave.createMany({
+        data: { postId, userId: viewerId },
+        skipDuplicates: true,
+      });
+    } catch (error) {
+      if (missingPost(error)) throw new AuthError('POST_NOT_FOUND');
+      throw error;
+    }
+    return { saved: true };
+  }
+
+  async unsave(viewerId: string, postId: string): Promise<SaveResponse> {
+    await this.requireVisible(viewerId, postId);
+    await this.database.prisma.postSave.deleteMany({
+      where: { postId, userId: viewerId },
+    });
+    return { saved: false };
   }
 
   // Oldest first (createdAt ASC, id ASC), like a conversation.
