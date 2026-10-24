@@ -135,7 +135,8 @@ export function LiveChat({
         {items.map((item) => (
           <li key={item.id} className="flex gap-2 text-sm">
             <Avatar name={item.author.username} src={item.author.avatarUrl} size={24} />
-            <p className="min-w-0 break-words">
+            {/* A div: the moderation menu holds a dialog. */}
+            <div className="min-w-0 break-words">
               {canModerate(moderation) &&
               item.author.id !== selfId &&
               item.author.id !== moderation!.hostId ? (
@@ -144,7 +145,7 @@ export function LiveChat({
                 <span className="mr-1.5 font-semibold">{item.author.username}</span>
               )}
               {item.text}
-            </p>
+            </div>
           </li>
         ))}
       </ol>
