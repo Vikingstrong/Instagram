@@ -11,8 +11,7 @@ export function profileText(max: number, multiline: boolean) {
       let length = 0;
       for (const character of value) {
         const point = character.codePointAt(0)!;
-        const control =
-          point < 0x20 || (point >= 0x7f && point < 0xa0);
+        const control = point < 0x20 || (point >= 0x7f && point < 0xa0);
         if (
           (point >= 0xd800 && point <= 0xdfff) ||
           (control && !(multiline && point === 0x0a))
@@ -46,7 +45,7 @@ export const ProfileRelationshipSchema = z.enum([
 export const MediaUrlSchema = z
   .string()
   .regex(
-    /^\/api\/v1\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:full|thumb|video)$/,
+    /^\/api\/v1\/(?:media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:full|thumb|video)|direct\/conversations\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/messages\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:full|thumb|audio|opus))$/,
   );
 
 // Allowed FR-02 summary. Private profiles return the same fields; their posts
@@ -103,7 +102,15 @@ export type UpdateOwnProfileRequest = z.infer<
 
 export const usersEndpoints = {
   // {username} is matched case-insensitively.
-  profile: { method: "GET", path: "/api/v1/users/{username}", successStatus: 200 },
+  profile: {
+    method: "GET",
+    path: "/api/v1/users/{username}",
+    successStatus: 200,
+  },
   ownProfile: { method: "GET", path: "/api/v1/me/profile", successStatus: 200 },
-  updateOwnProfile: { method: "PATCH", path: "/api/v1/me/profile", successStatus: 200 },
+  updateOwnProfile: {
+    method: "PATCH",
+    path: "/api/v1/me/profile",
+    successStatus: 200,
+  },
 } as const;

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { CallButtons } from "@/features/calls/call-buttons";
 import { CallHistory } from "@/features/calls/call-history";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { DirectMessageTextSchema, type Conversation } from "@instagram/contracts";
+import { useEffect, useRef, useState } from "react";
+import { type DirectMessage, type Conversation } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { ChevronRightIcon } from "@/components/icons/ig-icons";
@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils";
 import type { ConnectionState } from "./use-direct-events";
 import { useThread, type Outgoing } from "./use-thread";
 
-const MESSAGE_LIMIT = 1000;
+import { PrivateAudio } from "./private-audio";
+import { AttachmentComposer } from "./attachment-composer";
+import { MediaImage } from "@/components/ui-ig/media-image";
 
 type Load =
   | { state: "loading" }
@@ -50,7 +52,8 @@ export function Thread({
       .conversation(conversationId, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
-        if (result.ok) setLoad({ state: "ready", conversation: result.data.conversation });
+        if (result.ok)
+          setLoad({ state: "ready", conversation: result.data.conversation });
         else if (
           result.failure.kind === "api" &&
           (result.failure.status === 404 || result.failure.status === 400)
@@ -79,7 +82,10 @@ export function Thread({
   if (load.state === "error")
     return (
       <div className="m-auto p-6">
-        <ApiErrorNotice failure={load.failure} onRetry={() => setRevision((value) => value + 1)} />
+        <ApiErrorNotice
+          failure={load.failure}
+          onRetry={() => setRevision((value) => value + 1)}
+        />
       </div>
     );
   return (
@@ -123,16 +129,30 @@ function ThreadBody({
   }, [count, newest]);
 
   return (
-    <section aria-label={`Диалог с ${peer.username}`} className="flex min-h-0 flex-1 flex-col">
+    <section
+      aria-label={`Диалог с ${peer.username}`}
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <header className="flex h-18.5 shrink-0 items-center gap-3 border-b px-4">
-        <Link href="/direct" aria-label="Назад к сообщениям" className="rotate-180 md:hidden">
+        <Link
+          href="/direct"
+          aria-label="Назад к сообщениям"
+          className="rotate-180 md:hidden"
+        >
           <ChevronRightIcon />
         </Link>
-        <Link href={`/${peer.username}`} className="flex min-w-0 flex-1 items-center gap-3">
+        <Link
+          href={`/${peer.username}`}
+          className="flex min-w-0 flex-1 items-center gap-3"
+        >
           <Avatar name={peer.username} src={peer.avatarUrl} size={44} />
           <span className="min-w-0 leading-tight">
-            <span className="block truncate font-semibold">{peer.displayName || peer.username}</span>
-            <span className="block truncate text-xs text-muted-foreground">{peer.username}</span>
+            <span className="block truncate font-semibold">
+              {peer.displayName || peer.username}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {peer.username}
+            </span>
           </span>
         </Link>
         <CallButtons conversation={conversation} />
@@ -158,13 +178,18 @@ function ThreadBody({
           <div className="m-auto flex flex-col items-center gap-2 text-center">
             <Avatar name={peer.username} src={peer.avatarUrl} size={96} />
             <p className="text-lg font-semibold">{peer.username}</p>
-            <p className="text-sm text-muted-foreground">Напишите первое сообщение.</p>
+            <p className="text-sm text-muted-foreground">
+              Напишите первое сообщение.
+            </p>
           </div>
         )}
         <ol aria-label="Сообщения" className="mt-auto flex flex-col gap-1">
           {thread.messages.map((message) => (
             <li key={message.id} className="flex flex-col">
-              <Bubble mine={message.senderId === viewerId} text={message.text} />
+              <MessageContent
+                message={message}
+                mine={message.senderId === viewerId}
+              />
             </li>
           ))}
           {thread.outbox.map((message) => (
@@ -179,7 +204,7 @@ function ThreadBody({
         <div ref={bottom} />
       </div>
 
-      <Composer onSend={thread.send} />
+      <AttachmentComposer onSend={thread.send} />
     </section>
   );
 }
@@ -188,20 +213,39 @@ function ThreadBody({
 // ones may be late; sent messages still go out over REST.
 function ConnectionBadge({ state }: { state: ConnectionState }) {
   return (
-    <span role="status" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+    <span
+      role="status"
+      className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"
+    >
       <span
         aria-hidden
         className={cn(
           "size-2 rounded-full",
-          state === "live" ? "bg-emerald-500" : state === "offline" ? "bg-destructive" : "bg-amber-400",
+          state === "live"
+            ? "bg-emerald-500"
+            : state === "offline"
+              ? "bg-destructive"
+              : "bg-amber-400",
         )}
       />
-      {state === "live" ? "В сети" : state === "offline" ? "Нет соединения. Переподключаемся…" : "Подключение…"}
+      {state === "live"
+        ? "В сети"
+        : state === "offline"
+          ? "Нет соединения. Переподключаемся…"
+          : "Подключение…"}
     </span>
   );
 }
 
-function Bubble({ mine, text, muted }: { mine: boolean; text: string; muted?: boolean }) {
+function Bubble({
+  mine,
+  text,
+  muted,
+}: {
+  mine: boolean;
+  text: string;
+  muted?: boolean;
+}) {
   return (
     <div
       className={cn(
@@ -227,14 +271,37 @@ function Pending({
   const failed = message.status === "failed";
   return (
     <li className="flex flex-col items-end gap-1">
-      <Bubble mine text={message.text} muted />
+      <Bubble
+        mine
+        text={[
+          message.attachment
+            ? message.attachment.type === "voice"
+              ? "Голосовое сообщение"
+              : "Фото / GIF"
+            : "",
+          message.text,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        muted
+      />
       {failed ? (
         <p role="alert" className="flex flex-wrap justify-end gap-2 text-xs">
-          <span className="text-destructive">Не отправлено. {message.error}</span>
-          <button type="button" onClick={onRetry} className="font-semibold text-ig-link">
+          <span className="text-destructive">
+            Не отправлено. {message.error}
+          </span>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="font-semibold text-ig-link"
+          >
             Повторить
           </button>
-          <button type="button" onClick={onDiscard} className="font-semibold text-muted-foreground">
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="font-semibold text-muted-foreground"
+          >
             Удалить
           </button>
         </p>
@@ -247,60 +314,56 @@ function Pending({
   );
 }
 
-// Enter sends, Shift+Enter adds a line. The field clears at once: the text
-// lives on in the pending message until the server confirms it.
-function Composer({ onSend }: { onSend: (text: string) => void }) {
-  const [text, setText] = useState("");
-  const valid = DirectMessageTextSchema.safeParse(text).success;
-  const length = [...text].length;
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!valid) return;
-    onSend(text);
-    setText("");
-  }
-
+function MessageContent({
+  message,
+  mine,
+}: {
+  message: DirectMessage;
+  mine: boolean;
+}) {
+  const attachment = message.attachment;
+  if (!attachment) return <Bubble mine={mine} text={message.text} />;
   return (
-    <form onSubmit={submit} noValidate className="shrink-0 p-4">
-      <div className="flex items-end gap-2 rounded-3xl border px-4 py-2">
-        <label htmlFor="direct-message" className="sr-only">
-          Сообщение
-        </label>
-        <textarea
-          id="direct-message"
-          rows={1}
-          value={text}
-          placeholder="Напишите сообщение…"
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
-          }}
-          className="max-h-30 min-w-0 flex-1 resize-none bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
-        />
-        {text.length > 0 && (
-          <button
-            type="submit"
-            disabled={!valid}
-            className="py-1 text-sm font-semibold text-ig-blue hover:text-foreground disabled:opacity-50"
-          >
-            Отправить
-          </button>
-        )}
-      </div>
-      {length > MESSAGE_LIMIT - 100 && (
-        <p
-          className={cn(
-            "mt-1 text-right text-xs text-muted-foreground",
-            length > MESSAGE_LIMIT && "text-destructive",
-          )}
-        >
-          {length} / {MESSAGE_LIMIT}
-        </p>
+    <div
+      className={cn(
+        "flex max-w-[85%] min-w-0 flex-col gap-1 md:max-w-[70%]",
+        mine ? "self-end items-end" : "self-start items-start",
       )}
-    </form>
+    >
+      {attachment?.type === "image" && (
+        <a
+          href={attachment.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block max-w-full overflow-hidden rounded-2xl border"
+        >
+          <MediaImage
+            src={attachment.url}
+            alt="Фото или GIF в сообщении"
+            width={attachment.width}
+            height={attachment.height}
+            loading="lazy"
+            className="max-h-80 max-w-full object-contain"
+          />
+        </a>
+      )}
+      {attachment?.type === "voice" && (
+        <div className="max-w-full rounded-2xl border bg-secondary/40 p-2">
+          <PrivateAudio
+            src={attachment.url}
+            opusUrl={attachment.opusUrl}
+            label="Голосовое сообщение"
+          />
+          <p className="mt-1 px-2 text-xs tabular-nums text-muted-foreground">
+            {Math.floor(attachment.durationMs / 60000)}:
+            {String(Math.floor(attachment.durationMs / 1000) % 60).padStart(
+              2,
+              "0",
+            )}
+          </p>
+        </div>
+      )}
+      {message.text && <Bubble mine={mine} text={message.text} />}
+    </div>
   );
 }

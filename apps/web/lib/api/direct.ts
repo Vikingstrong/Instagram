@@ -24,12 +24,16 @@ export function createDirectClient(api: ApiClient = createApiClient()) {
     endpoint: ApiEndpoint,
     schema: ResponseSchema<T>,
     body: unknown,
+    signal?: AbortSignal,
   ) {
-    const csrf = await api.request(authEndpoints.csrf, AuthCsrfResponseSchema);
+    const csrf = await api.request(authEndpoints.csrf, AuthCsrfResponseSchema, {
+      signal,
+    });
     if (!csrf.ok) return csrf;
     return api.request(endpoint, schema, {
       body,
       csrfToken: csrf.data.csrfToken,
+      signal,
     });
   }
 
@@ -54,8 +58,36 @@ export function createDirectClient(api: ApiClient = createApiClient()) {
         DirectMessageListResponseSchema,
         { signal },
       ),
-    send: (id: string, body: SendMessageRequest) =>
-      mutate(withPath(directEndpoints.send, { id }), DirectMessageResponseSchema, body),
+    sendMedia: (
+      id: string,
+      body: { clientMessageId: string; text: string },
+      file: File,
+      type: "image" | "voice",
+      signal?: AbortSignal,
+    ) => {
+      const form = new FormData();
+      form.append("clientMessageId", body.clientMessageId);
+      form.append("text", body.text);
+      form.append("file", file);
+      return mutate(
+        withPath(
+          type === "voice"
+            ? directEndpoints.sendVoice
+            : directEndpoints.sendImage,
+          { id },
+        ),
+        DirectMessageResponseSchema,
+        form,
+        signal,
+      );
+    },
+    send: (id: string, body: SendMessageRequest, signal?: AbortSignal) =>
+      mutate(
+        withPath(directEndpoints.send, { id }),
+        DirectMessageResponseSchema,
+        body,
+        signal,
+      ),
   };
 }
 

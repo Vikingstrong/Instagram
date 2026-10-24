@@ -14,6 +14,9 @@ export function describeFailure(failure: ApiFailure): string {
           return "Ссылка недействительна или срок её действия истёк. Запросите новое письмо.";
         case "SERVICE_UNAVAILABLE":
           return "Сервис временно недоступен. Попробуйте позже.";
+        case "INVALID_AUDIO": return "Не удалось прочитать аудио. Запишите сообщение заново.";
+        case "AUDIO_TOO_LONG": return "Голосовое сообщение длиннее трёх минут.";
+        case "AUDIO_TOO_LARGE": return "Голосовое сообщение больше 10 МБ.";
         case "INVALID_IMAGE":
           return "Файл повреждён или это не JPEG, PNG или WebP.";
         case "IMAGE_TOO_LARGE":
