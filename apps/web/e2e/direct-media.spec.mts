@@ -1,4 +1,3 @@
-import { mkdir } from 'node:fs/promises';
 import { expect, test, type BrowserContext } from '@playwright/test';
 import { expectLoaded, login, photo, verifiedAccount, type Fixture } from './helpers/app.mjs';
 
@@ -79,8 +78,7 @@ test('private photos, GIF and recorded voice in Direct survive reload and a lost
       await bobPage.setViewportSize(original);
     }
 
-    await mkdir('/workspace/.setup/direct-preview', { recursive: true });
-    await bobPage.screenshot({ path: `/workspace/.setup/direct-preview/${info.project.name}.png`, fullPage: true });
+    await bobPage.screenshot({ path: info.outputPath('direct-media.png'), fullPage: true });
 
     const eveContext = await browser.newContext({ baseURL }); contexts.push(eveContext);
     expect((await eveContext.request.get(audioUrl!)).status()).toBe(401);

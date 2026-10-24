@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ShareButton } from "@/features/sharing/share-button";
 import { useState } from "react";
 import type { Comment, Post } from "@instagram/contracts";
 
@@ -24,13 +25,20 @@ export function FeedPost({ post }: { post: Post }) {
   const href = `/p/${post.id}`;
 
   return (
-    <article aria-labelledby={`post-${post.id}`} className="border-b pb-4 md:pb-5">
+    <article
+      aria-labelledby={`post-${post.id}`}
+      className="border-b pb-4 md:pb-5"
+    >
       <header className="flex items-center gap-3 px-3 pb-3 md:px-0">
         <Link href={`/${author.username}`} aria-hidden tabIndex={-1}>
           <Avatar name={author.username} src={author.avatarUrl} size={32} />
         </Link>
         <p className="min-w-0 flex-1 truncate text-sm">
-          <Link id={`post-${post.id}`} href={`/${author.username}`} className="font-semibold">
+          <Link
+            id={`post-${post.id}`}
+            href={`/${author.username}`}
+            className="font-semibold"
+          >
             {author.username}
           </Link>
           <span className="text-muted-foreground">
@@ -48,7 +56,10 @@ export function FeedPost({ post }: { post: Post }) {
           <PostMedia post={post} className="max-h-146.25" />
         </div>
       ) : (
-        <Link href={href} className="block overflow-hidden bg-black md:rounded-sm md:border">
+        <Link
+          href={href}
+          className="block overflow-hidden bg-black md:rounded-sm md:border"
+        >
           <MediaImage
             src={post.image.url}
             alt={post.caption || `Публикация ${author.username}`}
@@ -63,9 +74,18 @@ export function FeedPost({ post }: { post: Post }) {
       <div className="flex flex-col gap-2 px-3 pt-3 md:px-0">
         <div className="flex items-center gap-4">
           <LikeButton liked={like.liked} onToggle={like.toggle} />
-          <Link href={href} aria-label="Комментарии" className="transition-opacity hover:opacity-60">
+          <Link
+            href={href}
+            aria-label="Комментарии"
+            className="transition-opacity hover:opacity-60"
+          >
             <CommentIcon />
           </Link>
+          <ShareButton
+            kind={post.type === "video" ? "reel" : "post"}
+            contentId={post.id}
+            initialCount={post.shareCount}
+          />
         </div>
         {like.error && (
           <p role="alert" className="text-xs text-destructive">
@@ -82,8 +102,13 @@ export function FeedPost({ post }: { post: Post }) {
           </p>
         )}
         {comments > 0 && (
-          <Link href={href} className="self-start text-sm text-muted-foreground">
-            {comments === 1 ? "Посмотреть 1 комментарий" : `Посмотреть все комментарии (${comments})`}
+          <Link
+            href={href}
+            className="self-start text-sm text-muted-foreground"
+          >
+            {comments === 1
+              ? "Посмотреть 1 комментарий"
+              : `Посмотреть все комментарии (${comments})`}
           </Link>
         )}
         {mine.length > 0 && (
@@ -92,7 +117,9 @@ export function FeedPost({ post }: { post: Post }) {
               <CommentItem
                 key={comment.id}
                 comment={comment}
-                onReplyCountChange={(delta) => setComments((count) => Math.max(0, count + delta))}
+                onReplyCountChange={(delta) =>
+                  setComments((count) => Math.max(0, count + delta))
+                }
                 onDeleted={(id) => {
                   setMine((list) => list.filter((item) => item.id !== id));
                   setComments((count) => Math.max(0, count - 1));

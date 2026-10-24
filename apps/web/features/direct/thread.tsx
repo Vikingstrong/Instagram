@@ -322,6 +322,52 @@ function MessageContent({
   mine: boolean;
 }) {
   const attachment = message.attachment;
+  if (message.sharedContent) {
+    const shared = message.sharedContent;
+    return (
+      <div
+        className={cn(
+          "max-w-[85%] rounded-2xl border p-3 md:max-w-[70%]",
+          mine ? "self-end" : "self-start",
+        )}
+      >
+        {shared.status === "unavailable" ? (
+          <p className="text-sm text-muted-foreground">Материал недоступен</p>
+        ) : (
+          <Link
+            href={shared.href}
+            className="block max-w-72"
+            aria-label={`Открыть ${shared.kind === "story" ? "историю" : shared.kind === "reel" ? "Reels" : "публикацию"} ${shared.author.username}`}
+          >
+            <p className="mb-2 text-xs font-semibold">
+              {shared.kind === "story"
+                ? "История"
+                : shared.kind === "reel"
+                  ? "Reels"
+                  : "Публикация"}{" "}
+              · {shared.author.username}
+            </p>
+            <MediaImage
+              src={shared.thumbnailUrl}
+              alt="Превью пересланного материала"
+              className="max-h-56 w-full rounded-lg object-contain"
+              loading="lazy"
+            />
+            {shared.caption && (
+              <p className="mt-2 line-clamp-3 break-words text-sm">
+                {shared.caption}
+              </p>
+            )}
+          </Link>
+        )}
+        {message.text && (
+          <p className="mt-2 break-words whitespace-pre-line text-sm">
+            {message.text}
+          </p>
+        )}
+      </div>
+    );
+  }
   if (!attachment) return <Bubble mine={mine} text={message.text} />;
   return (
     <div

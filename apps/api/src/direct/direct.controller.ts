@@ -38,6 +38,8 @@ import {
   OpenConversationRequestSchema,
   PageQuerySchema,
   SendMessageRequestSchema,
+  ShareContentRequestSchema,
+  ShareContentResponseSchema,
   UserSummarySchema,
 } from '@instagram/contracts';
 import type { Response } from 'express';
@@ -265,6 +267,37 @@ export class DirectController {
         type,
       ),
     });
+  }
+
+  @Post(':id/messages/share')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @mutationBody(ShareContentRequestSchema, {
+    clientMessageId: '6f1c2a4e-8b3d-4c5e-9f60-718293a4b5c6',
+    kind: 'post',
+    contentId: '00000000-0000-4000-8000-000000000002',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOperation({
+    operationId: 'shareContent',
+    summary:
+      'Share a post, reel or active story in Direct; counts unique sharers after commit',
+    description:
+      'Sender needs current access. Recipient receives an unavailable card without preview if not allowed. Idempotent clientMessageId; one unique account count per source across conversations.',
+  })
+  @ok(ShareContentResponseSchema, 201)
+  @errorResponse(404)
+  @errorResponse(409)
+  async share(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const input = parse(body, ShareContentRequestSchema);
+    this.limiter.consume('direct-send', viewer(request), 60, 60_000);
+    return ShareContentResponseSchema.parse(
+      await this.direct.share(viewer(request), uuid(id), input),
+    );
   }
 
   @Post(':id/messages/image')

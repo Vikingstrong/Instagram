@@ -122,6 +122,7 @@ describe('AppController (e2e)', () => {
       '/api/v1/direct/conversations/{id}',
       '/api/v1/direct/conversations/{id}/messages',
       '/api/v1/direct/conversations/{id}/messages/image',
+      '/api/v1/direct/conversations/{id}/messages/share',
       '/api/v1/direct/conversations/{id}/messages/voice',
       '/api/v1/direct/conversations/{id}/messages/{messageId}/{variant}',
       '/api/v1/direct/events',

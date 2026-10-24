@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ShareButton } from "@/features/sharing/share-button";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Comment, Post } from "@instagram/contracts";
@@ -62,7 +63,9 @@ function PostContent({ id }: { id: string }) {
   if (!viewer && !checking)
     return (
       <Centered>
-        <p className="text-sm text-muted-foreground">Войдите, чтобы смотреть публикации.</p>
+        <p className="text-sm text-muted-foreground">
+          Войдите, чтобы смотреть публикации.
+        </p>
         <Link href="/auth/login" className="font-semibold text-ig-link">
           Войти
         </Link>
@@ -91,7 +94,10 @@ function PostContent({ id }: { id: string }) {
   if (load.state === "error")
     return (
       <Centered>
-        <ApiErrorNotice failure={load.failure} onRetry={() => setRevision((value) => value + 1)} />
+        <ApiErrorNotice
+          failure={load.failure}
+          onRetry={() => setRevision((value) => value + 1)}
+        />
       </Centered>
     );
 
@@ -100,9 +106,16 @@ function PostContent({ id }: { id: string }) {
   const author = (
     <header className="flex h-15 shrink-0 items-center gap-3 border-b px-4">
       <Link href={`/${post.author.username}`} aria-hidden tabIndex={-1}>
-        <Avatar name={post.author.username} src={post.author.avatarUrl} size={32} />
+        <Avatar
+          name={post.author.username}
+          src={post.author.avatarUrl}
+          size={32}
+        />
       </Link>
-      <Link href={`/${post.author.username}`} className="min-w-0 flex-1 truncate text-sm font-semibold">
+      <Link
+        href={`/${post.author.username}`}
+        className="min-w-0 flex-1 truncate text-sm font-semibold"
+      >
         {post.author.username}
       </Link>
       {own && <DeletePost post={post} />}
@@ -144,7 +157,10 @@ function PostSide({ post, header }: { post: Post; header: ReactNode }) {
       <div className="flex-1 px-4 py-3 text-sm max-md:order-2 md:overflow-y-auto">
         {post.caption && (
           <p className="mb-2 break-words whitespace-pre-line">
-            <Link href={`/${post.author.username}`} className="mr-1 font-semibold">
+            <Link
+              href={`/${post.author.username}`}
+              className="mr-1 font-semibold"
+            >
               {post.author.username}
             </Link>
             {post.caption}
@@ -153,7 +169,9 @@ function PostSide({ post, header }: { post: Post; header: ReactNode }) {
         <CommentList
           postId={post.id}
           added={added}
-          onDeleted={(id) => setAdded((list) => list.filter((item) => item.id !== id))}
+          onDeleted={(id) =>
+            setAdded((list) => list.filter((item) => item.id !== id))
+          }
         />
       </div>
       <div className="flex flex-col gap-1 px-4 pt-3 max-md:order-1 md:border-t">
@@ -162,11 +180,18 @@ function PostSide({ post, header }: { post: Post; header: ReactNode }) {
           <button
             type="button"
             aria-label="Комментировать"
-            onClick={() => document.getElementById(`comment-${post.id}`)?.focus()}
+            onClick={() =>
+              document.getElementById(`comment-${post.id}`)?.focus()
+            }
             className="hover:opacity-60"
           >
             <CommentIcon />
           </button>
+          <ShareButton
+            kind={post.type === "video" ? "reel" : "post"}
+            contentId={post.id}
+            initialCount={post.shareCount}
+          />
         </div>
         {like.error && (
           <p role="alert" className="text-xs text-destructive">
@@ -206,7 +231,10 @@ function DeletePost({ post }: { post: Post }) {
     pending.current = false;
     setBusy(false);
     // Already gone counts as deleted: the profile no longer shows it.
-    if (result.ok || (result.failure.kind === "api" && result.failure.status === 404)) {
+    if (
+      result.ok ||
+      (result.failure.kind === "api" && result.failure.status === 404)
+    ) {
       replaceLocation(`/${post.author.username}`);
       return;
     }
@@ -252,6 +280,8 @@ function DeletePost({ post }: { post: Post }) {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">{children}</div>
+    <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
+      {children}
+    </div>
   );
 }
