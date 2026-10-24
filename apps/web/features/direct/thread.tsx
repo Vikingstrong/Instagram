@@ -398,7 +398,6 @@ function MessageContent({
           src={attachment.url}
           opusUrl={attachment.opusUrl}
           label="Голосовое сообщение"
-          mine={mine}
           durationMs={attachment.durationMs}
         />
       )}

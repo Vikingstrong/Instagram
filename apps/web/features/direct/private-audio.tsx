@@ -9,17 +9,20 @@ import {
 } from "react";
 import { Pause, Play } from "lucide-react";
 
-const BARS = 32;
+const BARS = 46;
 
-// Stable pseudo-random waveform per recording, like the Instagram voice bubble.
+// Stable pseudo-random waveform per recording: thin bars of mixed height with
+// short quiet gaps, like the Instagram voice message.
 function waveform(seed: string) {
   let hash = 2166136261;
   for (const char of seed) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  return Array.from({ length: BARS }, (_, index) => {
+  const next = () => {
     hash = Math.imul(hash ^ (hash >>> 15), 2246822507) >>> 0;
-    const envelope = Math.sin(((index + 1) / (BARS + 1)) * Math.PI);
-    return 0.25 + 0.75 * envelope * (0.35 + (hash % 1000) / 1540);
-  });
+    return (hash % 1000) / 1000;
+  };
+  return Array.from({ length: BARS }, () =>
+    next() < 0.18 ? 0.12 : 0.3 + 0.7 * next(),
+  );
 }
 
 function clock(seconds: number) {
@@ -33,13 +36,11 @@ export function PrivateAudio({
   src,
   opusUrl,
   label,
-  mine = false,
   durationMs,
 }: {
   src: string;
   opusUrl?: string;
   label: string;
-  mine?: boolean;
   durationMs?: number;
 }) {
   const ref = useRef<HTMLAudioElement>(null);
@@ -100,35 +101,37 @@ export function PrivateAudio({
   // A new element keeps effect cleanup bound to the old playback when its
   // sources change, rather than clearing the replacement's source attributes.
   return (
-    <div
-      className={`flex w-64 max-w-full items-center gap-3 rounded-full py-2 pr-4 pl-2 ${mine ? "bg-ig-blue text-white" : "bg-secondary text-foreground"}`}
-    >
+    <div className="flex w-72 max-w-full items-center gap-3 py-1">
       <button
         type="button"
         aria-label={playing ? "Пауза" : "Воспроизвести"}
         onClick={toggle}
-        className={`grid size-9 shrink-0 place-items-center rounded-full transition active:scale-90 ${mine ? "bg-white/20 hover:bg-white/30" : "bg-foreground/10 hover:bg-foreground/15"}`}
+        className="grid size-8 shrink-0 place-items-center text-muted-foreground transition hover:text-foreground active:scale-90"
       >
         {playing ? (
-          <Pause aria-hidden className="size-4 fill-current" />
+          <Pause aria-hidden className="size-7 fill-current" strokeWidth={1} />
         ) : (
-          <Play aria-hidden className="ml-0.5 size-4 fill-current" />
+          <Play aria-hidden className="size-7 fill-current" strokeWidth={1} />
         )}
       </button>
       <div
         aria-hidden
         onClick={seek}
-        className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-[2px]"
+        className="relative flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-between"
       >
         {bars.map((height, index) => (
           <span
             key={index}
             style={{ height: `${Math.round(height * 100)}%` }}
-            className={`w-[3px] shrink-0 grow rounded-full bg-current transition-opacity duration-150 ${(index + 0.5) / BARS <= progress ? "opacity-100" : "opacity-40"}`}
+            className={`w-[2px] shrink-0 rounded-full transition-colors duration-150 ${(index + 0.5) / BARS <= progress ? "bg-foreground" : "bg-muted-foreground/60"}`}
           />
         ))}
+        <span
+          style={{ left: `${progress * 100}%` }}
+          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#4cb5f9] shadow transition-[left] duration-200 ease-linear"
+        />
       </div>
-      <span className="w-9 shrink-0 text-right text-xs tabular-nums">
+      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
         {clock(playing || current > 0 ? current : duration)}
       </span>
       <audio
