@@ -113,7 +113,11 @@ docs/development/comment-attachments.md.
 Stage 6 (FR-09 over REST): DirectModule (apps/api/src/direct) with
 /api/v1/direct/conversations; idempotent sends by clientMessageId; web in
 apps/web/features/direct (/direct, /direct/t/[id]); see
-docs/development/direct-api.md. Stage 7 realtime: SSE GET /api/v1/direct/events
+docs/development/direct-api.md. Direct attachments (photo/GIF/voice) use
+MediaKind.DIRECT, multipart messages/image and messages/voice, exact-byte
+idempotency and participant-checked message media routes. FFmpeg outputs
+AAC/M4A and Opus/WebM, web captures with MediaRecorder; see
+docs/development/direct-attachments.md. Stage 7 realtime: SSE GET /api/v1/direct/events
 (DirectEvents in-memory hub, ids only; SessionRevocations closes streams on
 logout/reset); web subscribes, waits for "ready", then syncs over REST; see
 docs/development/direct-realtime.md.

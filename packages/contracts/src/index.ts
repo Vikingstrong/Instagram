@@ -102,6 +102,10 @@ export {
 } from "./posts.js";
 
 export {
+  directImageRules,
+  voiceMessageRules,
+  SendMediaMessageFieldsSchema,
+  DirectAttachmentSchema,
   DirectMessageTextSchema,
   OpenConversationRequestSchema,
   SendMessageRequestSchema,

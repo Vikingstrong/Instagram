@@ -1,4 +1,8 @@
 import {
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
   Body,
   Controller,
   Get,
@@ -13,6 +17,9 @@ import {
   applyDecorators,
 } from '@nestjs/common';
 import {
+  ApiBody,
+  ApiConsumes,
+  ApiProduces,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -21,6 +28,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  SendMediaMessageFieldsSchema,
+  directImageRules,
+  voiceMessageRules,
   ConversationListResponseSchema,
   ConversationResponseSchema,
   DirectMessageListResponseSchema,
@@ -30,6 +40,11 @@ import {
   SendMessageRequestSchema,
   UserSummarySchema,
 } from '@instagram/contracts';
+import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadMutationGuard } from '../auth/auth-security.js';
+import { AuthError } from '../auth/auth.error.js';
+import { parseRange } from '../media/byte-range.js';
 import { DirectService } from './direct.service.js';
 import {
   VerifiedSessionGuard,
@@ -55,6 +70,52 @@ const paged = () =>
     ApiQuery({ name: 'cursor', required: false, type: String }),
     ApiQuery({ name: 'limit', required: false, type: Number, example: 20 }),
   );
+
+function attachmentUpload(type: 'image' | 'voice') {
+  return applyDecorators(
+    UseGuards(UploadMutationGuard),
+    UseInterceptors(
+      FileInterceptor('file', {
+        limits: {
+          fileSize:
+            type === 'voice'
+              ? voiceMessageRules.maxBytes
+              : directImageRules.maxBytes,
+          files: 1,
+          fields: 2,
+          parts: 3,
+          fieldSize: 16384,
+        },
+      }),
+    ),
+    ApiSecurity('csrfToken'),
+    ApiConsumes('multipart/form-data'),
+    ApiBody({
+      schema: {
+        type: 'object',
+        required: ['file', 'clientMessageId'],
+        properties: {
+          file: {
+            type: 'string',
+            format: 'binary',
+            description:
+              type === 'voice'
+                ? 'Audio recording up to 10 MiB / 180 seconds. Transcoded to AAC/M4A.'
+                : 'JPEG/PNG/WebP/GIF up to 10 MiB, 100 frames, 40M decoded pixels.',
+          },
+          clientMessageId: { type: 'string', format: 'uuid' },
+          text: { type: 'string', maxLength: 1000 },
+        },
+      },
+    }),
+    ApiParam({ name: 'id', format: 'uuid' }),
+    ok(DirectMessageResponseSchema, 201),
+    errorResponse(400),
+    errorResponse(404),
+    errorResponse(409),
+    errorResponse(413),
+  );
+}
 
 // FR-09 Direct over REST (stage 6). Realtime delivery arrives in stage 7;
 // until then clients reload the history.
@@ -182,6 +243,127 @@ export class DirectController {
     this.limiter.consume('direct-send', viewer(request), 60, 60_000);
     return DirectMessageResponseSchema.parse({
       message: await this.direct.send(viewer(request), uuid(id), input),
+    });
+  }
+  private async sendAttachment(
+    id: string,
+    body: unknown,
+    file: { buffer: Buffer } | undefined,
+    request: AuthenticatedRequest,
+    type: 'image' | 'voice',
+  ) {
+    const input = parse(body, SendMediaMessageFieldsSchema);
+    this.limiter.consume('direct-send', viewer(request), 60, 60_000);
+    if (!file?.buffer.length)
+      throw new AuthError(type === 'voice' ? 'INVALID_AUDIO' : 'INVALID_IMAGE');
+    return DirectMessageResponseSchema.parse({
+      message: await this.direct.sendMedia(
+        viewer(request),
+        uuid(id),
+        input,
+        file.buffer,
+        type,
+      ),
+    });
+  }
+
+  @Post(':id/messages/image')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @attachmentUpload('image')
+  @ApiOperation({
+    operationId: 'sendDirectImage',
+    summary:
+      'Send one private photo or animated GIF with optional text; retries compare exact file bytes, text and conversation',
+  })
+  sendImage(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.sendAttachment(id, body, file, request, 'image');
+  }
+
+  @Post(':id/messages/voice')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @attachmentUpload('voice')
+  @ApiOperation({
+    operationId: 'sendDirectVoice',
+    summary:
+      'Send a private voice message, up to three minutes, with optional text',
+  })
+  sendVoice(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.sendAttachment(id, body, file, request, 'voice');
+  }
+
+  @Get(':id/messages/:messageId/:variant')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiParam({ name: 'messageId', format: 'uuid' })
+  @ApiParam({ name: 'variant', enum: ['full', 'thumb', 'audio', 'opus'] })
+  @ApiProduces('image/webp', 'audio/mp4', 'audio/webm')
+  @ApiOperation({
+    operationId: 'getDirectAttachment',
+    summary:
+      'Private message attachment; participants only on every request, including Range',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'WebP image or AAC/M4A voice message',
+  })
+  @ApiResponse({ status: 206, description: 'Byte range' })
+  @ApiResponse({ status: 416, description: 'Range outside file' })
+  @errorResponse(400)
+  @errorResponse(404)
+  async attachment(
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+    @Param('variant') variant: string,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (
+      variant !== 'full' &&
+      variant !== 'thumb' &&
+      variant !== 'audio' &&
+      variant !== 'opus'
+    )
+      throw new AuthError('MEDIA_NOT_FOUND');
+    this.limiter.consume('direct-media-read', viewer(request), 1200, 300_000);
+    const file = await this.direct.attachment(
+      viewer(request),
+      uuid(id),
+      uuid(messageId),
+      variant,
+    );
+    response.setHeader('Accept-Ranges', 'bytes');
+    const range = parseRange(request.headers.range, file.size);
+    if (range.kind === 'unsatisfiable') {
+      response.status(416).setHeader('Content-Range', `bytes */${file.size}`);
+      return;
+    }
+    const [start, end] =
+      range.kind === 'partial' ? [range.start, range.end] : [0, file.size - 1];
+    if (range.kind === 'partial') {
+      response.status(206);
+      response.setHeader('Content-Range', `bytes ${start}-${end}/${file.size}`);
+    }
+    return new StreamableFile(file.stream(start, end), {
+      type:
+        variant === 'audio'
+          ? 'audio/mp4'
+          : variant === 'opus'
+            ? 'audio/webm'
+            : 'image/webp',
+      length: end - start + 1,
     });
   }
 }

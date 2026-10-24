@@ -63,7 +63,7 @@ export function DirectView() {
     );
 
   return (
-    <div className="flex h-[calc(100dvh-3rem-env(safe-area-inset-bottom))] min-h-0 md:h-dvh">
+    <div className="flex h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] min-h-0 md:h-dvh">
       <Inbox
         viewerId={shown.id}
         username={shown.username}
@@ -82,7 +82,7 @@ export function DirectView() {
       >
         {selectedId ? (
           <Thread
-            key={selectedId}
+            key={`${shown.id}:${selectedId}`}
             conversationId={selectedId}
             viewerId={shown.id}
             syncKey={syncKey}

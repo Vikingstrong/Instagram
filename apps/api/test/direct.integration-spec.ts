@@ -2,6 +2,13 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import sharp from 'sharp';
+import { MediaService } from '../src/media/media.service.js';
+import { DirectEvents } from '../src/direct/direct-events.js';
+import { vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import {
   AuthApiErrorResponseSchema,
@@ -32,8 +39,11 @@ const path = (template: string, values: Record<string, string>) =>
 describe('Direct over REST with real PostgreSQL', () => {
   let app: INestApplication<App>;
   let database: DatabaseService;
+  let root: string;
   const ownedIds: string[] = [];
   beforeAll(async () => {
+    root = await mkdtemp(join(tmpdir(), 'instagram-direct-media-'));
+    process.env.MEDIA_ROOT = root;
     const fixture = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(DatabaseService)
       .useFactory({ factory: () => new DatabaseService(testUrl) })
@@ -47,6 +57,7 @@ describe('Direct over REST with real PostgreSQL', () => {
     });
     configureApp(app);
     await app.init();
+    await app.listen(0, '127.0.0.1');
     database = app.get(DatabaseService);
   }, 30_000);
   afterAll(async () => {
@@ -56,6 +67,8 @@ describe('Direct over REST with real PostgreSQL', () => {
       });
     } finally {
       await app.close();
+      delete process.env.MEDIA_ROOT;
+      await rm(root, { recursive: true, force: true });
     }
   });
 
@@ -342,5 +355,315 @@ describe('Direct over REST with real PostgreSQL', () => {
       (await again.get(messagesUrl(id) + '?limit=50').expect(200)).body,
     );
     expect(reread.items.map((item) => item.id)).toEqual(seen);
+  });
+  async function photo() {
+    return sharp({
+      create: { width: 80, height: 60, channels: 3, background: '#ac5790' },
+    })
+      .jpeg()
+      .withExif({ IFD0: { Artist: 'private-fixture' } })
+      .toBuffer();
+  }
+  function wav(seconds = 1) {
+    const size = Math.ceil(seconds * 16000) * 2;
+    const buffer = Buffer.alloc(44 + size);
+    buffer.write('RIFF', 0);
+    buffer.writeUInt32LE(36 + size, 4);
+    buffer.write('WAVEfmt ', 8);
+    buffer.writeUInt32LE(16, 16);
+    buffer.writeUInt16LE(1, 20);
+    buffer.writeUInt16LE(1, 22);
+    buffer.writeUInt32LE(16000, 24);
+    buffer.writeUInt32LE(32000, 28);
+    buffer.writeUInt16LE(2, 32);
+    buffer.writeUInt16LE(16, 34);
+    buffer.write('data', 36);
+    buffer.writeUInt32LE(size, 40);
+    for (let i = 0; i < size / 2; i++)
+      buffer.writeInt16LE(Math.round(Math.sin(i * 0.1) * 10000), 44 + i * 2);
+    return buffer;
+  }
+  async function upload(
+    who: Account,
+    id: string,
+    type: 'image' | 'voice',
+    bytes: Buffer,
+    clientMessageId = randomUUID(),
+    text = '',
+  ) {
+    const token = await csrf(who.client);
+    return who.client
+      .post(`${messagesUrl(id)}/${type}`)
+      .set('Origin', origin)
+      .set('X-CSRF-Token', token)
+      .field('clientMessageId', clientMessageId)
+      .field('text', text)
+      .attach('file', bytes, {
+        filename: 'untrusted.bin',
+        contentType: 'application/octet-stream',
+      });
+  }
+
+  it('sends private photos and two-frame GIFs with participant-only full and thumbnail access', async () => {
+    const alice = await account({ isPrivate: true }),
+      bob = await account(),
+      eve = await account();
+    const conversation = await open(alice, bob);
+    const sent = await upload(alice, conversation.id, 'image', await photo());
+    expect(sent.status).toBe(201);
+    const message = DirectMessageResponseSchema.parse(sent.body).message;
+    expect(message.text).toBe('');
+    expect(message.attachment?.type).toBe('image');
+    expect(sent.body.message).not.toHaveProperty('sourceHash');
+    expect(sent.body.message).not.toHaveProperty('mediaId');
+    if (message.attachment?.type !== 'image') throw new Error('Missing image');
+    for (const url of [
+      message.attachment.url,
+      message.attachment.thumbnailUrl,
+    ]) {
+      const response = await bob.client.get(url).expect(200);
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect((await sharp(response.body).metadata()).exif).toBeUndefined();
+      await eve.client.get(url).expect(404);
+      await request(app.getHttpServer()).get(url).expect(401);
+    }
+    const mediaRow = await database.prisma.directMessage.findUniqueOrThrow({
+      where: { id: message.id },
+      select: { mediaId: true },
+    });
+    await bob.client.get(`/api/v1/media/${mediaRow.mediaId}/full`).expect(404);
+    const frames = Buffer.concat([Buffer.alloc(48, 20), Buffer.alloc(48, 240)]);
+    const gif = await sharp(frames, {
+      raw: { width: 4, height: 8, channels: 3, pageHeight: 4 },
+    })
+      .gif({ delay: [100, 200], loop: 0 })
+      .toBuffer();
+    const reply = await upload(
+      bob,
+      conversation.id,
+      'image',
+      gif,
+      randomUUID(),
+      'GIF',
+    );
+    expect(reply.status).toBe(201);
+    const animated = await alice.client
+      .get(reply.body.message.attachment.url)
+      .expect(200);
+    expect((await sharp(animated.body).metadata()).pages).toBe(2);
+    const other = await open(alice, eve);
+    await alice.client
+      .get(message.attachment.url.replace(conversation.id, other.id))
+      .expect(404);
+    expect(
+      (await history(bob, conversation.id)).items.map((item) => item.id),
+    ).toContain(message.id);
+    const conversations = await list(bob);
+    expect(
+      conversations.items.find((item) => item.id === conversation.id)
+        ?.lastMessage?.attachment?.type,
+    ).toBe('image');
+  });
+
+  it('transcodes a voice message to M4A, measures duration, supports seeking and rejects unauthorized ranges', async () => {
+    const alice = await account(),
+      bob = await account(),
+      eve = await account();
+    const conversation = await open(alice, bob);
+    const id = randomUUID();
+    const sent = await upload(alice, conversation.id, 'voice', wav(), id);
+    expect(sent.status).toBe(201);
+    const message = DirectMessageResponseSchema.parse(sent.body).message;
+    if (message.attachment?.type !== 'voice') throw new Error('Missing voice');
+    expect(message.attachment.durationMs).toBe(1000);
+    const file = await bob.client.get(message.attachment.url).expect(200);
+    expect(file.headers['content-type']).toMatch(/^audio\/mp4/);
+    expect(file.body.toString('ascii', 4, 8)).toBe('ftyp');
+    const partial = await bob.client
+      .get(message.attachment.url)
+      .set('Range', 'bytes=0-15')
+      .expect(206);
+    expect(partial.body).toEqual(file.body.subarray(0, 16));
+    expect(partial.headers['content-range']).toBe(
+      `bytes 0-15/${file.body.length}`,
+    );
+    await bob.client
+      .get(message.attachment.url)
+      .set('Range', `bytes=${file.body.length}-`)
+      .expect(416);
+    await eve.client
+      .get(message.attachment.url)
+      .set('Range', 'bytes=0-15')
+      .expect(404);
+    await bob.client
+      .get(message.attachment.url.replace(/audio$/, 'full'))
+      .expect(404);
+    const replay = await upload(alice, conversation.id, 'voice', wav(), id);
+    expect(replay.body.message.id).toBe(message.id);
+  });
+
+  it('deduplicates concurrent file retries, rejects changed payloads and only emits one notice', async () => {
+    const alice = await account(),
+      bob = await account(),
+      eve = await account();
+    const conversation = await open(alice, bob);
+    const image = await photo(),
+      id = randomUUID();
+    const notices = vi.spyOn(app.get(DirectEvents), 'notify');
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        upload(alice, conversation.id, 'image', image, id, 'caption'),
+      ),
+    );
+    expect(responses.map((response) => response.status)).toEqual([
+      201, 201, 201, 201, 201,
+    ]);
+    expect(
+      new Set(responses.map((response) => response.body.message.id)).size,
+    ).toBe(1);
+    const messageId = responses[0]!.body.message.id as string;
+    expect(
+      notices.mock.calls.filter(([, notice]) => notice.messageId === messageId),
+    ).toHaveLength(1);
+    notices.mockRestore();
+    expect(
+      await database.prisma.media.count({
+        where: { ownerId: alice.id, kind: 'DIRECT' },
+      }),
+    ).toBe(1);
+    expect(
+      (await upload(alice, conversation.id, 'image', image, id, 'changed'))
+        .status,
+    ).toBe(409);
+    expect(
+      (
+        await upload(
+          alice,
+          conversation.id,
+          'image',
+          Buffer.concat([image, Buffer.from('different')]),
+          id,
+          'caption',
+        )
+      ).status,
+    ).toBe(409);
+    expect(
+      (await upload(alice, conversation.id, 'voice', image, id, 'caption'))
+        .status,
+    ).toBe(409);
+    expect((await send(alice, conversation.id, 'caption', id)).status).toBe(
+      409,
+    );
+    const other = await open(alice, eve);
+    expect(
+      (await upload(alice, other.id, 'image', image, id, 'caption')).status,
+    ).toBe(409);
+    const textId = randomUUID();
+    expect(
+      (await send(alice, conversation.id, 'text first', textId)).status,
+    ).toBe(201);
+    expect(
+      (
+        await upload(
+          alice,
+          conversation.id,
+          'image',
+          image,
+          textId,
+          'text first',
+        )
+      ).status,
+    ).toBe(409);
+  });
+
+  it('rejects malformed, oversized, overlong and unauthorized uploads without persisting messages', async () => {
+    const alice = await account(),
+      bob = await account(),
+      eve = await account(),
+      unverified = await account({ verified: false });
+    const conversation = await open(alice, bob);
+    expect(
+      (await upload(alice, conversation.id, 'image', Buffer.from('<svg/>')))
+        .status,
+    ).toBe(400);
+    expect(
+      (await upload(alice, conversation.id, 'voice', await photo())).status,
+    ).toBe(400);
+    expect(
+      (await upload(alice, conversation.id, 'voice', wav(180.5))).status,
+    ).toBe(400);
+    expect(
+      (
+        await upload(
+          alice,
+          conversation.id,
+          'voice',
+          Buffer.alloc(10 * 1024 * 1024 + 1),
+        )
+      ).status,
+    ).toBe(413);
+    expect(
+      (await upload(eve, conversation.id, 'image', await photo())).status,
+    ).toBe(404);
+    expect(
+      (await upload(unverified, conversation.id, 'image', await photo()))
+        .status,
+    ).toBe(403);
+    await alice.client
+      .post(`${messagesUrl(conversation.id)}/image`)
+      .attach('file', await photo(), 'photo.jpg')
+      .expect(403);
+    const token = await csrf(alice.client);
+    await alice.client
+      .post(`${messagesUrl(conversation.id)}/image`)
+      .set('Origin', origin)
+      .set('X-CSRF-Token', token)
+      .field('clientMessageId', randomUUID())
+      .expect(400);
+    expect((await history(bob, conversation.id)).items).toEqual([]);
+    expect(
+      await database.prisma.media.count({
+        where: { ownerId: alice.id, kind: 'DIRECT' },
+      }),
+    ).toBe(0);
+  });
+
+  it('stops serving deleted conversations immediately and sweeps orphan image and voice files', async () => {
+    const alice = await account(),
+      bob = await account();
+    const conversation = await open(alice, bob);
+    const image = await upload(alice, conversation.id, 'image', await photo());
+    const voice = await upload(alice, conversation.id, 'voice', wav());
+    expect(voice.status).toBe(201);
+    await database.prisma.conversation.delete({
+      where: { id: conversation.id },
+    });
+    await bob.client.get(image.body.message.attachment.url).expect(404);
+    await bob.client.get(voice.body.message.attachment.url).expect(404);
+    await app.get(MediaService).cleanup();
+    expect(
+      await database.prisma.media.count({
+        where: { ownerId: alice.id, kind: 'DIRECT' },
+      }),
+    ).toBe(0);
+  });
+  it('keeps a committed attachment when notification fails and replays the lost response', async () => {
+    const alice = await account(),
+      bob = await account();
+    const conversation = await open(alice, bob);
+    const bytes = await photo(),
+      id = randomUUID();
+    const notices = vi
+      .spyOn(app.get(DirectEvents), 'notify')
+      .mockImplementationOnce(() => {
+        throw new Error('Synthetic notification failure');
+      });
+    const first = await upload(alice, conversation.id, 'image', bytes, id);
+    expect(first.status).toBe(500);
+    notices.mockRestore();
+    const replay = await upload(alice, conversation.id, 'image', bytes, id);
+    expect(replay.status).toBe(201);
+    await bob.client.get(replay.body.message.attachment.url).expect(200);
+    expect((await history(bob, conversation.id)).items).toHaveLength(1);
   });
 });

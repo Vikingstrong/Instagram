@@ -6,7 +6,7 @@ import {
   type Post,
   type PostListResponse,
 } from '@instagram/contracts';
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Prisma, MediaType } from '../generated/prisma/client.js';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
 import { AuthError } from '../auth/auth.error.js';
 import { MediaService, mediaUrl } from '../media/media.service.js';
@@ -49,7 +49,7 @@ type PostRow = {
   createdAt: Date;
   media: {
     id: string;
-    type: 'IMAGE' | 'VIDEO';
+    type: MediaType;
     state: 'PENDING' | 'READY' | 'DELETED';
     width: number | null;
     height: number | null;

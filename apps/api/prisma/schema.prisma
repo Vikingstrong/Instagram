@@ -21,6 +21,7 @@ enum FollowStatus {
 }
 
 enum MediaKind {
+  DIRECT
   COMMENT
   STORY
   POST
@@ -35,6 +36,7 @@ enum MediaState {
 
 // FR-10: a post is a photo or a video; avatars are always images.
 enum MediaType {
+  AUDIO
   IMAGE
   VIDEO
 }
@@ -202,7 +204,7 @@ model Media {
   state      MediaState @default(PENDING)
   width      Int?
   height     Int?
-  // Video only: duration of the transcoded file.
+  // Video or voice: duration measured by the processing pipeline.
   durationMs Int?
   createdAt  DateTime   @default(now()) @db.Timestamptz(3)
   // A video whose processing failed stays PENDING with this set, so its
@@ -211,6 +213,7 @@ model Media {
   deletedAt  DateTime?  @db.Timestamptz(3)
   owner      User       @relation("owner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   avatarOf   User?      @relation("avatar")
+  directMessage DirectMessage?
   comment    Comment?
   story      Story?
   post       Post?
@@ -303,6 +306,9 @@ model Conversation {
 // A retry with the same (senderId, clientMessageId) finds the stored message
 // instead of creating a duplicate.
 model DirectMessage {
+  mediaId String? @unique @db.Uuid
+  sourceHash String? @db.VarChar(64)
+  media Media? @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
   id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   conversationId  String       @db.Uuid
   senderId        String       @db.Uuid

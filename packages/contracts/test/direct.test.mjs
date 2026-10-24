@@ -5,6 +5,10 @@ import {
   AuthApiErrorResponseSchema,
   ConversationListResponseSchema,
   DirectMessageListResponseSchema,
+  DirectMessageSchema,
+  SendMediaMessageFieldsSchema,
+  DirectAttachmentSchema,
+  voiceMessageRules,
   OpenConversationRequestSchema,
   SendMessageRequestSchema,
   authErrors,
@@ -68,4 +72,21 @@ test("Direct errors match the agreed statuses", () => {
     const body = { error: { code, message: authErrors[code].message, requestId: randomUUID() } };
     assert.deepEqual(AuthApiErrorResponseSchema.parse(body), body);
   }
+});
+
+
+test("media messages require an id and accept optional captions without trusting media URLs from clients", () => {
+  const id = randomUUID();
+  assert.deepEqual(SendMediaMessageFieldsSchema.parse({ clientMessageId: id }), { clientMessageId: id, text: "" });
+  for (const invalid of [{}, { clientMessageId: id, text: "x".repeat(1001) }, { clientMessageId: id, url: "https://example.test/private" }, { clientMessageId: id, senderId: randomUUID() }]) assert.equal(SendMediaMessageFieldsSchema.safeParse(invalid).success, false);
+  const url = `/api/v1/direct/conversations/${message.conversationId}/messages/${message.id}/audio`;
+  const voice = { type: "voice", url, durationMs: 1000 };
+  assert.equal(DirectMessageSchema.safeParse({ ...message, text: "", attachment: voice }).success, true);
+  assert.equal(DirectMessageSchema.safeParse({ ...message, text: "" }).success, false);
+  assert.equal(DirectMessageSchema.safeParse({ ...message, text: " ", attachment: null }).success, false);
+});
+test("private voice references and durations are bounded and cannot be external URLs", () => {
+  const voice = { type: "voice", url: `/api/v1/direct/conversations/${message.conversationId}/messages/${message.id}/audio`, durationMs: voiceMessageRules.maxDurationMs };
+  assert.equal(DirectAttachmentSchema.safeParse(voice).success, true);
+  for (const change of [{ durationMs: 0 }, { durationMs: 180001 }, { url: "https://example.test/audio.m4a" }, { url: "/api/v1/direct/conversations/not-a-uuid/messages/not-a-uuid/audio" }, { type: "video" }]) assert.equal(DirectAttachmentSchema.safeParse({ ...voice, ...change }).success, false);
 });
