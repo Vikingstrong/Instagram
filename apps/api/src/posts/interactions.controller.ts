@@ -37,6 +37,7 @@ import {
   LikeResponseSchema,
   PageQuerySchema,
   PostListResponseSchema,
+  NotificationListResponseSchema,
   UserSummarySchema,
 } from '@instagram/contracts';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -86,6 +87,27 @@ export class InteractionsController {
     private readonly interactions: InteractionsService,
     @Inject(AuthRateLimiter) private readonly limiter: AuthRateLimiter,
   ) {}
+
+  @Get('me/notifications')
+  @Header('Cache-Control', 'no-store')
+  @paged()
+  @ApiOperation({
+    operationId: 'listNotifications',
+    summary: 'Interaction notifications for the signed-in user, newest first',
+    description:
+      'Post likes, comments, replies and comment likes. Current post visibility is enforced before paging.',
+  })
+  @ok(NotificationListResponseSchema)
+  @errorResponse(400)
+  async notifications(
+    @Query() query: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.interactions.notifications(
+      viewer(request),
+      parse(query, PageQuerySchema),
+    );
+  }
 
   @Get('feed')
   @Header('Cache-Control', 'no-store')

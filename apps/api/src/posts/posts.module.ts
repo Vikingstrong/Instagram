@@ -7,12 +7,13 @@ import { PostsController } from './posts.controller.js';
 import { InteractionsService } from './interactions.service.js';
 import { VideoUploadInterceptor } from './video-upload.interceptor.js';
 import { InteractionsController } from './interactions.controller.js';
+import { DirectModule } from '../direct/direct.module.js';
 
 // Posts, avatars and protected image delivery. The post visibility policy
 // (post-policy.ts) is the one rule for posts, grids, the feed, likes,
 // comments and image reads.
 @Module({
-  imports: [DatabaseModule, AuthModule, MediaModule],
+  imports: [DatabaseModule, AuthModule, MediaModule, DirectModule],
   controllers: [PostsController, InteractionsController],
   providers: [PostsService, InteractionsService, VideoUploadInterceptor],
 })

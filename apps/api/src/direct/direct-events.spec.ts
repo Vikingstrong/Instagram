@@ -56,6 +56,16 @@ describe('DirectEvents', () => {
     events.onModuleDestroy();
   });
 
+  it('sends interaction change notices only to the recipient', () => {
+    const { events } = hub();
+    const alice = open(events, 'alice');
+    const bob = open(events, 'bob');
+    events.notifyNotification('alice');
+    expect(alice.frames.at(-1)).toBe('event: notification\ndata: {}\n\n');
+    expect(bob.frames).toHaveLength(1);
+    events.onModuleDestroy();
+  });
+
   it('caps streams per user and drops a client that stopped reading', () => {
     const { events } = hub();
     const first = open(events, 'alice');

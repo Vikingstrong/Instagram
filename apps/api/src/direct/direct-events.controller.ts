@@ -36,7 +36,7 @@ export class DirectEventsController {
     operationId: 'directEvents',
     summary: 'Stream of Direct change notices (SSE)',
     description:
-      'Sends "ready" once the subscription is active, then "message" events with { conversationId, messageId } after each stored message in the user\'s conversations, and a comment heartbeat. Message text is read through the REST history. The stream ends on logout, password reset or session expiry; clients reconnect and sync over REST.',
+      'Sends "ready" once the subscription is active, "message" events with conversation and message ids, and "notification" after an interaction changes. Clients read authorized data through REST. The stream ends on logout, password reset or session expiry; clients reconnect and sync over REST.',
   })
   @ApiResponse({ status: 200, description: 'text/event-stream' })
   @errorResponse(401)
