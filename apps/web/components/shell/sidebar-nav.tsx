@@ -11,6 +11,7 @@ import { useHomeIdentity } from "@/features/auth/home-access";
 
 import { MoreMenu } from "./more-menu";
 import { CreateMenu } from "./create-menu";
+import { ThemeToggle } from "./theme-toggle";
 import { isNavItemActive, navHref, navItems } from "./nav-items";
 
 const rowClass =
@@ -79,6 +80,10 @@ export function SidebarNav() {
 
       {/* "Также от Meta" stays design-only; "Ещё" opens settings and sign-out. */}
       <div className="flex flex-col gap-2">
+        <ThemeToggle
+          className={rowClass}
+          label={(next) => <RowLabel>{next}</RowLabel>}
+        />
         <MoreMenu label={<RowLabel>Ещё</RowLabel>} />
         <button type="button" className={rowClass}>
           <AppsIcon />
