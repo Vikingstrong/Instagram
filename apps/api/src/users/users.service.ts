@@ -39,12 +39,11 @@ export class UsersService {
     @Inject(DatabaseService) private readonly database: DatabaseService,
   ) {}
 
-  // Unverified accounts cannot use the product yet, so they are not found.
+  // Profile visibility follows privacy rules, never email ownership metadata.
   async profile(viewerId: string, username: string): Promise<UserProfile> {
     const user = await this.database.prisma.user.findFirst({
       where: {
         usernameKey: username.toLowerCase(),
-        emailVerifiedAt: { not: null },
       },
       select: {
         ...ownSelect,
@@ -152,7 +151,6 @@ export class UsersService {
     const text = query.q.replace(/[\\%_]/g, '\\$&');
     const rows = await this.database.prisma.user.findMany({
       where: {
-        emailVerifiedAt: { not: null },
         OR: [
           { usernameKey: { contains: text.toLowerCase() } },
           { displayNameKey: { contains: text.toLowerCase() } },

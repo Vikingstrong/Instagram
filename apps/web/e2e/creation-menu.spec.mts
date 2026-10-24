@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { login, verifiedAccount, type Fixture } from "./helpers/app.mjs";
+import { login, registeredAccount, type Fixture } from "./helpers/app.mjs";
 
 test("creation chooser supports keyboard dismissal and opens each format", async ({
   page,
@@ -7,7 +7,7 @@ test("creation chooser supports keyboard dismissal and opens each format", async
   test.setTimeout(120_000);
   let fixture: Fixture | undefined;
   try {
-    fixture = await verifiedAccount();
+    fixture = await registeredAccount();
     await login(page, fixture.account);
     const create = page
       .getByRole("button", { name: "Создать", exact: true })

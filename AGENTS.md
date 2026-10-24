@@ -4,6 +4,11 @@
 
 These repository-wide instructions apply to both OpenAI Codex and Claude Code.
 Keep shared engineering rules here; root `CLAUDE.md` imports this file.
+
+Auth handoff for Developer 2 (2026-10-24): read
+[Auth without email verification](docs/development/auth-without-verification.md)
+before continuing auth/product work. Registration grants access immediately;
+never gate access on historical emailVerified metadata. Mailpit is removed.
 Before starting a task, read the relevant sections of:
 
 - [Product requirements](docs/product/PRD.md): behavior and acceptance criteria.
@@ -48,7 +53,7 @@ recheck them when changing scripts and update this section in the same task.
 | Lint | `pnpm lint` | Web ESLint; API type-aware Oxlint |
 | Unit / contract tests | `pnpm test` | API Vitest, contracts node:test, web Vitest + Testing Library (jsdom) |
 | E2E tests | `pnpm test:e2e` | API Vitest + Supertest; web Playwright browser smoke (desktop + mobile), starts `next dev` itself |
-| Database integration | `pnpm --filter @instagram/api test:integration` | Real PostgreSQL 18.6 and Mailpit SMTP checks; requires distinct dev/test URLs and roles |
+| Database integration | `pnpm --filter @instagram/api test:integration` | Real PostgreSQL 18.6 and in-process SMTP receiver checks; requires distinct dev/test URLs and roles |
 | Validate / generate Prisma | `pnpm --filter @instagram/api db:validate` / `pnpm --filter @instagram/api db:generate` | Prisma 7.10.1; root Turbo build/typecheck/lint/test run generation once as `@instagram/api#db:generate` (parallel per-script generation raced); API dev/start, `db:check` and `test:integration` still generate themselves. Run `db:generate` first when calling API build/lint/check-types/test directly |
 | Check database connection | `pnpm --filter @instagram/api db:check` (append `--test` for test DB) | Builds API, imports compiled ESM client, connects and executes SQL |
 | Apply migration history | `pnpm --filter @instagram/api db:migrate:deploy` / `pnpm --filter @instagram/api db:migrate:test` | Dev/test respectively; first Auth migration is versioned SQL |
@@ -77,14 +82,14 @@ tests exist; see `docs/development/database.md`. NestJS uses Prisma for
 `GET /api/v1/readiness`; Swagger UI is at `/api/docs/` and OpenAPI JSON at
 `/api/docs/openapi.json`. See `docs/development/api-readiness.md`. The first Auth persistence models and migration are in `apps/api/prisma`; see
 `docs/development/auth-database.md`. Auth registration, cookie sessions, CSRF,
-email verification, recovery and durable SMTP delivery are implemented; see
+immediate access without email verification and optional password recovery are implemented; see
 `docs/development/auth-api.md` and `docs/development/auth-email.md`. The additive
 mail outbox migration must be applied to both dev and test databases. `packages/contracts`
 contains the FND-02 readiness/error Zod schemas and fixtures; API and web import
 it. Shared Auth input/output/error schemas are used by the API and web transport.
 Register/login/session/logout web pages use the existing Auth contract; see
-`docs/development/auth-web.md`. Verification/recovery forms use the same API;
-see `docs/development/auth-email.md`. Their browser test requires Mailpit and
+`docs/development/auth-web.md`. Optional recovery uses the same API; see `docs/development/auth-email.md`.
+Its browser test starts its own loopback SMTP receiver. Product browser checks use
 an API started against the isolated TEST database with
 `node --env-file=.env scripts/ci/start-test-api.mjs`; CI uses this launcher too.
 The owner authorized stage 2
@@ -147,16 +152,16 @@ Stage 9 calls slice: CallsModule and global web CallsProvider implement audio/vi
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in
 `docs/development/social-web.md`.
-All future protected product routes must enforce verified sessions server-side
-(e.g. `VerifiedSessionGuard` exported by AuthModule); auth mutations additionally
+All future protected product routes must enforce authenticated sessions server-side
+(e.g. `SessionGuard` exported by AuthModule); auth mutations additionally
 require Origin/CSRF validation. Cookie/session fields never enter public DTOs.
-Local Mailpit configuration and startup instructions are in
-`docs/development/local-environment.md`; API mail delivery uses MailModule and
-Nodemailer. Configure a persistent server-only MAIL_OUTBOX_KEY, SMTP_HOST,
-SMTP_PORT and SMTP_FROM; SMTP_USER/SMTP_PASSWORD are optional and paired.
-Missing development key causes mail-producing transactions to fail safely with
-503; production requires it at startup and enforces SMTP TLS. Preserve this key
-across restarts; never print it or use NEXT_PUBLIC. See auth-email.md.
+PostgreSQL startup instructions are in `docs/development/local-environment.md`.
+Registration and production startup require no SMTP. Recovery is disabled unless
+PASSWORD_RECOVERY_ENABLED=true; when enabled configure persistent server-only
+MAIL_OUTBOX_KEY, SMTP_HOST, SMTP_PORT and SMTP_FROM. SMTP_USER/SMTP_PASSWORD
+are paired, production requires TLS. Disabled recovery returns uniform 503 and
+capabilities=false; web must not promise a letter. Preserve enabled outbox keys;
+never print them or use NEXT_PUBLIC. See auth-email.md.
 Foundation CI is defined in `.github/workflows/ci.yml`; see
 `docs/development/ci.md` for checks and service lifecycle.
 Root `test` / `test:e2e` do not run database integration tests; CI runs them explicitly.

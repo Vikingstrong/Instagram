@@ -5,7 +5,7 @@ import { parseEnv } from "node:util";
 
 // Real compiled API with the TEST role/database, on an OS-selected port.
 // Browser fixtures never use a shared development/production account.
-export async function startAuthApi() {
+export async function startAuthApi(smtp?: { port: number }) {
   const env = {
     ...parseEnv(
       readFileSync(new URL("../../../../.env", import.meta.url), "utf8"),
@@ -82,11 +82,8 @@ export async function startAuthApi() {
     "const origin = await app.getUrl(); app.get(AUTH_CONFIG).allowedOrigins.add(origin);",
     // Cleanup is requested over IPC, not SIGTERM: Windows has no catchable
     // SIGTERM, so a signal would kill the process before deleting the account.
-    // 'verify' confirms the fixture email directly, for flows that are not
-    // about mail; the email flow itself is covered by auth-email.spec.
-    "process.on('message', async (message) => { if (message !== 'verify') return;",
-    `await app.get(DatabaseService).prisma.user.updateMany({ where: { emailKey: ${JSON.stringify(account.email)} }, data: { emailVerifiedAt: new Date() } });`,
-    "process.send({ verified: true }); });",
+    `import { MailService } from ${JSON.stringify(new URL("../../../api/dist/mail/mail.service.js", import.meta.url).href)};`,
+    `process.on('message', async (message) => { if (message !== 'flush-recovery') return; const owner=await app.get(DatabaseService).prisma.user.findUniqueOrThrow({where:{emailKey:${JSON.stringify(account.email)}}}); await app.get(MailService).processOne(owner.id); process.send({ recoveryFlushed:true }); });`,
     "process.on('message', async (message) => { if (message !== 'stop') return; let status = 0; try {",
     `const db = app.get(DatabaseService).prisma; const owner = await db.user.findUnique({ where: { emailKey: ${JSON.stringify(account.email)} }, select: { id: true } });`,
     "if (owner) await db.coinOperation.deleteMany({ where: { OR: [{ senderId: owner.id }, { recipientId: owner.id }] } });",
@@ -104,6 +101,15 @@ export async function startAuthApi() {
         NODE_ENV: "test",
         AUTH_PUBLIC_ORIGIN: env.AUTH_PUBLIC_ORIGIN ?? "http://localhost:3000",
         MAIL_WORKER_ENABLED: "false",
+        PASSWORD_RECOVERY_ENABLED: smtp ? "true" : "false",
+        ...(smtp
+          ? {
+              SMTP_HOST: "127.0.0.1",
+              SMTP_PORT: String(smtp.port),
+              SMTP_FROM: "sender@example.test",
+              MAIL_OUTBOX_KEY: randomBytes(32).toString("hex"),
+            }
+          : {}),
         AUTH_CSRF_SECRET: randomBytes(32).toString("hex"),
       },
       stdio: ["ignore", "ignore", "ignore", "ipc"],
@@ -152,18 +158,24 @@ export async function startAuthApi() {
         resolve(payload.origin);
       });
     });
-    async function verify() {
-      await new Promise<void>((resolve) => {
-        const listener = (payload: { verified?: unknown }) => {
-          if (payload.verified !== true) return;
-          child.off("message", listener);
-          resolve();
+    async function flushRecovery() {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("Recovery SMTP flush timed out")),
+          10000,
+        );
+        const listener = (payload: { recoveryFlushed?: boolean }) => {
+          if (payload.recoveryFlushed) {
+            clearTimeout(timer);
+            child.off("message", listener);
+            resolve();
+          }
         };
         child.on("message", listener);
-        child.send("verify");
+        child.send("flush-recovery");
       });
     }
-    return { origin, account, stop, verify };
+    return { origin, account, stop, flushRecovery };
   } catch (error) {
     await stop();
     throw error;

@@ -1,5 +1,10 @@
 # FND-01 — Технический baseline и workflow
 
+> Актуализация 2026-10-24: регистрация без подтверждения, Mailpit удалён,
+> recovery необязательно. Ниже сохранён исходный план/отчёт прежнего среза;
+> его требования verification/SMTP больше не действуют. Текущие правила и
+> инструкция Developer 2: [Auth without verification](auth-without-verification.md).
+
 Схема локальных запросов и остальные пункты baseline согласованы владельцем
 проекта 2026-10-21. Маршрутизация web и readiness smoke реализованы в
 [FND-05](web-api.md). Отдельное review Developer 2 остаётся

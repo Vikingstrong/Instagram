@@ -9,7 +9,7 @@ import { describeFailure } from "@/lib/api/messages";
 
 export function StoryTray() {
   const user = useHomeIdentity();
-  return user?.emailVerified ? <Tray key={user.id} /> : null;
+  return user ? <Tray key={user.id} /> : null;
 }
 function Tray() {
   const [items, setItems] = useState<StoryGroup[]>([]);

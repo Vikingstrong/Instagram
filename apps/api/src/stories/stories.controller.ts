@@ -40,7 +40,7 @@ import {
 } from '@instagram/contracts';
 import { rm } from 'node:fs/promises';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { UploadMutationGuard } from '../auth/auth-security.js';
@@ -73,7 +73,7 @@ const uploadBody = (field: string, description: string) =>
 @ApiTags('Stories')
 @ApiSecurity('session')
 @Controller()
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(400)
 @errorResponse(401)
 @errorResponse(403)

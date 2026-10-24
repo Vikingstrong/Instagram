@@ -4,7 +4,7 @@ import {
   expectLoaded,
   login,
   photo,
-  verifiedAccount,
+  registeredAccount,
   type Fixture,
 } from "./helpers/app.mjs";
 
@@ -25,9 +25,9 @@ test("create a story, view as another user, inspect viewers and delete", async (
   const viewer = await context.newPage();
   let storyId: string | undefined;
   try {
-    const owner = await verifiedAccount();
+    const owner = await registeredAccount();
     fixtures.push(owner);
-    const other = await verifiedAccount();
+    const other = await registeredAccount();
     fixtures.push(other);
     await login(page, owner.account);
     await page.getByRole("button", { name: "Создать", exact: true }).filter({ visible: true }).click();
@@ -171,7 +171,7 @@ test("publish a video story, finish processing and delete it", async ({
       "libx264",
       original,
     ]);
-    fixture = await verifiedAccount();
+    fixture = await registeredAccount();
     await login(page, fixture.account);
     await page.goto("/stories/create");
     await page

@@ -1,117 +1,58 @@
-# FND-03 — Локальное окружение
+# Локальное окружение
 
-Версии, порты приложений и workflow: [FND-01](foundation-baseline.md).
-PostgreSQL, изоляция dev/test, подготовка ролей, миграции и проверки соединения:
-[Database Foundation](database.md). Эта инструкция не подтверждает выполнение
-чистого запуска обоими разработчиками.
-До окончательной приёмки этапа 2 выполните и зафиксируйте проверки на реальных
-ПК по [чек-листу FND-08](foundation-acceptance.md). Владелец разрешил начать
-разработку Auth до FND-08; облачный CI не заменяет проверки ноутбуков.
+Актуально с 2026-10-24: для регистрации, входа и продуктовых функций нужна
+PostgreSQL; почтовый контейнер удалён. Node и pnpm закреплены в `.nvmrc` и
+`package.json`. SMTP настраивается отдельно только для восстановления пароля.
 
 ## Подготовка и запуск
 
-Из корня репозитория, с установленными Node из `.nvmrc` и Docker Compose:
+1. Установить версии Node/pnpm проекта и Docker Compose либо нативную PostgreSQL
+   по [инструкции базы](database.md).
+2. Если `.env` ещё нет, скопировать `.env.example` в корень, заменить DB-пароли и
+   URL. Существующий файл и секреты не перезаписывать.
+3. Запустить БД и применить dev/test историю:
 
 ```bash
-nvm use
+docker compose config --quiet
+docker compose up -d --wait postgres
 pnpm install --frozen-lockfile
-```
-
-Если корневого `.env` ещё нет, скопируйте `.env.example` в `.env`. Существующий
-файл не перезаписывайте. Замените placeholders паролей и согласуйте URL БД
-по инструкции Database Foundation. Для существующего `.env` при необходимости
-добавьте `MAILPIT_SMTP_PORT=1025` и `MAILPIT_UI_PORT=8025`; это также значения
-Compose по умолчанию.
-
-```bash
-docker compose up -d --wait postgres mailpit
+pnpm --filter @instagram/api db:migrate:deploy
+pnpm --filter @instagram/api db:migrate:test
 pnpm dev
 ```
 
-Web ожидается на `http://localhost:3000`, API — на `http://localhost:4000`.
-Readiness и Swagger реализованы в [FND-04](api-readiness.md).
-Proxy `/api/v1/*` и серверный web-клиент реализованы в [FND-05](web-api.md).
-Для native PostgreSQL следуйте отдельной инструкции, а почту запускайте через
-`docker compose up -d --wait mailpit` с тем же подготовленным `.env`.
+`config --quiet` не печатает подставленные пароли. Согласованный browser origin —
+`http://localhost:3000`, API — порт 4000; не смешивать browser localhost и 127.0.0.1.
+Не останавливать чужие процессы и не удалять чужие volumes для освобождения порта.
+При нативной БД использовать отдельные dev/test роли и URL, как в database.md.
 
-Перед запуском можно проверить наличие runtime и синтаксис конфигурации:
+## Почта и регистрация
 
-```bash
-docker version
-docker compose version
-docker compose config --quiet
-```
+Регистрация сразу открывает аккаунт. В `.env.example` восстановление выключено:
+`PASSWORD_RECOVERY_ENABLED=false`. Старые SMTP-переменные без явного включения
+не активируют доставку. Нет обязательных портов почтового UI/SMTP, контейнера или
+ручного подтверждения аккаунтов. Поле emailVerified — исторические данные.
 
-`config --quiet` не печатает подставленные пароли. Нужны свободные порты
-3000/4000, PostgreSQL и Mailpit; не останавливайте чужие процессы ради проверки.
-Не смешивайте `localhost` и `127.0.0.1` в браузерных URL приложения: согласованный
-origin — `http://localhost:3000`.
-
-## Тестовая почта
-
-Владелец проекта согласовал Mailpit в Compose. Закреплён образ
-`axllent/mailpit:v1.31.5`; healthcheck использует `/mailpit readyz`.
-Источники: [релиз](https://github.com/axllent/mailpit/releases/tag/v1.31.5),
-[официальный Dockerfile](https://github.com/axllent/mailpit/blob/v1.31.5/Dockerfile),
-[Docker-инструкция](https://mailpit.axllent.org/docs/install/docker/).
-
-| Назначение | Значение по умолчанию |
-| --- | --- |
-| Просмотр писем | `http://localhost:8025` |
-| SMTP для API, запущенного на хосте | `127.0.0.1:1025`, без TLS и авторизации, только локальная разработка |
-| Проверка готовности | `http://localhost:8025/readyz` |
-
-Оба порта опубликованы только на loopback. Настройки relay/forwarding не
-добавляются: сервис принимает тестовые письма для локального просмотра.
-SMTP-адаптер API пока отсутствует и появится в этапе auth/email; переменные
-`MAILPIT_*` управляют портами Compose, NestJS их сейчас не использует.
-Изменение SMTP-порта нужно будет учесть в будущей конфигурации отправителя.
-
-Для Mailpit не создаётся постоянный volume: содержимое временное и может
-исчезнуть при пересоздании контейнера. Dev/test используют один локальный
-mailbox; при будущих автоматических email-тестах нужны уникальные получатели
-для каждого запуска. Глобальная очистка inbox параллельными тестами недопустима.
-Публичная доставка verification/recovery этим сервисом не решается.
-
-### Ручная SMTP-проверка
-
-При работающем Mailpit, с установленным `curl` (порты по умолчанию):
-
-```bash
-curl --fail --silent --show-error http://localhost:8025/readyz
-curl --fail --silent --show-error --url smtp://127.0.0.1:1025 \
-  --mail-from foundation@example.test \
-  --mail-rcpt foundation-smoke@example.test --upload-file - <<'MAIL'
-From: foundation@example.test
-To: foundation-smoke@example.test
-Subject: Foundation local SMTP smoke
-
-Local Foundation check, no real user data.
-MAIL
-```
-
-Откройте `http://localhost:8025` и найдите новое письмо с указанной темой и
-получателем. При изменённых `MAILPIT_*` используйте соответствующие порты.
-Это проверяет SMTP и mailbox, но не отправку из NestJS. Для проверки БД
-выполните `db:check`, `db:check --test` и `test:integration` по
-[инструкции](database.md#проверки-и-запуск); вывод CLI безопасен, URL не печатаются.
+Для реального восстановления включить PASSWORD_RECOVERY_ENABLED=true и задать
+SMTP_HOST/PORT/FROM, постоянный MAIL_OUTBOX_KEY и при необходимости SMTP_USER /
+SMTP_PASSWORD. Production требует TLS. Секреты — только server-side, без Git и
+NEXT_PUBLIC. Подробнее: [Auth без verification](auth-without-verification.md).
+Тесты SMTP используют собственный loopback receiver на случайном порту и не
+зависят от установленного почтового сервиса.
 
 ## Остановка и данные
 
 ```bash
-docker compose stop postgres mailpit
+docker compose stop postgres
 ```
 
-Остановка сохраняет PostgreSQL volume. Не используйте `docker compose down -v`
-для очистки почты: эта команда затронет и данные БД. Письма можно удалить через
-UI Mailpit, убедившись, что они не нужны другому локальному запуску.
-Dev/test БД изолированы разными базами и ролями; существующая инструкция не
-разрешает сброс dev, общих или production-данных.
+Не использовать `down -v` для общей базы. FND-08 (проверка реальных ПК) остаётся
+отдельной приёмкой, облачные тесты её не заменяют.
 
-При приёмке FND-03 ещё требуется фактически проверить Compose на машинах
-разработчиков. Mailbox, SMTP и изоляция БД проверены в текущей среде через
-отдельные контейнеры Podman, как описано ниже. Интеграция
-браузер → API → PostgreSQL относится к последующим задачам Foundation.
+## Историческая проверка прежнего окружения
+
+Ниже сохранён отчёт 2026-10-21 о старой конфигурации. Упомянутый почтовый сервис
+с 2026-10-24 удалён и не является требованием запуска или текущего чеклиста.
 
 ## Результаты проверки — 2026-10-21
 

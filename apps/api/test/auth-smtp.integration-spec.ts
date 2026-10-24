@@ -1,3 +1,4 @@
+import { startTestSmtp } from './helpers/test-smtp.js';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import type { App } from 'supertest/types.js';
@@ -12,12 +13,14 @@ import { AUTH_CONFIG, readAuthConfiguration } from '../src/auth/auth.config.js';
 import { sessionHash } from '../src/auth/auth.service.js';
 import { configureApp } from '../src/configure-app.js';
 
-// Explicit real SMTP check. Missing Mailpit fails rather than silently skips.
-describe('SMTP adapter → real Mailpit', () => {
+// Real SMTP protocol, using an in-process loopback receiver.
+describe('Recovery SMTP adapter → local test receiver', () => {
   let app: INestApplication<App>;
+  let smtp: Awaited<ReturnType<typeof startTestSmtp>>;
   let db: DatabaseService;
   const ownedIds: string[] = [];
   beforeAll(async () => {
+    smtp = await startTestSmtp();
     const fixture = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(DatabaseService)
       .useFactory({
@@ -28,7 +31,14 @@ describe('SMTP adapter → real Mailpit', () => {
       .useValue(readAuthConfiguration({ NODE_ENV: 'test' }))
       .overrideProvider(MAIL_CONFIG)
       .useValue({
-        ...readMailConfiguration({ ...process.env, NODE_ENV: 'test' }),
+        ...readMailConfiguration({
+          NODE_ENV: 'test',
+          MAIL_OUTBOX_KEY: 'd'.repeat(64),
+          PASSWORD_RECOVERY_ENABLED: 'true',
+          SMTP_HOST: '127.0.0.1',
+          SMTP_PORT: String(smtp.port),
+          SMTP_FROM: 'sender@example.test',
+        }),
         worker: false,
       })
       .compile();
@@ -44,10 +54,11 @@ describe('SMTP adapter → real Mailpit', () => {
       await db.prisma.user.deleteMany({ where: { id: { in: ownedIds } } });
     } finally {
       await app.close();
+      await smtp.close();
     }
   });
 
-  it('delivers a queued registration link and consumes the delivered token through HTTP', async () => {
+  it('registers without mail, then delivers optional recovery through SMTP and consumes it once', async () => {
     const suffix = randomUUID().replaceAll('-', '');
     const email = `smtp-${suffix}@example.test`;
     const agent = request.agent(app.getHttpServer());
@@ -66,34 +77,17 @@ describe('SMTP adapter → real Mailpit', () => {
     });
     expect(registration.status).toBe(201);
     ownedIds.push((registration.body as { user: { id: string } }).user.id);
+    expect(smtp.messages).toHaveLength(0);
+    expect((await post('password/request', { email })).status).toBe(202);
     await app.get(MailService).processOne();
-    const ui = `http://127.0.0.1:${process.env.MAILPIT_UI_PORT ?? '8025'}`;
-    const mailboxResponse = await fetch(`${ui}/api/v1/messages`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    expect(mailboxResponse.status).toBe(200);
-    const mailbox = (await mailboxResponse.json()) as {
-      messages: { ID: string; To: { Address: string }[] }[];
-    };
-    const message = mailbox.messages.find((m) =>
-      m.To.some((recipient) => recipient.Address === email),
-    );
-    expect(Boolean(message)).toBe(true);
-    if (!message)
-      throw new Error('The synthetic SMTP message was not delivered.');
-    const response = await fetch(`${ui}/api/v1/message/${message.ID}`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as { Text: string };
-    const line = body.Text.split('\n').find((value) =>
-      value.trim().startsWith('http://localhost:3000/auth/verify#token='),
-    );
-    expect(Boolean(line)).toBe(true);
-    if (!line)
-      throw new Error('The delivered message has no verification link.');
-    const link = new URL(line.trim());
-    const token = new URLSearchParams(link.hash.slice(1)).get('token')!;
+    expect(smtp.messages).toHaveLength(1);
+    const message = smtp.messages[0]!;
+    expect(message.to).toContain(email);
+    const token = /reset-password#token=([A-Za-z0-9_-]{43})/.exec(
+      message.text,
+    )?.[1];
+    if (!token)
+      throw new Error('Missing synthetic recovery token in SMTP message');
     expect(registration.text.includes(token)).toBe(false);
     const stored = await db.prisma.authToken.findUniqueOrThrow({
       where: { tokenHash: sessionHash(token) },
@@ -104,6 +98,13 @@ describe('SMTP adapter → real Mailpit', () => {
     });
     expect(delivery.sentAt !== null).toBe(true);
     expect(delivery.payload).toBeNull();
-    expect((await post('verification/confirm', { token })).status).toBe(200);
+    expect(
+      (
+        await post('password/reset', {
+          token,
+          password: 'replacement SMTP password',
+        })
+      ).status,
+    ).toBe(200);
   });
 });

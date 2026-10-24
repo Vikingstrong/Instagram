@@ -172,7 +172,7 @@ describe('Posts, avatars and private media with real PostgreSQL', () => {
     }
   };
 
-  it('requires a verified session, Origin/CSRF and a multipart body', async () => {
+  it('requires a session, Origin/CSRF and a multipart body', async () => {
     const anonymous = request.agent(app.getHttpServer());
     expect(
       (await anonymous.get(path(postsEndpoints.get.path, { id: randomUUID() })))
@@ -195,8 +195,7 @@ describe('Posts, avatars and private media with real PostgreSQL', () => {
       'post',
       { data: await jpeg() },
     );
-    expect(denied.status).toBe(403);
-    expect(errorCode(denied.body)).toBe('EMAIL_VERIFICATION_REQUIRED');
+    expect(denied.status).toBe(201);
 
     const author = await account();
     const forgedToken = await csrf(author.client);

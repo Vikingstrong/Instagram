@@ -4,7 +4,6 @@ import {
   AuthLogoutResponseSchema,
   AuthUserResponseSchema,
   AuthEmailAcceptedResponseSchema,
-  AuthVerifiedResponseSchema,
   AuthPasswordResetResponseSchema,
   type AuthLoginRequest,
   type AuthRegisterRequest,
@@ -33,8 +32,6 @@ export function createAuthClient(api: ApiClient = createApiClient()) {
   }
 
   return {
-    requestVerification: (email: string) => emailAction(authEndpoints.requestVerification, AuthEmailAcceptedResponseSchema, { email }),
-    verify: (token: string) => emailAction(authEndpoints.verify, AuthVerifiedResponseSchema, { token }),
     requestPasswordReset: (email: string) => emailAction(authEndpoints.requestPasswordReset, AuthEmailAcceptedResponseSchema, { email }),
     resetPassword: (token: string, password: string) => emailAction(authEndpoints.resetPassword, AuthPasswordResetResponseSchema, { token, password }),
     login: (body: AuthLoginRequest) => authenticate(authEndpoints.login, body),

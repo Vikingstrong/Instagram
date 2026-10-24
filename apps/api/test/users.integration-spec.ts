@@ -102,7 +102,7 @@ describe('Users profile HTTP with real PostgreSQL', () => {
     return AuthApiErrorResponseSchema.parse(body).error.code;
   }
 
-  it('denies anonymous and unverified access to every profile route', async () => {
+  it('denies anonymous access and permits registered accounts to every profile route', async () => {
     const anonymous = request.agent(app.getHttpServer());
     const { user } = await account();
     for (const response of [
@@ -120,8 +120,7 @@ describe('Users profile HTTP with real PostgreSQL', () => {
       await client.get(usersEndpoints.ownProfile.path),
       await patch(client, { bio: 'x' }),
     ]) {
-      expect(response.status).toBe(403);
-      expect(errorCode(response.body)).toBe('EMAIL_VERIFICATION_REQUIRED');
+      expect(response.status).toBe(200);
     }
   });
 
@@ -201,10 +200,11 @@ describe('Users profile HTTP with real PostgreSQL', () => {
     });
   });
 
-  it('hides unknown and unverified accounts and rejects malformed usernames', async () => {
+  it('hides unknown accounts and rejects malformed usernames', async () => {
     const { client } = await account();
     const unverified = await account(false);
-    for (const name of ['no_such_user_x9', unverified.user.username]) {
+    await client.get(profilePath(unverified.user.username)).expect(200);
+    for (const name of ['no_such_user_x9']) {
       const response = await client.get(profilePath(name));
       expect(response.status).toBe(404);
       expect(errorCode(response.body)).toBe('USER_NOT_FOUND');

@@ -121,7 +121,7 @@ export class CallsService implements OnModuleInit, OnModuleDestroy {
     const conversation = await this.direct.get(userId, input.conversationId);
     if (
       !(await this.db.prisma.user.count({
-        where: { id: conversation.peer.id, emailVerifiedAt: { not: null } },
+        where: { id: conversation.peer.id },
       }))
     )
       throw new AuthError('USER_NOT_FOUND');

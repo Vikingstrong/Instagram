@@ -363,7 +363,7 @@ export function CallsProvider({ children }: { children: ReactNode }) {
     void createApiClient()
       .request(authEndpoints.session, AuthSessionResponseSchema)
       .then((result) => {
-        if (!stopped && result.ok && result.data.user?.emailVerified)
+        if (!stopped && result.ok && result.data.user)
           setViewerId(result.data.user.id);
       });
     return () => {

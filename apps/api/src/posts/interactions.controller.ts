@@ -45,7 +45,7 @@ import { AuthError } from '../auth/auth.error.js';
 import { PostsService } from './posts.service.js';
 import { InteractionsService } from './interactions.service.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { AuthRateLimiter } from '../auth/auth-rate-limiter.js';
@@ -73,7 +73,7 @@ const paged = () =>
 @ApiTags('Feed and interactions')
 @ApiSecurity('session')
 @Controller()
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(401)
 @errorResponse(403)
 @errorResponse(429)

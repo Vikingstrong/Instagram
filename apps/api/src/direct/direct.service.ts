@@ -180,13 +180,13 @@ export class DirectService {
     });
   }
 
-  // Any verified user may write to any other verified user (FR-09),
+  // Any authenticated user may write to any other authenticated user (FR-09),
   // regardless of follows or privacy. Repeats and races return the same
   // conversation thanks to the unique pair.
   async open(viewerId: string, userId: string): Promise<Conversation> {
     if (userId === viewerId) throw new AuthError('CANNOT_MESSAGE_SELF');
     const peer = await this.database.prisma.user.findFirst({
-      where: { id: userId, emailVerifiedAt: { not: null } },
+      where: { id: userId },
       select: { id: true },
     });
     if (!peer) throw new AuthError('USER_NOT_FOUND');

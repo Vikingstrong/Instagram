@@ -10,7 +10,7 @@ export function configureApp(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('Instagram API')
     .setDescription(
-      'Readiness, registration, cookie sessions, email verification and password recovery. Registration queues verification mail; email requests use generic accepted responses. Swagger obtains CSRF automatically for same-origin JSON Auth mutations. Local Swagger: http://localhost:4000/api/docs/.',
+      'Readiness, registration, cookie sessions, optional password recovery. Registration signs in without verification or mail; configured recovery requests use generic accepted responses. Swagger obtains CSRF automatically for same-origin JSON Auth mutations. Local Swagger: http://localhost:4000/api/docs/.',
     )
     .setVersion('1.0')
     .addCookieAuth(

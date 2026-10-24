@@ -31,7 +31,7 @@ export class SocialService {
     return this.database.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ isPrivate: boolean }[]>`
         SELECT "isPrivate" FROM auth_users
-        WHERE id = ${targetId}::uuid AND "emailVerifiedAt" IS NOT NULL
+        WHERE id = ${targetId}::uuid
         FOR SHARE`;
       if (!rows[0]) throw new AuthError('USER_NOT_FOUND');
       const accepted = !rows[0].isPrivate;
@@ -85,7 +85,6 @@ export class SocialService {
       if (access?.status !== 'ACCEPTED') throw new AuthError('PROFILE_PRIVATE');
     }
     const after = decodeCursor(page.cursor, 'date');
-    const verified = { emailVerifiedAt: { not: null } };
     const rows =
       direction === 'followers'
         ? (
@@ -93,7 +92,6 @@ export class SocialService {
               where: {
                 followeeId: targetId,
                 status: 'ACCEPTED',
-                follower: verified,
                 ...(after && {
                   OR: [
                     { acceptedAt: { lt: after.date } },
@@ -111,7 +109,6 @@ export class SocialService {
               where: {
                 followerId: targetId,
                 status: 'ACCEPTED',
-                followee: verified,
                 ...(after && {
                   OR: [
                     { acceptedAt: { lt: after.date } },
@@ -139,7 +136,6 @@ export class SocialService {
       where: {
         followeeId: viewerId,
         status: 'PENDING',
-        follower: { emailVerifiedAt: { not: null } },
         ...(after && {
           OR: [
             { createdAt: { lt: after.date } },
@@ -204,8 +200,7 @@ export class SocialService {
     >`
       SELECT u.id, u.username, u."displayName", u."isPrivate", u."avatarMediaId"
       FROM auth_users u
-      WHERE u."emailVerifiedAt" IS NOT NULL
-        AND u.id <> ${viewerId}::uuid
+      WHERE u.id <> ${viewerId}::uuid
         AND NOT EXISTS (
           SELECT 1 FROM follows f
           WHERE f."followerId" = ${viewerId}::uuid AND f."followeeId" = u.id
@@ -217,7 +212,7 @@ export class SocialService {
 
   private async requireUser(id: string) {
     const user = await this.database.prisma.user.findFirst({
-      where: { id, emailVerifiedAt: { not: null } },
+      where: { id },
       select: { isPrivate: true },
     });
     if (!user) throw new AuthError('USER_NOT_FOUND');

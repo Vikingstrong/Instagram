@@ -175,7 +175,7 @@ describe('FR-13 Stories: actual PostgreSQL, private files and video pipeline', (
     const owner = await account(),
       unverified = await account(false, false);
     await request(app.getHttpServer()).get('/api/v1/stories/feed').expect(401);
-    await unverified.client.get('/api/v1/stories/feed').expect(403);
+    await unverified.client.get('/api/v1/stories/feed').expect(200);
     await owner.client
       .post('/api/v1/stories')
       .attach('image', image, 'x.jpg')

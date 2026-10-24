@@ -47,7 +47,7 @@ import { parseRange } from '../media/byte-range.js';
 import { PostsService } from './posts.service.js';
 import { VideoUploadInterceptor } from './video-upload.interceptor.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { UploadMutationGuard } from '../auth/auth-security.js';
@@ -122,7 +122,7 @@ function image(file: UploadedImage | undefined): Buffer {
 @ApiTags('Posts')
 @ApiSecurity('session')
 @Controller()
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(401)
 @errorResponse(403)
 @errorResponse(429)

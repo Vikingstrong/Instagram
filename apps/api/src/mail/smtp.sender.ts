@@ -5,7 +5,6 @@ import { MAIL_CONFIG, type MailConfiguration } from './mail.config.js';
 export type AuthMail = {
   id: string;
   to: string;
-  verification: boolean;
   link: string;
 };
 @Injectable()
@@ -28,9 +27,7 @@ export class SmtpSender {
     });
   }
   async send(mail: AuthMail): Promise<void> {
-    const subject = mail.verification
-      ? 'Подтверждение email'
-      : 'Восстановление пароля';
+    const subject = 'Восстановление пароля';
     await this.transport.sendMail({
       from: this.config.from,
       to: mail.to,

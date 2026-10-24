@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectLoaded, login, photo, verifiedAccount, type Fixture } from './helpers/app.mjs';
+import { expectLoaded, login, photo, registeredAccount, type Fixture } from './helpers/app.mjs';
 
 // FR-04: publish a photo, see it in the profile grid and on its page, set an
 // avatar, then delete the post; its image stops being served right away.
@@ -7,7 +7,7 @@ test('publish, view, set an avatar and delete a post', async ({ page, playwright
   test.setTimeout(180_000);
   const fixtures: Fixture[] = [];
   try {
-    const owner = await verifiedAccount();
+    const owner = await registeredAccount();
     fixtures.push(owner);
     const name = owner.account.username;
     await login(page, owner.account);

@@ -27,7 +27,7 @@ import {
   readAuthConfiguration,
   type AuthConfiguration,
 } from '../src/auth/auth.config.js';
-import { VerifiedSessionGuard } from '../src/auth/auth-session.guard.js';
+import { SessionGuard } from '../src/auth/auth-session.guard.js';
 import { DatabaseService } from '../src/infrastructure/database/database.service.js';
 import { readDatabaseUrl } from '../src/infrastructure/database/database.config.js';
 import { configureApp } from '../src/configure-app.js';
@@ -41,7 +41,7 @@ type Agent = ReturnType<typeof request.agent>;
 class ProtectedFixture {
   @Get()
   @Header('Cache-Control', 'no-store')
-  @UseGuards(VerifiedSessionGuard)
+  @UseGuards(SessionGuard)
   get() {
     return { ok: true };
   }
@@ -242,7 +242,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
     ).toBe(input.email);
   });
 
-  it('denies direct protected requests for anonymous and unverified users', async () => {
+  it('denies anonymous protected requests and allows legacy unverified sessions', async () => {
     // Registration signs its own browser in; probe from a separate anonymous one.
     const { input, user } = await register(agent());
     const client = agent();
@@ -259,16 +259,7 @@ describe('Auth HTTP with real PostgreSQL', () => {
         })
       ).status,
     ).toBe(200);
-    expect(
-      AuthApiErrorResponseSchema.parse(
-        (await client.get('/api/v1/__test/protected').expect(403)).body,
-      ).error.code,
-    ).toBe('EMAIL_VERIFICATION_REQUIRED');
-    // Verification is fixture setup, not a fake production verification endpoint.
-    await database.prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerifiedAt: new Date() },
-    });
+    expect((await database.prisma.user.findUniqueOrThrow({where:{id:user.id}})).emailVerifiedAt).toBeNull();
     await client.get('/api/v1/__test/protected').expect(200);
   });
 

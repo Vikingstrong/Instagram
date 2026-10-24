@@ -16,8 +16,10 @@
    `pnpm install --frozen-lockfile`. Настройте `.env` из `.env.example`, раздельные
    dev/test URL и роли. Секреты не включайте в отчёт.
 2. Проверьте `docker compose config --quiet` и запустите
-   `docker compose up -d --wait postgres mailpit` либо согласованный native
-   PostgreSQL по инструкции. Проверьте Mailpit UI и ручную SMTP-пробу.
+   `docker compose up -d --wait postgres` либо согласованный native
+   PostgreSQL по инструкции. С 2026-10-24 Mailpit и подтверждение email удалены;
+   проверить регистрацию → ленту без почтовых настроек. Recovery проверять отдельно
+   только при явном включении; [инструкция Developer 2](auth-without-verification.md).
 3. Выполните `pnpm build`, `pnpm check-types`, `pnpm lint`, `pnpm test`,
    `pnpm --filter @instagram/api db:validate`,
    `pnpm --filter @instagram/api db:migrate:deploy`,
@@ -45,6 +47,9 @@
 заменяет штатный `pnpm build` с Turbopack при ошибке загрузки шрифтов.
 
 ## Реестр подтверждений
+
+Ниже сохранены исторические результаты прежнего окружения. Упоминания Mailpit
+не делают его текущим требованием; изменения Auth требуют новой проверки.
 
 Заполняется после фактической проверки; пустые клетки не являются PASS.
 

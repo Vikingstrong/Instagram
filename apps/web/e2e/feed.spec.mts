@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
-import { expectLoaded, login, photo, verifiedAccount, type Fixture } from './helpers/app.mjs';
+import { expectLoaded, login, photo, registeredAccount, type Fixture } from './helpers/app.mjs';
 
 // UF-04/05: B follows A, sees A's new photo in the feed, likes and comments
 // on it; A sees the comment under the post and deletes it.
@@ -8,9 +8,9 @@ test('feed, like and comment between two users', async ({ page, browser, baseURL
   const fixtures: Fixture[] = [];
   let authorContext: BrowserContext | undefined;
   try {
-    const author = await verifiedAccount();
+    const author = await registeredAccount();
     fixtures.push(author);
-    const reader = await verifiedAccount();
+    const reader = await registeredAccount();
     fixtures.push(reader);
     const name = author.account.username;
 
