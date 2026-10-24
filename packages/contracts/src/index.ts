@@ -73,6 +73,8 @@ export {
 } from "./social.js";
 
 export {
+  commentAttachmentRules,
+  CreateMediaCommentFieldsSchema,
   imageUploadRules,
   videoUploadRules,
   PostVideoSchema,

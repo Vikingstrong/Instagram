@@ -34,6 +34,19 @@ test('publish, view, set an avatar and delete a post', async ({ page, playwright
     expect((await guest.get(fullUrl!)).status()).not.toBe(200);
     await guest.dispose();
 
+    await page.getByLabel('Прикрепить фото или GIF').setInputFiles({ name: 'comment.png', mimeType: 'image/png', buffer: photo([80, 170, 110]) });
+    await expect(page.getByAltText('Превью вложения')).toBeVisible();
+    await page.getByRole('button', { name: 'Опубликовать', exact: true }).click();
+    await expectLoaded(page.getByAltText('Вложение комментария'));
+    const attachmentUrl = await page.getByAltText('Вложение комментария').getAttribute('src');
+    await page.reload();
+    await expectLoaded(page.getByAltText('Вложение комментария'));
+    await page.getByLabel('Прикрепить фото или GIF').setInputFiles({ name: 'motion.gif', mimeType: 'image/gif', buffer: Buffer.from('R0lGODlhBAAEAIAAAExpcRQUFCH/C05FVFNDQVBFMi4wAwEAAAAh+QQFCgAAACwAAAAABAAEAAACBIyPGQUAIfkEBRQAAAAsAAAAAAQABACATGlx8PDwAgSMjxkFADs=', 'base64') });
+    await page.getByRole('button', { name: 'Опубликовать', exact: true }).click();
+    await expect(page.getByAltText('Вложение комментария')).toHaveCount(2);
+    await expectLoaded(page.getByAltText('Вложение комментария').nth(1));
+
+
     await page.goto(`/${name}`);
     await expect(page.getByText('1 публикация', { exact: true })).toBeVisible();
     const tile = page.getByRole('link', { name: 'Закат на море' });
@@ -58,6 +71,7 @@ test('publish, view, set an avatar and delete a post', async ({ page, playwright
     await expect(page.getByRole('heading', { name: 'Поделиться фото' })).toBeVisible();
     await expect(page.getByText('0 публикаций', { exact: true })).toBeVisible();
     expect((await page.request.get(fullUrl!)).status()).toBe(404);
+    expect((await page.request.get(attachmentUrl!)).status()).toBe(404);
   } finally {
     for (const fixture of fixtures) await fixture.stop();
   }

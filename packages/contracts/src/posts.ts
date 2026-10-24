@@ -88,11 +88,22 @@ export const CreateCommentRequestSchema = z.strictObject({
   text: CommentTextSchema,
   replyToCommentId: z.uuid().optional(),
 });
+export const commentAttachmentRules = {
+  maxBytes: 10 * 1024 * 1024,
+  maxFrames: 100,
+  maxTotalPixels: 40_000_000,
+  formats: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+} as const;
+export const CreateMediaCommentFieldsSchema = z.strictObject({
+  text: PostCaptionSchema.optional().default(""),
+  replyToCommentId: z.uuid().optional(),
+});
 export const CommentSchema = z.strictObject({
   id: z.uuid(),
   postId: z.uuid(),
   author: UserSummarySchema,
-  text: CommentTextSchema,
+  text: PostCaptionSchema,
+  attachment: PostImageSchema.nullable().optional(),
   createdAt: z.iso.datetime(),
   // Comment author or post author (FR-06).
   canDelete: z.boolean(),
@@ -122,26 +133,75 @@ export const postsEndpoints = {
   create: { method: "POST", path: "/api/v1/posts", successStatus: 201 },
   // multipart/form-data: video (file) + optional caption. Answers at once
   // with status "processing"; the post appears to others once it is ready.
-  createVideo: { method: "POST", path: "/api/v1/posts/video", successStatus: 201 },
+  createVideo: {
+    method: "POST",
+    path: "/api/v1/posts/video",
+    successStatus: 201,
+  },
   get: { method: "GET", path: "/api/v1/posts/{id}", successStatus: 200 },
   remove: { method: "DELETE", path: "/api/v1/posts/{id}", successStatus: 200 },
-  byUser: { method: "GET", path: "/api/v1/users/{id}/posts", successStatus: 200 },
+  byUser: {
+    method: "GET",
+    path: "/api/v1/users/{id}/posts",
+    successStatus: 200,
+  },
   // multipart/form-data: image (file).
   setAvatar: { method: "PUT", path: "/api/v1/me/avatar", successStatus: 200 },
-  removeAvatar: { method: "DELETE", path: "/api/v1/me/avatar", successStatus: 200 },
+  removeAvatar: {
+    method: "DELETE",
+    path: "/api/v1/me/avatar",
+    successStatus: 200,
+  },
   // FR-10: video posts the viewer may see, newest first, no ranking.
   reels: { method: "GET", path: "/api/v1/reels", successStatus: 200 },
   // FR-05: own posts and approved followings, newest first.
   feed: { method: "GET", path: "/api/v1/feed", successStatus: 200 },
   like: { method: "PUT", path: "/api/v1/posts/{id}/like", successStatus: 200 },
-  unlike: { method: "DELETE", path: "/api/v1/posts/{id}/like", successStatus: 200 },
+  unlike: {
+    method: "DELETE",
+    path: "/api/v1/posts/{id}/like",
+    successStatus: 200,
+  },
   // Oldest first, like a conversation under the post.
-  comments: { method: "GET", path: "/api/v1/posts/{id}/comments", successStatus: 200 },
-  addComment: { method: "POST", path: "/api/v1/posts/{id}/comments", successStatus: 201 },
-  replies: { method: "GET", path: "/api/v1/comments/{id}/replies", successStatus: 200 },
-  likeComment: { method: "PUT", path: "/api/v1/comments/{id}/like", successStatus: 200 },
-  unlikeComment: { method: "DELETE", path: "/api/v1/comments/{id}/like", successStatus: 200 },
-  removeComment: { method: "DELETE", path: "/api/v1/comments/{id}", successStatus: 200 },
+  comments: {
+    method: "GET",
+    path: "/api/v1/posts/{id}/comments",
+    successStatus: 200,
+  },
+  addComment: {
+    method: "POST",
+    path: "/api/v1/posts/{id}/comments",
+    successStatus: 201,
+  },
+  addMediaComment: {
+    method: "POST",
+    path: "/api/v1/posts/{id}/comments/image",
+    successStatus: 201,
+  },
+  replies: {
+    method: "GET",
+    path: "/api/v1/comments/{id}/replies",
+    successStatus: 200,
+  },
+  likeComment: {
+    method: "PUT",
+    path: "/api/v1/comments/{id}/like",
+    successStatus: 200,
+  },
+  unlikeComment: {
+    method: "DELETE",
+    path: "/api/v1/comments/{id}/like",
+    successStatus: 200,
+  },
+  removeComment: {
+    method: "DELETE",
+    path: "/api/v1/comments/{id}",
+    successStatus: 200,
+  },
   // Binary image/webp; same access rules as the post or profile it belongs to.
-  media: { method: "GET", path: "/api/v1/media/{id}/{variant}", successStatus: 200 },
+  media: {
+    method: "GET",
+    path: "/api/v1/media/{id}/{variant}",
+    successStatus: 200,
+  },
 } as const;
