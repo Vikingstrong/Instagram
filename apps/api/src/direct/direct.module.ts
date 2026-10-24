@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../infrastructure/database/database.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { MediaModule } from '../media/media.module.js';
+import { SharedContentService } from './shared-content.service.js';
 import { DirectService } from './direct.service.js';
 import { DirectController } from './direct.controller.js';
 import { DirectEventsController } from './direct-events.controller.js';
@@ -18,6 +19,7 @@ import {
   exports: [DirectService, DirectEvents],
   controllers: [DirectController, DirectEventsController],
   providers: [
+    SharedContentService,
     DirectService,
     DirectEvents,
     { provide: DIRECT_EVENTS_CONFIG, useValue: defaultDirectEventsConfig },

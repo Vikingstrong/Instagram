@@ -8,6 +8,8 @@ import {
   DirectMessageSchema,
   SendMediaMessageFieldsSchema,
   DirectAttachmentSchema,
+  ShareContentRequestSchema,
+  SharedContentSchema,
   voiceMessageRules,
   OpenConversationRequestSchema,
   SendMessageRequestSchema,
@@ -89,4 +91,13 @@ test("private voice references and durations are bounded and cannot be external 
   const voice = { type: "voice", url: `/api/v1/direct/conversations/${message.conversationId}/messages/${message.id}/audio`, durationMs: voiceMessageRules.maxDurationMs };
   assert.equal(DirectAttachmentSchema.safeParse(voice).success, true);
   for (const change of [{ durationMs: 0 }, { durationMs: 180001 }, { url: "https://example.test/audio.m4a" }, { url: "/api/v1/direct/conversations/not-a-uuid/messages/not-a-uuid/audio" }, { type: "video" }]) assert.equal(DirectAttachmentSchema.safeParse({ ...voice, ...change }).success, false);
+});
+
+test("sharing validates references and unavailable cards cannot carry private previews", () => {
+  const input={clientMessageId:randomUUID(),kind:"story",contentId:randomUUID()};
+  assert.equal(ShareContentRequestSchema.safeParse(input).success,true);
+  for(const extra of [{shareCount:100},{url:"https://example.test/post"},{kind:"video"},{contentId:"invalid"}])assert.equal(ShareContentRequestSchema.safeParse({...input,...extra}).success,false);
+  assert.equal(SharedContentSchema.safeParse({status:"unavailable",kind:"story"}).success,true);
+  assert.equal(SharedContentSchema.safeParse({status:"unavailable",kind:"story",thumbnailUrl:"/secret"}).success,false);
+  assert.equal(DirectMessageSchema.safeParse({...message,text:"",sharedContent:{status:"unavailable",kind:"story"}}).success,true);
 });

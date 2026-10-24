@@ -18,6 +18,7 @@ import {
   ConversationResponseSchema,
   DirectMessageListResponseSchema,
   DirectMessageResponseSchema,
+  ShareContentResponseSchema,
   authEndpoints,
   directEndpoints,
 } from '@instagram/contracts';
@@ -665,5 +666,265 @@ describe('Direct over REST with real PostgreSQL', () => {
     expect(replay.status).toBe(201);
     await bob.client.get(replay.body.message.attachment.url).expect(200);
     expect((await history(bob, conversation.id)).items).toHaveLength(1);
+  });
+  async function source(who: Account, kind: 'post' | 'story' = 'post') {
+    const token = await csrf(who.client);
+    const response = await who.client
+      .post(`/api/v1/${kind === 'post' ? 'posts' : 'stories'}`)
+      .set('Origin', origin)
+      .set('X-CSRF-Token', token)
+      .attach('image', await photo(), 'source.jpg')
+      .expect(201);
+    return response.body[kind] as {
+      id: string;
+      image: { url: string };
+      shareCount: number;
+    };
+  }
+  async function share(
+    who: Account,
+    conversationId: string,
+    kind: 'post' | 'story' | 'reel',
+    contentId: string,
+    clientMessageId = randomUUID(),
+    text = '',
+  ) {
+    return post(who, `${messagesUrl(conversationId)}/share`, {
+      clientMessageId,
+      kind,
+      contentId,
+      text,
+    });
+  }
+
+  it('shares originals with private previews, counts unique accounts across conversations and survives a lost response', async () => {
+    const alice = await account(),
+      bob = await account(),
+      charlie = await account();
+    const publication = await source(alice);
+    const ab = await open(alice, bob),
+      ac = await open(alice, charlie),
+      bc = await open(bob, charlie);
+    const id = randomUUID();
+    const replies = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        share(alice, ab.id, 'post', publication.id, id),
+      ),
+    );
+    expect(replies.map((item) => item.status)).toEqual([
+      201, 201, 201, 201, 201,
+    ]);
+    expect(new Set(replies.map((item) => item.body.message.id)).size).toBe(1);
+    expect(ShareContentResponseSchema.parse(replies[0]!.body).shareCount).toBe(
+      1,
+    );
+    const card = (await history(bob, ab.id)).items[0]!.sharedContent!;
+    expect(card.status).toBe('available');
+    if (card.status !== 'available') throw new Error('Missing card');
+    expect(card.href).toBe(`/p/${publication.id}`);
+    await bob.client.get(card.thumbnailUrl).expect(200);
+    expect(
+      (await share(alice, ac.id, 'post', publication.id)).body.shareCount,
+    ).toBe(1);
+    expect(
+      (await share(bob, bc.id, 'post', publication.id)).body.shareCount,
+    ).toBe(2);
+    const state = await alice.client
+      .get(`/api/v1/posts/${publication.id}`)
+      .expect(200);
+    expect(state.body.post.shareCount).toBe(2);
+    expect(
+      (await share(alice, ab.id, 'post', publication.id, id, 'changed')).status,
+    ).toBe(409);
+    expect((await send(alice, ab.id, 'ordinary text', id)).status).toBe(409);
+    const textId = randomUUID();
+    await send(alice, ab.id, 'text', textId);
+    expect(
+      (await share(alice, ab.id, 'post', publication.id, textId)).status,
+    ).toBe(409);
+    expect(
+      await database.prisma.postShare.count({
+        where: { postId: publication.id },
+      }),
+    ).toBe(2);
+    const inbox = await list(bob);
+    expect(
+      inbox.items.find((item) => item.id === bc.id)?.lastMessage?.sharedContent
+        ?.status,
+    ).toBe('available');
+  });
+
+  it('never reveals private author, caption, media or links to an unauthorized recipient; revocation and deletion become tombstones', async () => {
+    const owner = await account({ isPrivate: true }),
+      allowed = await account(),
+      denied = await account();
+    await database.prisma.follow.create({
+      data: {
+        followerId: allowed.id,
+        followeeId: owner.id,
+        status: 'ACCEPTED',
+        acceptedAt: new Date(),
+      },
+    });
+    const publication = await source(owner),
+      chat = await open(allowed, denied);
+    const id = randomUUID();
+    const sent = await share(allowed, chat.id, 'post', publication.id, id);
+    expect(sent.status).toBe(201);
+    const hidden = (await history(denied, chat.id)).items[0]!.sharedContent;
+    expect(hidden).toEqual({ kind: 'post', status: 'unavailable' });
+    expect((await list(denied)).items[0]!.lastMessage?.sharedContent).toEqual(
+      hidden,
+    );
+    await denied.client.get(publication.image.url).expect(404);
+    expect((await share(denied, chat.id, 'post', publication.id)).status).toBe(
+      404,
+    );
+    await database.prisma.follow.deleteMany({
+      where: { followerId: allowed.id, followeeId: owner.id },
+    });
+    expect((await history(allowed, chat.id)).items[0]!.sharedContent).toEqual(
+      hidden,
+    );
+    const replay = await share(allowed, chat.id, 'post', publication.id, id);
+    expect(replay.status).toBe(201);
+    expect(replay.body.shareCount).toBeNull();
+    await database.prisma.post.delete({ where: { id: publication.id } });
+    expect((await history(allowed, chat.id)).items[0]!.sharedContent).toEqual(
+      hidden,
+    );
+    expect(
+      (await share(allowed, chat.id, 'post', publication.id, id)).status,
+    ).toBe(201);
+    expect(
+      await database.prisma.postShare.count({
+        where: { postId: publication.id },
+      }),
+    ).toBe(0);
+  });
+
+  it('shares an active story without extending its lifetime and hides expired and deleted history previews', async () => {
+    const alice = await account(),
+      bob = await account();
+    const chat = await open(alice, bob),
+      story = await source(alice, 'story');
+    const id = randomUUID();
+    expect((await share(alice, chat.id, 'story', story.id, id)).status).toBe(
+      201,
+    );
+    const before = (await history(bob, chat.id)).items[0]!.sharedContent!;
+    expect(before.status).toBe('available');
+    expect(
+      (await alice.client.get(`/api/v1/stories/${story.id}`)).body.story
+        .shareCount,
+    ).toBe(1);
+    await database.prisma.story.update({
+      where: { id: story.id },
+      data: {
+        createdAt: new Date(Date.now() - 90_000_000),
+        expiresAt: new Date(Date.now() - 1),
+      },
+    });
+    expect((await history(bob, chat.id)).items[0]!.sharedContent).toEqual({
+      kind: 'story',
+      status: 'unavailable',
+    });
+    if (before.status === 'available')
+      await bob.client.get(before.thumbnailUrl).expect(404);
+    expect((await share(alice, chat.id, 'story', story.id)).status).toBe(404);
+    const replay = await share(alice, chat.id, 'story', story.id, id);
+    expect(replay.status).toBe(201);
+    expect(replay.body.shareCount).toBeNull();
+    await database.prisma.story.delete({ where: { id: story.id } });
+    expect((await history(bob, chat.id)).items[0]!.sharedContent).toEqual({
+      kind: 'story',
+      status: 'unavailable',
+    });
+  });
+
+  it('uses the same unique counter for video post and reel and rejects photo-as-reel and unauthorized requests', async () => {
+    const alice = await account(),
+      bob = await account(),
+      eve = await account();
+    const chat = await open(alice, bob),
+      publication = await source(alice);
+    expect((await share(alice, chat.id, 'reel', publication.id)).status).toBe(
+      404,
+    );
+    // Policy fixture: READY video metadata, not a video playback test.
+    const media = await database.prisma.media.create({
+      data: {
+        ownerId: alice.id,
+        kind: 'POST',
+        type: 'VIDEO',
+        state: 'READY',
+        width: 64,
+        height: 64,
+        durationMs: 1000,
+      },
+    });
+    const video = await database.prisma.post.create({
+      data: {
+        authorId: alice.id,
+        mediaId: media.id,
+        caption: 'Synthetic reel policy fixture',
+      },
+    });
+    const first = await share(alice, chat.id, 'reel', video.id);
+    expect(first.status).toBe(201);
+    expect(first.body.message.sharedContent.kind).toBe('reel');
+    expect(
+      (await share(alice, chat.id, 'post', video.id)).body.shareCount,
+    ).toBe(1);
+    expect((await share(eve, chat.id, 'post', publication.id)).status).toBe(
+      404,
+    );
+    await alice.client
+      .post(`${messagesUrl(chat.id)}/share`)
+      .send({
+        clientMessageId: randomUUID(),
+        kind: 'post',
+        contentId: publication.id,
+      })
+      .expect(403);
+    const bad = await post(alice, `${messagesUrl(chat.id)}/share`, {
+      clientMessageId: randomUUID(),
+      kind: 'post',
+      contentId: publication.id,
+      shareCount: 100,
+    });
+    expect(bad.status).toBe(400);
+    expect(
+      await database.prisma.postShare.count({
+        where: { postId: publication.id },
+      }),
+    ).toBe(0);
+  });
+
+  it('rolls back both the message and unique-sharer journal when the sharing transaction fails', async () => {
+    const alice = await account(),
+      bob = await account();
+    const chat = await open(alice, bob),
+      publication = await source(alice);
+    const { SharedContentService } =
+      await import('../src/direct/shared-content.service.js');
+    const service = app.get(SharedContentService),
+      original = service.record.bind(service);
+    const failure = vi
+      .spyOn(service, 'record')
+      .mockImplementationOnce(async (tx, userId, input) => {
+        await original(tx, userId, input);
+        throw new Error('Synthetic rollback after journal');
+      });
+    expect((await share(alice, chat.id, 'post', publication.id)).status).toBe(
+      500,
+    );
+    failure.mockRestore();
+    expect((await history(bob, chat.id)).items).toEqual([]);
+    expect(
+      await database.prisma.postShare.count({
+        where: { postId: publication.id },
+      }),
+    ).toBe(0);
   });
 });

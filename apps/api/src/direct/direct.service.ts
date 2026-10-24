@@ -8,6 +8,8 @@ import {
   type DirectMessage,
   type PageQuery,
   type SendMessageRequest,
+  type ShareContentRequest,
+  type SharedContent,
 } from '@instagram/contracts';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -18,6 +20,11 @@ import {
   summarySelect,
   userSummary,
 } from '../users/user-summary.js';
+import {
+  SharedContentService,
+  sharedKind,
+  wireKind,
+} from './shared-content.service.js';
 import { DirectEvents } from './direct-events.js';
 
 const messageSelect = {
@@ -37,6 +44,10 @@ const messageSelect = {
     },
   },
   sourceHash: true,
+  sharedKind: true,
+  sharedTargetId: true,
+  sharedPostId: true,
+  sharedStoryId: true,
 } as const;
 
 type MessageRow = Prisma.DirectMessageGetPayload<{
@@ -79,13 +90,22 @@ function attachmentUrl(
   return `/api/v1/direct/conversations/${row.conversationId}/messages/${row.id}/${variant}`;
 }
 
-function toMessage(row: MessageRow): DirectMessage {
+function toMessage(
+  row: MessageRow,
+  sharedContent?: SharedContent,
+): DirectMessage {
   return DirectMessageSchema.parse({
     id: row.id,
     conversationId: row.conversationId,
     senderId: row.senderId,
     clientMessageId: row.clientMessageId,
     text: row.text,
+    sharedContent: row.sharedKind
+      ? (sharedContent ?? {
+          kind: wireKind[row.sharedKind],
+          status: 'unavailable',
+        })
+      : null,
     attachment: row.media
       ? row.media.type === 'AUDIO'
         ? {
@@ -106,12 +126,16 @@ function toMessage(row: MessageRow): DirectMessage {
   });
 }
 
-function toConversation(viewerId: string, row: ConversationRow): Conversation {
+function toConversation(
+  viewerId: string,
+  row: ConversationRow,
+  refs: Map<string, SharedContent>,
+): Conversation {
   const last = row.messages[0];
   return ConversationSchema.parse({
     id: row.id,
     peer: userSummary(row.userAId === viewerId ? row.userB : row.userA),
-    lastMessage: last ? toMessage(last) : null,
+    lastMessage: last ? toMessage(last, refs.get(last.id)) : null,
     lastCall: row.calls[0]
       ? {
           ...row.calls[0],
@@ -145,6 +169,7 @@ export class DirectService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(MediaService) private readonly media: MediaService,
+    @Inject(SharedContentService) private readonly shared: SharedContentService,
     @Inject(DirectEvents) private readonly events: DirectEvents,
   ) {}
 
@@ -184,7 +209,11 @@ export class DirectService {
       }
     }
     if (!row) throw new AuthError('CONVERSATION_NOT_FOUND');
-    return toConversation(viewerId, row);
+    return toConversation(
+      viewerId,
+      row,
+      await this.shared.resolve(viewerId, row.messages),
+    );
   }
 
   // Most recent activity first. An empty conversation is listed only for
@@ -221,8 +250,12 @@ export class DirectService {
     });
     const items = rows.slice(0, page.limit);
     const last = items.at(-1);
+    const refs = await this.shared.resolve(
+      viewerId,
+      items.flatMap((row) => row.messages),
+    );
     return {
-      items: items.map((row) => toConversation(viewerId, row)),
+      items: items.map((row) => toConversation(viewerId, row, refs)),
       nextCursor:
         rows.length > page.limit && last
           ? encodeCursor(last.lastActivityAt.toISOString(), last.id)
@@ -236,7 +269,11 @@ export class DirectService {
       select: conversationSelect,
     });
     if (!row) throw new AuthError('CONVERSATION_NOT_FOUND');
-    return toConversation(viewerId, row);
+    return toConversation(
+      viewerId,
+      row,
+      await this.shared.resolve(viewerId, row.messages),
+    );
   }
 
   private async requireParticipant(viewerId: string, id: string) {
@@ -272,8 +309,9 @@ export class DirectService {
     });
     const items = rows.slice(0, page.limit);
     const last = items.at(-1);
+    const refs = await this.shared.resolve(viewerId, items);
     return {
-      items: items.map(toMessage),
+      items: items.map((row) => toMessage(row, refs.get(row.id))),
       nextCursor:
         rows.length > page.limit && last
           ? encodeCursor(last.createdAt.toISOString(), last.id)
@@ -399,6 +437,85 @@ export class DirectService {
     return toMessage(row);
   }
 
+  async share(viewerId: string, id: string, raw: ShareContentRequest) {
+    id = id.toLowerCase();
+    const input = { ...raw, contentId: raw.contentId.toLowerCase() };
+    const pair = await this.requireParticipant(viewerId, id);
+    const replay = async () => {
+      const row = await this.database.prisma.directMessage.findUnique({
+        where: {
+          senderId_clientMessageId: {
+            senderId: viewerId,
+            clientMessageId: input.clientMessageId,
+          },
+        },
+        select: messageSelect,
+      });
+      if (!row) return undefined;
+      if (
+        row.conversationId !== id ||
+        row.text !== input.text ||
+        row.sharedKind !== sharedKind[input.kind] ||
+        row.sharedTargetId !== input.contentId
+      )
+        throw new AuthError('MESSAGE_ID_CONFLICT');
+      const refs = await this.shared.resolve(viewerId, [row]);
+      return {
+        message: toMessage(row, refs.get(row.id)),
+        shareCount:
+          refs.get(row.id)?.status === 'available'
+            ? await this.shared.count(input)
+            : null,
+      };
+    };
+    const previous = await replay();
+    if (previous) return previous;
+    let row: MessageRow;
+    let shareCount: number;
+    try {
+      const result = await this.database.prisma.$transaction(async (tx) => {
+        await this.shared.requireVisible(tx, viewerId, input);
+        const message = await tx.directMessage.create({
+          data: {
+            conversationId: id,
+            senderId: viewerId,
+            clientMessageId: input.clientMessageId,
+            text: input.text,
+            sharedKind: sharedKind[input.kind],
+            sharedTargetId: input.contentId,
+            ...(input.kind === 'story'
+              ? { sharedStoryId: input.contentId }
+              : { sharedPostId: input.contentId }),
+          },
+          select: messageSelect,
+        });
+        const shareCount = await this.shared.record(tx, viewerId, input);
+        await tx.conversation.updateMany({
+          where: { id, lastActivityAt: { lt: message.createdAt } },
+          data: { lastActivityAt: message.createdAt },
+        });
+        return { message, shareCount };
+      });
+      row = result.message;
+      shareCount = result.shareCount;
+    } catch (error) {
+      if (uniqueViolation(error)) {
+        const result = await replay();
+        if (result) return result;
+      }
+      throw error;
+    }
+    this.events.notify([pair.userAId, pair.userBId], {
+      conversationId: id,
+      messageId: row.id,
+    });
+    const refs = await this.shared.resolve(viewerId, [row]);
+    return {
+      message: toMessage(row, refs.get(row.id)),
+      shareCount: refs.get(row.id)?.status === 'available' ? shareCount : null,
+    };
+  }
+
   // Direct owns its participant policy; MediaModule only opens private bytes.
   async attachment(
     viewerId: string,
@@ -443,7 +560,8 @@ export class DirectService {
     if (
       stored.conversationId !== id ||
       stored.text !== input.text ||
-      stored.sourceHash !== null
+      stored.sourceHash !== null ||
+      stored.sharedKind !== null
     )
       throw new AuthError('MESSAGE_ID_CONFLICT');
     return toMessage(stored);
