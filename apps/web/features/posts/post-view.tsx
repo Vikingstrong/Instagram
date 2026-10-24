@@ -19,6 +19,7 @@ import { replaceLocation } from "@/lib/navigation";
 
 import { CommentForm, CommentList } from "./comments";
 import { LikeButton, likesLabel, useLike } from "./like-button";
+import { SaveButton } from "./save-button";
 import { PostMedia } from "./post-media";
 import { formatPostDate } from "./time";
 
@@ -191,6 +192,11 @@ function PostSide({ post, header }: { post: Post; header: ReactNode }) {
             kind={post.type === "video" ? "reel" : "post"}
             contentId={post.id}
             initialCount={post.shareCount}
+          />
+          <SaveButton
+            postId={post.id}
+            initial={post.saved}
+            className="ml-auto"
           />
         </div>
         {like.error && (

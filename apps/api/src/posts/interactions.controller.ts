@@ -35,6 +35,7 @@ import {
   DeleteCommentResponseSchema,
   EmptyRequestSchema,
   LikeResponseSchema,
+  SaveResponseSchema,
   PageQuerySchema,
   PostListResponseSchema,
   NotificationListResponseSchema,
@@ -170,6 +171,52 @@ export class InteractionsController {
     this.limiter.consume('like', viewer(request), 300, 300_000);
     return LikeResponseSchema.parse(
       await this.interactions.unlike(viewer(request), uuid(id)),
+    );
+  }
+
+  @Put('posts/:id/save')
+  @Header('Cache-Control', 'no-store')
+  @mutationBody(EmptyRequestSchema, {})
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOperation({
+    operationId: 'savePost',
+    summary: 'Save a post to "Сохранённое"',
+    description: 'Idempotent, private to the viewer. Hidden posts are 404.',
+  })
+  @ok(SaveResponseSchema)
+  @errorResponse(404)
+  async save(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    parse(body, EmptyRequestSchema);
+    this.limiter.consume('like', viewer(request), 300, 300_000);
+    return SaveResponseSchema.parse(
+      await this.interactions.save(viewer(request), uuid(id)),
+    );
+  }
+
+  @Delete('posts/:id/save')
+  @Header('Cache-Control', 'no-store')
+  @mutationBody(EmptyRequestSchema, {})
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOperation({
+    operationId: 'unsavePost',
+    summary: 'Remove a post from "Сохранённое"',
+    description: 'Idempotent. Hidden posts are 404.',
+  })
+  @ok(SaveResponseSchema)
+  @errorResponse(404)
+  async unsave(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    parse(body, EmptyRequestSchema);
+    this.limiter.consume('like', viewer(request), 300, 300_000);
+    return SaveResponseSchema.parse(
+      await this.interactions.unsave(viewer(request), uuid(id)),
     );
   }
 

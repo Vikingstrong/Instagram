@@ -61,6 +61,8 @@ export const PostSchema = z.strictObject({
   commentCount: z.int().nonnegative(),
   shareCount: z.int().nonnegative().optional(),
   liked: z.boolean(),
+  // Whether the viewer saved the post ("Сохранённое").
+  saved: z.boolean().optional(),
 });
 export const PostResponseSchema = z.strictObject({ post: PostSchema });
 export const PostListResponseSchema = z.strictObject({
@@ -127,6 +129,8 @@ export type Post = z.infer<typeof PostSchema>;
 export type PostVideo = z.infer<typeof PostVideoSchema>;
 export type Comment = z.infer<typeof CommentSchema>;
 export type LikeResponse = z.infer<typeof LikeResponseSchema>;
+export const SaveResponseSchema = z.strictObject({ saved: z.boolean() });
+export type SaveResponse = z.infer<typeof SaveResponseSchema>;
 export type PostListResponse = z.infer<typeof PostListResponseSchema>;
 
 export const postsEndpoints = {
@@ -163,6 +167,15 @@ export const postsEndpoints = {
     path: "/api/v1/posts/{id}/like",
     successStatus: 200,
   },
+  save: { method: "PUT", path: "/api/v1/posts/{id}/save", successStatus: 200 },
+  unsave: {
+    method: "DELETE",
+    path: "/api/v1/posts/{id}/save",
+    successStatus: 200,
+  },
+  // The viewer's own saved and liked posts, newest posts first.
+  saved: { method: "GET", path: "/api/v1/me/saved", successStatus: 200 },
+  liked: { method: "GET", path: "/api/v1/me/liked", successStatus: 200 },
   // Oldest first, like a conversation under the post.
   comments: {
     method: "GET",

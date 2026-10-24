@@ -11,7 +11,9 @@ import { ProfileStoryAvatar } from "@/features/stories/profile-story-avatar";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
 import { MessageButton } from "@/features/direct/message-button";
 import { LiveAvatar, useHostLive } from "@/features/live/live-strip";
-import { ProfileGrid } from "@/features/posts/profile-grid";
+import { Grid3x3 } from "lucide-react";
+import { BookmarkIcon, HeartIcon } from "@/components/icons/ig-icons";
+import { ProfileGrid, type GridSource } from "@/features/posts/profile-grid";
 import type { ApiFailure } from "@/lib/api/client";
 import { createSocialClient } from "@/lib/api/social";
 
@@ -78,6 +80,7 @@ function ProfileContent({ username }: { username: string }) {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [revision, setRevision] = useState(0);
   const [list, setList] = useState<"followers" | "following">();
+  const [tab, setTab] = useState<GridSource>("posts");
 
   useEffect(() => {
     if (!viewerId) return;
@@ -219,8 +222,14 @@ function ProfileContent({ username }: { username: string }) {
       </header>
 
       <div className="mt-10 border-t">
+        {self && <ProfileTabs value={tab} onChange={setTab} />}
         {canSee ? (
-          <ProfileGrid key={profile.relationship} userId={profile.id} self={self} />
+          <ProfileGrid
+            key={`${profile.relationship}:${self ? tab : "posts"}`}
+            userId={profile.id}
+            self={self}
+            source={self ? tab : "posts"}
+          />
         ) : (
           <Centered>
             <h2 className="text-base font-semibold">Это закрытый аккаунт</h2>
@@ -240,6 +249,39 @@ function ProfileContent({ username }: { username: string }) {
           onClose={() => setList(undefined)}
         />
       )}
+    </div>
+  );
+}
+
+const tabs = [
+  { id: "posts", label: "Публикации", icon: Grid3x3 },
+  { id: "saved", label: "Сохранённое", icon: BookmarkIcon },
+  { id: "liked", label: "Понравившееся", icon: HeartIcon },
+] as const;
+
+// Own profile only, like Instagram: posts, private saved posts and likes.
+function ProfileTabs({
+  value,
+  onChange,
+}: {
+  value: GridSource;
+  onChange: (tab: GridSource) => void;
+}) {
+  return (
+    <div role="tablist" className="-mt-px flex justify-center gap-10 md:gap-14">
+      {tabs.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={value === id}
+          onClick={() => onChange(id)}
+          className={`flex h-13 items-center gap-1.5 border-t text-xs font-semibold tracking-wider uppercase transition-colors ${value === id ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+        >
+          <Icon aria-hidden className="size-4 md:size-3.5" />
+          <span className="max-md:sr-only">{label}</span>
+        </button>
+      ))}
     </div>
   );
 }

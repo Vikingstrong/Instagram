@@ -274,6 +274,40 @@ export class PostsController {
     );
   }
 
+  @Get('me/saved')
+  @Header('Cache-Control', 'no-store')
+  @ApiQuery({ name: 'cursor', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiOperation({
+    operationId: 'listSavedPosts',
+    summary: 'Saved posts of the viewer, newest posts first',
+    description: 'Only posts the viewer may still see. Limit 1–50, default 20.',
+  })
+  @ok(PostListResponseSchema)
+  @errorResponse(400)
+  async saved(@Query() query: unknown, @Req() request: AuthenticatedRequest) {
+    return PostListResponseSchema.parse(
+      await this.posts.saved(viewer(request), parse(query, PageQuerySchema)),
+    );
+  }
+
+  @Get('me/liked')
+  @Header('Cache-Control', 'no-store')
+  @ApiQuery({ name: 'cursor', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiOperation({
+    operationId: 'listLikedPosts',
+    summary: 'Posts the viewer liked, newest posts first',
+    description: 'Only posts the viewer may still see. Limit 1–50, default 20.',
+  })
+  @ok(PostListResponseSchema)
+  @errorResponse(400)
+  async liked(@Query() query: unknown, @Req() request: AuthenticatedRequest) {
+    return PostListResponseSchema.parse(
+      await this.posts.liked(viewer(request), parse(query, PageQuerySchema)),
+    );
+  }
+
   @Get('users/:id/posts')
   @Header('Cache-Control', 'no-store')
   @ApiParam({ name: 'id', format: 'uuid' })

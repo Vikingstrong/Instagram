@@ -41,6 +41,7 @@ const postSelect = (viewerId: string) =>
     author: { select: summarySelect },
     _count: { select: { likes: true, comments: true, shares: true } },
     likes: { where: { userId: viewerId }, select: { userId: true }, take: 1 },
+    saves: { where: { userId: viewerId }, select: { userId: true }, take: 1 },
   }) as const;
 
 type PostRow = {
@@ -59,6 +60,7 @@ type PostRow = {
   author: Parameters<typeof userSummary>[0];
   _count: { likes: number; comments: number; shares: number };
   likes: { userId: string }[];
+  saves: { userId: string }[];
 };
 
 // A video post's image is its poster. Until processing ends only the
@@ -87,6 +89,7 @@ function toPost(row: PostRow): Post {
     commentCount: row._count.comments,
     shareCount: row._count.shares,
     liked: row.likes.length > 0,
+    saved: row.saves.length > 0,
   });
 }
 
@@ -245,6 +248,16 @@ export class PostsService {
   // followings and public accounts), newest first, no ranking.
   async reels(viewerId: string, page: PageQuery): Promise<PostListResponse> {
     return this.page(viewerId, { media: { type: 'VIDEO' } }, page);
+  }
+
+  // The viewer's own "Сохранённое" and liked posts, newest posts first.
+  // Posts that became hidden (unfollowed private author) drop out.
+  async saved(viewerId: string, page: PageQuery): Promise<PostListResponse> {
+    return this.page(viewerId, { saves: { some: { userId: viewerId } } }, page);
+  }
+
+  async liked(viewerId: string, page: PageQuery): Promise<PostListResponse> {
+    return this.page(viewerId, { likes: { some: { userId: viewerId } } }, page);
   }
 
   private page(

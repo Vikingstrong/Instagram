@@ -4,18 +4,49 @@ import Link from "next/link";
 import type { Post } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
-import { CreateIcon, ReelsIcon } from "@/components/icons/ig-icons";
+import {
+  BookmarkIcon,
+  CreateIcon,
+  HeartIcon,
+  ReelsIcon,
+} from "@/components/icons/ig-icons";
 import { MediaImage } from "@/components/ui-ig/media-image";
 import { usePagedList } from "@/features/social/use-paged-list";
 import { createPostsClient } from "@/lib/api/posts";
 
+export type GridSource = "posts" | "saved" | "liked";
+
+const emptyLists = {
+  saved: {
+    icon: BookmarkIcon,
+    title: "Сохранить",
+    text: "Сохраняйте фото и видео, которые хотите посмотреть снова. Их видите только вы.",
+  },
+  liked: {
+    icon: HeartIcon,
+    title: "Отметки «Нравится»",
+    text: "Здесь появятся публикации, которые вам понравились.",
+  },
+};
+
 // Profile grid: square thumbnails, newest first, "load more" paging. The API
 // decides what the viewer may see; the caller hides it for private profiles.
-export function ProfileGrid({ userId, self }: { userId: string; self: boolean }) {
-  const list = usePagedList<Post>(
-    (cursor, signal) => createPostsClient().byUser(userId, cursor, signal),
-    userId,
-  );
+// "saved" and "liked" are the viewer's own lists, shown on their profile.
+export function ProfileGrid({
+  userId,
+  self,
+  source = "posts",
+}: {
+  userId: string;
+  self: boolean;
+  source?: GridSource;
+}) {
+  const list = usePagedList<Post>((cursor, signal) => {
+    const client = createPostsClient();
+    if (source === "saved") return client.saved(cursor, signal);
+    if (source === "liked") return client.liked(cursor, signal);
+    return client.byUser(userId, cursor, signal);
+  }, `${userId}:${source}`);
 
   if (list.items.length === 0) {
     if (list.failure)
@@ -30,6 +61,18 @@ export function ProfileGrid({ userId, self }: { userId: string; self: boolean })
           Загрузка публикаций…
         </p>
       );
+    if (source !== "posts") {
+      const { icon: Icon, title, text } = emptyLists[source];
+      return (
+        <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
+          <span className="flex size-16 items-center justify-center rounded-full border-2 border-foreground">
+            <Icon />
+          </span>
+          <h2 className="text-2xl font-extrabold">{title}</h2>
+          <p className="max-w-80 text-sm text-muted-foreground">{text}</p>
+        </div>
+      );
+    }
     return self ? (
       <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
         <span className="flex size-16 items-center justify-center rounded-full border-2 border-foreground">

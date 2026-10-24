@@ -14,6 +14,7 @@ import {
   CommentListResponseSchema,
   CommentResponseSchema,
   LikeResponseSchema,
+  SaveResponseSchema,
   PostListResponseSchema,
   PostResponseSchema,
   NotificationListResponseSchema,
@@ -274,6 +275,49 @@ describe('Feed, likes and comments with real PostgreSQL', () => {
       likeCount: 1,
       liked: true,
     });
+  });
+
+  it('saves posts privately and lists the viewer saved and liked posts', async () => {
+    const author = await account(true);
+    const fan = await account();
+    const stranger = await account();
+    await follow(fan, author);
+    const first = await post(author, 'сохранить');
+    const second = await post(author, 'лайкнуть');
+    const saveUrl = (id: string) => path(postsEndpoints.save.path, { id });
+    const list = async (who: Account, url: string) =>
+      PostListResponseSchema.parse((await who.client.get(url).expect(200)).body)
+        .items;
+
+    for (let index = 0; index < 2; index++)
+      expect(
+        SaveResponseSchema.parse(
+          (await send(fan, 'put', saveUrl(first.id))).body,
+        ),
+      ).toEqual({ saved: true });
+    await send(fan, 'put', likeUrl(second.id));
+    expect((await send(stranger, 'put', saveUrl(first.id))).status).toBe(404);
+
+    const saved = await list(fan, postsEndpoints.saved.path);
+    expect(saved.map((item) => item.id)).toEqual([first.id]);
+    expect(saved[0]).toMatchObject({ saved: true, liked: false });
+    expect(
+      (await list(fan, postsEndpoints.liked.path)).map((item) => item.id),
+    ).toEqual([second.id]);
+    expect(await list(author, postsEndpoints.saved.path)).toEqual([]);
+    expect((await feed(author)).items.every((item) => !item.saved)).toBe(true);
+
+    // Losing access hides the saved post; unsaving is idempotent.
+    await unfollow(fan, author);
+    expect(await list(fan, postsEndpoints.saved.path)).toEqual([]);
+    await follow(fan, author);
+    for (let index = 0; index < 2; index++)
+      expect(
+        SaveResponseSchema.parse(
+          (await send(fan, 'delete', saveUrl(first.id))).body,
+        ),
+      ).toEqual({ saved: false });
+    expect(await list(fan, postsEndpoints.saved.path)).toEqual([]);
   });
 
   it('allows likes and comments only on posts the viewer may see', async () => {
