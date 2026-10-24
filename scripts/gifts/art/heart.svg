@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="h" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#ff7aa8"/><stop offset="0.45" stop-color="#ff2d6f"/><stop offset="0.8" stop-color="#d90048"/><stop offset="1" stop-color="#9c0033"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#ff0050" flood-opacity="0.45"/></filter>
+  </defs>
+  <path filter="url(#glow)" d="M256 448 C226 422 52 318 52 186 C52 116 104 66 168 66 C210 66 240 88 256 120 C272 88 302 66 344 66 C408 66 460 116 460 186 C460 318 286 422 256 448 Z" fill="url(#h)"/>
+  <path d="M118 158 C120 120 148 98 178 98 C206 98 224 112 236 134 C212 126 172 126 146 150 C134 160 126 172 118 186 Z" fill="url(#gloss)"/>
+  <ellipse cx="342" cy="138" rx="30" ry="16" transform="rotate(-25 342 138)" fill="#ffffff" opacity="0.35"/>
+  <g fill="#fff">
+    <path d="M412 60 l8 20 l20 8 l-20 8 l-8 20 l-8 -20 l-20 -8 l20 -8 z" opacity="0.9"/>
+    <path d="M92 300 l5 12 l12 5 l-12 5 l-5 12 l-5 -12 l-12 -5 l12 -5 z" opacity="0.7"/>
+  </g>
+</svg>

@@ -7,6 +7,10 @@ import { Volume2 } from "lucide-react";
 
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
 
+import type { LiveGift } from "@instagram/contracts";
+
+import { GiftEffects } from "./gift-effects";
+import { GiftPanel } from "./gift-panel";
 import { LiveChat } from "./live-chat";
 import { useLiveNotices } from "./live-notices";
 import { LiveStage, StreamVideo, roundButton } from "./live-stage";
@@ -28,6 +32,7 @@ export function LiveViewer({ id }: { id: string }) {
   const [stream, setStream] = useState<MediaStream>();
   const [muted, setMuted] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
+  const [ownGift, setOwnGift] = useState<LiveGift>();
   const session = useRef<ViewerSession | undefined>(undefined);
 
   useEffect(() => {
@@ -127,17 +132,23 @@ export function LiveViewer({ id }: { id: string }) {
       }
       actions={
         phase.state === "watching" &&
-        muted && (
-          <button
-            type="button"
-            onClick={() => setMuted(false)}
-            aria-label="Включить звук"
-            className={roundButton}
-          >
-            <Volume2 size={20} />
-          </button>
+        onAir && (
+          <>
+            {muted && (
+              <button
+                type="button"
+                onClick={() => setMuted(false)}
+                aria-label="Включить звук"
+                className={roundButton}
+              >
+                <Volume2 size={20} />
+              </button>
+            )}
+            <GiftPanel liveId={id} onSent={setOwnGift} />
+          </>
         )
       }
+      overlay={<GiftEffects liveId={id} open={onAir} own={ownGift} />}
       chat={<LiveChat liveId={id} open={onAir} />}
     />
   );

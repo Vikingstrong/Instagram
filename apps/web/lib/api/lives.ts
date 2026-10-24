@@ -6,13 +6,16 @@ import {
   LiveAcceptedSchema,
   LiveCommentResponseSchema,
   LiveCommentsResponseSchema,
+  LiveGiftsResponseSchema,
   LiveListResponseSchema,
   LiveResponseSchema,
   LiveSignalsResponseSchema,
   OptionalLiveResponseSchema,
+  SendLiveGiftResponseSchema,
   livesEndpoints,
   type CallSignal,
   type CreateLiveCommentRequest,
+  type SendLiveGiftRequest,
   type StartLiveRequest,
 } from "@instagram/contracts";
 import {
@@ -75,6 +78,13 @@ export function createLivesClient(api: ApiClient = createApiClient()) {
       ),
     comment: (id: string, input: CreateLiveCommentRequest) =>
       mutate(at(livesEndpoints.comment, id), LiveCommentResponseSchema, input),
+    gifts: (id: string, after?: string) =>
+      api.request(
+        withPath(livesEndpoints.gifts, { id }, { after }),
+        LiveGiftsResponseSchema,
+      ),
+    sendGift: (id: string, input: SendLiveGiftRequest) =>
+      mutate(at(livesEndpoints.sendGift, id), SendLiveGiftResponseSchema, input),
   };
 }
 export type LivesClient = ReturnType<typeof createLivesClient>;

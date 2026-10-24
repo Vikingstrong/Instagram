@@ -83,6 +83,7 @@ export function LiveStage({
   video,
   status,
   actions,
+  overlay,
   chat,
 }: {
   host: UserSummary;
@@ -91,6 +92,8 @@ export function LiveStage({
   video: ReactNode;
   status?: ReactNode;
   actions?: ReactNode;
+  // Above the video, under the actions: gift lines.
+  overlay?: ReactNode;
   chat?: ReactNode;
 }) {
   return (
@@ -114,6 +117,7 @@ export function LiveStage({
             </span>
           )}
         </header>
+        {overlay}
         {status && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-6 text-center">
             {status}

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5fa2"/><stop offset="0.5" stop-color="#a23cff"/><stop offset="1" stop-color="#2f6bff"/>
+    </linearGradient>
+    <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3a46"/><stop offset="1" stop-color="#0d0d12"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.75"/><stop offset="0.6" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-30%" width="140%" height="160%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#2a0050" flood-opacity="0.4"/></filter>
+  </defs>
+  <g filter="url(#s)">
+    <path d="M40 206 C40 192 52 182 66 182 L222 182 C236 182 246 192 246 206 L240 262 C234 314 196 346 146 346 C92 346 52 312 46 262 Z" fill="url(#frame)" stroke="#9a9ab4" stroke-width="5"/>
+    <path d="M266 206 C266 192 276 182 290 182 L446 182 C460 182 472 192 472 206 L466 262 C460 312 420 346 366 346 C316 346 278 314 272 262 Z" fill="url(#frame)" stroke="#9a9ab4" stroke-width="5"/>
+    <path d="M222 196 C240 180 272 180 290 196 L286 214 C270 202 242 202 226 214 Z" fill="url(#frame)" stroke="#9a9ab4" stroke-width="5"/>
+    <path d="M60 210 C60 202 66 198 74 198 L216 198 C224 198 230 204 228 212 L224 260 C218 302 188 328 146 328 C102 328 70 302 64 260 Z" fill="url(#lens)"/>
+    <path d="M284 212 C282 204 288 198 296 198 L438 198 C446 198 452 202 452 210 L448 260 C442 302 410 328 366 328 C324 328 294 302 288 260 Z" fill="url(#lens)"/>
+    <path d="M78 214 L150 214 L96 300 C84 290 76 276 74 260 Z" fill="url(#shine)"/>
+    <path d="M302 214 L374 214 L320 300 C308 290 300 276 298 260 Z" fill="url(#shine)"/>
+    <path d="M40 200 C26 196 16 186 12 172" stroke="#9a9ab4" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M472 200 C486 196 496 186 500 172" stroke="#9a9ab4" stroke-width="12" fill="none" stroke-linecap="round"/>
+  </g>
+  <g fill="#ffd54f">
+    <path d="M404 96 l10 26 l26 10 l-26 10 l-10 26 l-10 -26 l-26 -10 l26 -10 z"/>
+    <path d="M110 110 l6 14 l14 6 l-14 6 l-6 14 l-6 -14 l-14 -6 l14 -6 z" opacity="0.85"/>
+  </g>
+</svg>

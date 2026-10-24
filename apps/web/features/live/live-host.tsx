@@ -12,6 +12,7 @@ import { createLivesClient } from "@/lib/api/lives";
 import { describeFailure } from "@/lib/api/messages";
 import { cn } from "@/lib/utils";
 
+import { GiftEffects } from "./gift-effects";
 import { LiveChat } from "./live-chat";
 import { useLiveNotices } from "./live-notices";
 import { LiveStage, StreamVideo, roundButton } from "./live-stage";
@@ -358,6 +359,7 @@ export function LiveHost() {
       onAir={onAir}
       viewerCount={viewers.length}
       video={<StreamVideo stream={stream} muted mirrored label="Ваша камера" />}
+      overlay={live && <GiftEffects liveId={live.id} open />}
       status={
         !stream && (
           <>
