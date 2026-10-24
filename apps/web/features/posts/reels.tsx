@@ -6,7 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import type { Post } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
-import { CommentIcon, ReelsIcon } from "@/components/icons/ig-icons";
+import { Play, Volume2, VolumeX } from "lucide-react";
+import {
+  CommentIcon,
+  MoreHorizontalIcon,
+  ReelsIcon,
+} from "@/components/icons/ig-icons";
 import { Avatar } from "@/components/ui-ig/avatar";
 import { VideoPlayer } from "@/components/ui-ig/video-player";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
@@ -155,54 +160,76 @@ function Reel({
 
   if (!post.video) return null;
   const { author } = post;
+  // Desktop follows Instagram web: a bordered 9:16 video in the middle, the
+  // actions in a column to its right and the author at the bottom left of
+  // the page. On phones everything overlays the full-screen video.
   return (
     <article
       aria-label={`Reels ${author.username}`}
-      className="relative flex h-full snap-start items-center justify-center bg-black"
+      className="relative flex h-full snap-start items-end justify-center gap-5 bg-black lg:bg-background lg:py-3"
     >
-      <VideoPlayer
-        ref={video}
-        src={post.video.url}
-        poster={post.image.url}
-        label={post.caption || `Reels ${author.username}`}
-        loop
-        muted={muted}
-        onPlay={() => setPaused(false)}
-        onPause={() => setPaused(true)}
-        onClick={(event) => {
-          const element = event.currentTarget;
-          if (element.paused) void element.play().catch(() => undefined);
-          else element.pause();
-        }}
-        className="h-full max-w-full cursor-pointer object-contain md:aspect-9/16 md:object-cover"
-      />
-      {paused && (
+      <div className="relative flex h-full max-w-full items-center justify-center overflow-hidden bg-black lg:aspect-9/16 lg:rounded-md lg:border">
+        <VideoPlayer
+          ref={video}
+          src={post.video.url}
+          poster={post.image.url}
+          label={post.caption || `Reels ${author.username}`}
+          loop
+          muted={muted}
+          onPlay={() => setPaused(false)}
+          onPause={() => setPaused(true)}
+          onClick={(event) => {
+            const element = event.currentTarget;
+            if (element.paused) void element.play().catch(() => undefined);
+            else element.pause();
+          }}
+          className="h-full max-w-full cursor-pointer object-contain lg:w-full lg:object-cover"
+        />
+        {paused && (
+          <Play
+            aria-hidden
+            className="pointer-events-none absolute size-16 fill-white/80 text-white/80"
+          />
+        )}
         <span
           aria-hidden
-          className="pointer-events-none absolute text-5xl text-white/80"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-linear-to-t from-black/70 to-transparent lg:hidden"
+        />
+        <button
+          type="button"
+          onClick={onToggleSound}
+          aria-label={muted ? "Включить звук" : "Выключить звук"}
+          aria-pressed={!muted}
+          className="absolute top-3 right-3 grid size-8 place-items-center rounded-full bg-black/50 text-white transition hover:bg-black/70 lg:top-auto lg:bottom-3"
         >
-          ▶
-        </span>
-      )}
+          {muted ? (
+            <VolumeX aria-hidden className="size-4" />
+          ) : (
+            <Volume2 aria-hidden className="size-4" />
+          )}
+        </button>
+      </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-3 bg-linear-to-t from-black/70 to-transparent p-4 pr-20 text-white">
-        <div className="pointer-events-auto min-w-0 flex-1">
+      <div className="absolute right-20 bottom-4 left-4 flex items-center gap-3 text-white lg:right-auto lg:bottom-6 lg:left-6 lg:max-w-[calc(50%-14rem)] lg:text-foreground">
+        <Link href={`/${author.username}`} className="shrink-0">
+          <Avatar name={author.username} src={author.avatarUrl} size={40} />
+        </Link>
+        <div className="min-w-0">
           <Link
             href={`/${author.username}`}
-            className="flex items-center gap-2 text-sm font-semibold"
+            className="block truncate text-sm font-semibold"
           >
-            <Avatar name={author.username} src={author.avatarUrl} size={32} />
             {author.username}
           </Link>
           {post.caption && (
-            <p className="mt-2 line-clamp-2 text-sm whitespace-pre-line">
+            <p className="truncate text-xs whitespace-pre-line opacity-80">
               {post.caption}
             </p>
           )}
         </div>
       </div>
 
-      <div className="absolute right-3 bottom-6 flex flex-col items-center gap-4 text-white">
+      <div className="absolute right-3 bottom-4 flex flex-col items-center gap-5 text-white lg:static lg:pb-1 lg:text-foreground">
         <div className="flex flex-col items-center gap-1">
           <LikeButton liked={like.liked} onToggle={like.toggle} />
           <span className="text-xs">
@@ -212,7 +239,7 @@ function Reel({
         <Link
           href={`/p/${post.id}`}
           aria-label={`Комментарии (${post.commentCount})`}
-          className="flex flex-col items-center gap-1"
+          className="flex flex-col items-center gap-1 hover:opacity-60"
         >
           <CommentIcon />
           <span className="text-xs">
@@ -228,15 +255,22 @@ function Reel({
             if (open) video.current?.pause();
           }}
         />
-        <button
-          type="button"
-          onClick={onToggleSound}
-          aria-label={muted ? "Включить звук" : "Выключить звук"}
-          aria-pressed={!muted}
-          className="rounded-full bg-black/40 px-2 py-1 text-xs font-semibold"
+        <Link
+          href={`/p/${post.id}`}
+          aria-label="Открыть публикацию"
+          className="hover:opacity-60"
         >
-          {muted ? "Звук выкл." : "Звук вкл."}
-        </button>
+          <MoreHorizontalIcon />
+        </Link>
+        <Link
+          href={`/${author.username}`}
+          aria-label={`Оригинальный звук ${author.username}`}
+          className="size-7 overflow-hidden rounded-md border-2 border-current bg-secondary"
+        >
+          {author.avatarUrl && (
+            <Avatar name={author.username} src={author.avatarUrl} size={24} />
+          )}
+        </Link>
         {like.error && (
           <p role="alert" className="max-w-24 text-center text-xs">
             {like.error}
