@@ -6,6 +6,7 @@ import {
   LiveCommentTextSchema,
   liveRules,
   type LiveComment,
+  type LiveViewerAccess,
 } from "@instagram/contracts";
 
 import { Avatar } from "@/components/ui-ig/avatar";
@@ -13,6 +14,7 @@ import { createLivesClient } from "@/lib/api/lives";
 import { describeFailure } from "@/lib/api/messages";
 
 import { useLiveNotices } from "./live-notices";
+import { ModerationMenu, canModerate, muteTerm, type Moderation } from "./moderation";
 
 const POLL_MS = 2000;
 const KEEP = 200;
@@ -30,14 +32,28 @@ export function mergeComments(current: LiveComment[], incoming: LiveComment[]) {
     .slice(-KEEP);
 }
 
-// Live chat (FR-12): the latest lines, then new ones after an SSE notice or
+// Live chat (FR-12): the latest lines, read again after an SSE notice or
 // a short poll. After the stream ends the lines stay on screen read-only.
-export function LiveChat({ liveId, open }: { liveId: string; open: boolean }) {
+// moderation: names become a menu for the host and moderators; muted: the
+// caller may read but not write.
+export function LiveChat({
+  liveId,
+  open,
+  selfId,
+  moderation,
+  muted,
+}: {
+  liveId: string;
+  open: boolean;
+  selfId?: string;
+  moderation?: Moderation;
+  muted?: LiveViewerAccess["muted"];
+}) {
+  const [notice, setNotice] = useState<string>();
   const [items, setItems] = useState<LiveComment[]>([]);
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
   const [sending, setSending] = useState(false);
-  const cursor = useRef<string | null>(null);
   const busy = useRef(false);
   const pending = useRef<{ id: string; text: string } | undefined>(undefined);
   const list = useRef<HTMLOListElement>(null);
@@ -47,14 +63,10 @@ export function LiveChat({ liveId, open }: { liveId: string; open: boolean }) {
     if (busy.current) return;
     busy.current = true;
     try {
-      const result = await createLivesClient().comments(
-        liveId,
-        cursor.current ?? undefined,
-      );
-      if (!result.ok) return;
-      cursor.current = result.data.next;
-      if (result.data.items.length)
-        setItems((current) => mergeComments(current, result.data.items));
+      // The latest page replaces the list: lines removed by moderation
+      // (a ban) disappear for everyone.
+      const result = await createLivesClient().comments(liveId);
+      if (result.ok) setItems(result.data.items);
     } finally {
       busy.current = false;
     }
@@ -124,7 +136,13 @@ export function LiveChat({ liveId, open }: { liveId: string; open: boolean }) {
           <li key={item.id} className="flex gap-2 text-sm">
             <Avatar name={item.author.username} src={item.author.avatarUrl} size={24} />
             <p className="min-w-0 break-words">
-              <span className="mr-1.5 font-semibold">{item.author.username}</span>
+              {canModerate(moderation) &&
+              item.author.id !== selfId &&
+              item.author.id !== moderation!.hostId ? (
+                <ModerationMenu moderation={moderation!} user={item.author} onDone={setNotice} />
+              ) : (
+                <span className="mr-1.5 font-semibold">{item.author.username}</span>
+              )}
               {item.text}
             </p>
           </li>
@@ -135,7 +153,16 @@ export function LiveChat({ liveId, open }: { liveId: string; open: boolean }) {
           {error}
         </p>
       )}
-      {open ? (
+      {notice && (
+        <p role="status" className="px-4 pb-2 text-xs text-emerald-400">
+          {notice}
+        </p>
+      )}
+      {open && muted ? (
+        <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+          Вам запрещено писать в этом эфире {muteTerm(muted)}.
+        </p>
+      ) : open ? (
         <form onSubmit={submit} className="flex items-center gap-2 border-t px-3 py-2">
           <input
             value={text}

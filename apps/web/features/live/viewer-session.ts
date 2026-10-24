@@ -24,6 +24,8 @@ export type ViewerEvents = {
   stream: (stream?: MediaStream) => void;
   // The stream is the viewer's own: the host page shows it.
   own: () => void;
+  // The host banned this user: leave with that message.
+  banned: () => void;
 };
 type MediaFactory = (
   send: (signal: CallSignal) => Promise<void>,
@@ -107,7 +109,10 @@ export class ViewerSession {
   // Failures that end the viewing; false for the ones worth retrying.
   private stopOn(failure: ApiFailure, live?: Live) {
     const value = code(failure);
-    if (
+    if (value === "LIVE_BANNED") {
+      this.stop({ state: "unavailable" });
+      this.events.banned();
+    } else if (
       value === "LIVE_NOT_FOUND" ||
       value === "INVALID_REQUEST" ||
       value === "AUTHENTICATION_REQUIRED"
@@ -191,12 +196,13 @@ export class ViewerSession {
     this.retry = setTimeout(() => void this.connect(), wait);
   }
 
-  async sync() {
+  // force: an SSE notice may mean a new role, mute or ban: read it now.
+  async sync(force = false) {
     const media = this.media;
     if (this.stopped || !media || !this.peerId || this.busy) return;
     this.busy = true;
     try {
-      if (this.now() - this.heartbeatAt > 5000) {
+      if (force || this.now() - this.heartbeatAt > 5000) {
         this.heartbeatAt = this.now();
         const beat = await this.client.heartbeat(this.id, this.device);
         if (this.stopped || media !== this.media) return;

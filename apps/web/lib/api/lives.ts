@@ -8,6 +8,9 @@ import {
   LiveCommentsResponseSchema,
   LiveGiftsResponseSchema,
   LiveListResponseSchema,
+  LiveModeratorListResponseSchema,
+  LiveRestrictionListResponseSchema,
+  LiveRestrictionResponseSchema,
   LiveResponseSchema,
   LiveSignalsResponseSchema,
   OptionalLiveResponseSchema,
@@ -15,6 +18,7 @@ import {
   livesEndpoints,
   type CallSignal,
   type CreateLiveCommentRequest,
+  type CreateLiveRestrictionRequest,
   type SendLiveGiftRequest,
   type StartLiveRequest,
 } from "@instagram/contracts";
@@ -85,6 +89,27 @@ export function createLivesClient(api: ApiClient = createApiClient()) {
       ),
     sendGift: (id: string, input: SendLiveGiftRequest) =>
       mutate(at(livesEndpoints.sendGift, id), SendLiveGiftResponseSchema, input),
+    // Moderation of all streams of a host.
+    moderators: (hostId: string) =>
+      api.request(at(livesEndpoints.moderators, hostId), LiveModeratorListResponseSchema),
+    addModerator: (hostId: string, userId: string) =>
+      mutate(at(livesEndpoints.addModerator, hostId), LiveModeratorListResponseSchema, {
+        userId,
+      }),
+    removeModerator: (hostId: string, userId: string) =>
+      mutate(
+        withPath(livesEndpoints.removeModerator, { id: hostId, userId }),
+        LiveModeratorListResponseSchema,
+      ),
+    restrictions: (hostId: string) =>
+      api.request(at(livesEndpoints.restrictions, hostId), LiveRestrictionListResponseSchema),
+    restrict: (hostId: string, input: CreateLiveRestrictionRequest) =>
+      mutate(at(livesEndpoints.restrict, hostId), LiveRestrictionResponseSchema, input),
+    unrestrict: (hostId: string, userId: string, kind: "mute" | "ban") =>
+      mutate(
+        withPath(livesEndpoints.unrestrict, { id: hostId, userId, kind }),
+        LiveAcceptedSchema,
+      ),
   };
 }
 export type LivesClient = ReturnType<typeof createLivesClient>;

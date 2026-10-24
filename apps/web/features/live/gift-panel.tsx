@@ -12,6 +12,7 @@ import { describeFailure } from "@/lib/api/messages";
 import { cn } from "@/lib/utils";
 
 import { GiftPicture } from "./gift-effects";
+import { closeModal } from "./moderation";
 import { coins, gifts } from "./gifts";
 import { roundButton } from "./live-stage";
 
@@ -64,7 +65,7 @@ export function GiftPanel({
     const gift = gifts.find((item) => item.key === key)!;
     setStatus({ text: `Отправлено: «${gift.name}»` });
     // The full-screen show must not stay under this modal.
-    if (gift.fullscreen) dialog.current?.close();
+    if (gift.fullscreen) closeModal(dialog.current);
     onSent(result.data.gift);
   }
 
@@ -77,7 +78,7 @@ export function GiftPanel({
         ref={dialog}
         aria-labelledby="gifts-title"
         onClick={(event) => {
-          if (event.target === event.currentTarget) dialog.current?.close();
+          if (event.target === event.currentTarget) closeModal(dialog.current);
         }}
         className="fixed inset-x-0 bottom-0 m-0 mt-auto w-full max-w-none rounded-t-3xl border bg-ig-elevated p-0 text-foreground backdrop:bg-black/50 md:inset-0 md:m-auto md:max-w-md md:rounded-3xl"
       >
@@ -89,7 +90,7 @@ export function GiftPanel({
             <button
               type="button"
               aria-label="Закрыть подарки"
-              onClick={() => dialog.current?.close()}
+              onClick={() => closeModal(dialog.current)}
               className="rounded-full p-1.5 hover:bg-secondary"
             >
               <X size={20} />

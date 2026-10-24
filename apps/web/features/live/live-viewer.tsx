@@ -11,6 +11,8 @@ import type { LiveGift } from "@instagram/contracts";
 
 import { GiftEffects } from "./gift-effects";
 import { GiftPanel } from "./gift-panel";
+import { markBanned } from "./live-alerts";
+import { ModerationPanel, canModerate } from "./moderation";
 import { LiveChat } from "./live-chat";
 import { useLiveNotices } from "./live-notices";
 import { LiveStage, StreamVideo, roundButton } from "./live-stage";
@@ -41,6 +43,10 @@ export function LiveViewer({ id }: { id: string }) {
       phase: setPhase,
       stream: setStream,
       own: () => router.replace("/live"),
+      banned: () => {
+        markBanned();
+        router.replace("/");
+      },
     });
     session.current = current;
     void current.open();
@@ -54,7 +60,7 @@ export function LiveViewer({ id }: { id: string }) {
     };
   }, [id, viewerId, router]);
   useLiveNotices((liveId) => {
-    if (liveId === id) void session.current?.sync();
+    if (liveId === id) void session.current?.sync(true);
   });
   if (phase.state === "watching" && phase.connected && !everConnected)
     setEverConnected(true);
@@ -88,6 +94,7 @@ export function LiveViewer({ id }: { id: string }) {
     );
 
   const live = phase.live;
+  const moderation = live.viewer && { hostId: live.host.id, role: live.viewer.role };
   const onAir = live.status === "LIVE" && phase.state !== "ended";
   return (
     <LiveStage
@@ -144,12 +151,21 @@ export function LiveViewer({ id }: { id: string }) {
                 <Volume2 size={20} />
               </button>
             )}
-            <GiftPanel liveId={id} onSent={setOwnGift} />
+            {!live.viewer?.muted && <GiftPanel liveId={id} onSent={setOwnGift} />}
+            {canModerate(moderation) && <ModerationPanel moderation={moderation!} />}
           </>
         )
       }
       overlay={<GiftEffects liveId={id} open={onAir} own={ownGift} />}
-      chat={<LiveChat liveId={id} open={onAir} />}
+      chat={
+        <LiveChat
+          liveId={id}
+          open={onAir}
+          selfId={viewerId}
+          moderation={moderation}
+          muted={live.viewer?.muted}
+        />
+      }
     />
   );
 }

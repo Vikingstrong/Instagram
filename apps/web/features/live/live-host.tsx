@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 import { GiftEffects } from "./gift-effects";
 import { LiveChat } from "./live-chat";
+import { ModerationMenu, ModerationPanel, type Moderation } from "./moderation";
 import { useLiveNotices } from "./live-notices";
 import { LiveStage, StreamVideo, roundButton } from "./live-stage";
 import { HostTransport } from "./live-transport";
@@ -387,6 +388,7 @@ export function LiveHost() {
             </button>
             {onAir ? (
               <>
+                {live && <ModerationPanel moderation={{ hostId: live.host.id, role: "host" }} />}
                 <button type="button" onClick={() => setShowViewers((value) => !value)} aria-expanded={showViewers} aria-label="Зрители" className={roundButton}>
                   <Users size={20} />
                 </button>
@@ -413,8 +415,15 @@ export function LiveHost() {
             <p role="status" className="px-4 pb-2 text-center text-xs text-muted-foreground md:text-left">
               В эфире {duration(live.startedAt, now)} · до {liveRules.maxViewers} зрителей
             </p>
-            {showViewers && <ViewerList viewers={viewers} />}
-            <LiveChat liveId={live.id} open />
+            {showViewers && (
+              <ViewerList viewers={viewers} moderation={{ hostId: live.host.id, role: "host" }} />
+            )}
+            <LiveChat
+              liveId={live.id}
+              open
+              selfId={live.host.id}
+              moderation={{ hostId: live.host.id, role: "host" }}
+            />
           </div>
         ) : (
           <Settings
@@ -432,7 +441,7 @@ export function LiveHost() {
   );
 }
 
-function ViewerList({ viewers }: { viewers: UserSummary[] }) {
+function ViewerList({ viewers, moderation }: { viewers: UserSummary[]; moderation: Moderation }) {
   return (
     <section aria-label="Список зрителей" className="mx-3 mb-3 rounded-xl border p-3 md:mx-0">
       <h2 className="mb-2 text-sm font-semibold">Зрители · {viewers.length}</h2>
@@ -443,7 +452,7 @@ function ViewerList({ viewers }: { viewers: UserSummary[] }) {
           {viewers.map((user) => (
             <li key={user.id} className="flex items-center gap-2 text-sm">
               <Avatar name={user.username} src={user.avatarUrl} size={24} />
-              {user.username}
+              <ModerationMenu moderation={moderation} user={user} />
             </li>
           ))}
         </ul>

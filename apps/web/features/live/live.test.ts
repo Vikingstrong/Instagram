@@ -181,6 +181,7 @@ describe("viewer session", () => {
         },
         stream: vi.fn(),
         own: vi.fn(),
+        banned: vi.fn(),
       },
       api,
       factory,
@@ -206,7 +207,7 @@ describe("viewer session", () => {
   });
 
   it("stops without access, sends the host to their own page and waits when full", async () => {
-    const events = () => ({ phase: vi.fn(), stream: vi.fn(), own: vi.fn() });
+    const events = () => ({ phase: vi.fn(), stream: vi.fn(), own: vi.fn(), banned: vi.fn() });
     const lost = events();
     const lostApi = client();
     const lostMedia = media();
@@ -225,6 +226,16 @@ describe("viewer session", () => {
     vi.mocked(lostApi.heartbeat).mockResolvedValueOnce(fail("LIVE_NOT_FOUND", 404));
     await session.sync();
     expect(lost.phase).toHaveBeenLastCalledWith({ state: "unavailable" });
+
+    // A ban stops the session and asks the page to leave with the message.
+    const kicked = events();
+    const kickedApi = client();
+    const ban = new ViewerSession(live().id, "viewer", kicked, kickedApi, media().factory, () => time);
+    await ban.open();
+    vi.mocked(kickedApi.signals).mockResolvedValueOnce(fail("LIVE_BANNED", 403));
+    await ban.sync();
+    expect(kicked.banned).toHaveBeenCalled();
+    expect(kickedApi.leave).toHaveBeenCalled();
     expect(lostMedia.created[0]!.close).toHaveBeenCalled();
 
     const own = events();
