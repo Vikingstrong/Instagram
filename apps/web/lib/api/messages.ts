@@ -33,6 +33,12 @@ export function describeFailure(failure: ApiFailure): string {
         case "CALL_BUSY": return "Вы или собеседник уже участвуете в звонке.";
         case "CALL_STATE_CONFLICT": return "Звонок уже обработан на другом устройстве. Начните новый звонок.";
         case "CALLS_UNAVAILABLE": return "Звонки пока не настроены на сервере.";
+        case "LIVE_NOT_FOUND": return "Эфир недоступен или уже удалён.";
+        case "LIVE_BUSY": return "У вас уже идёт эфир. Завершите его, чтобы начать новый.";
+        case "LIVE_FULL": return "В эфире уже максимум зрителей. Попробуйте чуть позже.";
+        case "LIVE_ENDED": return "Эфир уже завершён.";
+        case "LIVE_STATE_CONFLICT": return "Эфир открыт на другом устройстве или в другой вкладке.";
+        case "LIVES_UNAVAILABLE": return "Прямые эфиры пока не настроены на сервере.";
         case "CONVERSATION_NOT_FOUND":
           return "Диалог не найден.";
         case "CANNOT_MESSAGE_SELF":

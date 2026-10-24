@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import {
   imageUploadRules,
@@ -278,6 +279,23 @@ export function CreatePost() {
           </div>
         )}
       </form>
+      <Link
+        href="/live"
+        className="mt-4 flex items-center gap-3 rounded-xl border bg-ig-elevated p-4 hover:bg-secondary/40"
+      >
+        <span
+          aria-hidden
+          className="rounded-md bg-linear-to-r from-[#d300c5] to-[#ff0069] px-1.5 py-0.5 text-[11px] font-bold text-white uppercase"
+        >
+          Live
+        </span>
+        <span className="text-sm">
+          <b className="block">Прямой эфир</b>
+          <span className="text-muted-foreground">
+            Покажите подписчикам, что происходит прямо сейчас
+          </span>
+        </span>
+      </Link>
     </div>
   );
 }
