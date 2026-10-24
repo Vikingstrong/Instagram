@@ -1,5 +1,6 @@
 import { CallsProvider } from "@/features/calls/calls-provider";
 import { LiveAlerts } from "@/features/live/live-alerts";
+import { themeInitScript } from "@/lib/theme-script";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import localFont from "next/font/local";
@@ -37,7 +38,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="ru"
       className={`${geistSans.variable} ${geistMono.variable} ${grandHotel.variable} dark h-full antialiased`}
+      // The init script may drop "dark" before hydration.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <CallsProvider>
           {children}

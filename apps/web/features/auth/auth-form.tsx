@@ -135,7 +135,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
                 aria-pressed={showPassword}
                 onClick={() => setShowPassword((value) => !value)}
-                className="absolute inset-y-0 right-4 mt-2 text-xs font-semibold text-[#adb8ff]"
+                className="absolute inset-y-0 right-4 mt-2 text-xs font-semibold text-[#4a5df9] dark:text-[#adb8ff]"
               >
                 {showPassword ? "Скрыть" : "Показать"}
               </button>
@@ -184,19 +184,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </Link>
       )}
       <div className="my-7 flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-foreground/10" />
         или
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-foreground/10" />
       </div>
       <Link
         href={registering ? "/auth/login" : "/auth/register"}
-        className="flex min-h-12 items-center justify-center rounded-full border border-[#708dff]/70 px-4 text-sm font-semibold text-[#adb8ff] transition hover:bg-[#708dff]/10"
+        className="flex min-h-12 items-center justify-center rounded-full border border-[#708dff]/70 px-4 text-sm font-semibold text-[#4a5df9] dark:text-[#adb8ff] transition hover:bg-[#708dff]/10"
       >
         {registering ? "Уже есть аккаунт? Войти" : "Создать новый аккаунт"}
       </Link>
       <Link
         href="/?guest=1"
-        className="mt-5 block text-center text-sm text-muted-foreground transition hover:text-white"
+        className="mt-5 block text-center text-sm text-muted-foreground transition hover:text-foreground"
       >
         Продолжить как гость <span aria-hidden="true">↗</span>
       </Link>

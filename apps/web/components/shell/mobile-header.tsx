@@ -3,6 +3,7 @@ import Link from "next/link";
 import { HeartIcon } from "@/components/icons/ig-icons";
 import { CreateMenu } from "./create-menu";
 import { MoreMenu } from "./more-menu";
+import { ThemeToggle } from "./theme-toggle";
 
 // Mobile top bar; desktop shows the logo inside SidebarNav instead.
 export function MobileHeader() {
@@ -20,6 +21,7 @@ export function MobileHeader() {
         >
           <HeartIcon />
         </Link>
+        <ThemeToggle className="grid size-10 place-items-center rounded-full transition-colors hover:bg-secondary active:opacity-60" />
         <MoreMenu compact />
       </div>
     </header>

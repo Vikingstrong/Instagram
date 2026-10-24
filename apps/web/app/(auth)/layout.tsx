@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { AuthArtwork, AuthBrand } from "@/features/auth/auth-design";
 
 export const metadata: Metadata = { referrer: "no-referrer", robots: { index: false, follow: false } };
@@ -23,6 +24,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <div className="auth-panel">
+        <ThemeToggle className="auth-theme-toggle" />
         <Link href="/auth/login" className="auth-mobile-brand"><AuthBrand /></Link>
         <section className="auth-form-container" aria-label="Аккаунт">{children}</section>
         <footer className="auth-footer"><span>© 2026 Instagram Clone</span><span>Русский</span></footer>
