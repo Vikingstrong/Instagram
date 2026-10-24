@@ -32,11 +32,15 @@ import {
   LiveCommentsQuerySchema,
   LiveCommentsResponseSchema,
   LiveDeviceRequestSchema,
+  LiveGiftsQuerySchema,
+  LiveGiftsResponseSchema,
   LiveListResponseSchema,
   LiveResponseSchema,
   LiveSignalsQuerySchema,
   LiveSignalsResponseSchema,
   OptionalLiveResponseSchema,
+  SendLiveGiftRequestSchema,
+  SendLiveGiftResponseSchema,
   SendLiveSignalRequestSchema,
   StartLiveRequestSchema,
   UserSummarySchema,
@@ -357,5 +361,51 @@ export class LivesController {
         parse(body, CreateLiveCommentRequestSchema),
       ),
     });
+  }
+
+  @Get(':id/gifts')
+  @Header('Cache-Control', 'no-store')
+  @ok(LiveGiftsResponseSchema)
+  @ApiOperation({
+    summary: 'Gifts of a stream, latest first page or after a cursor',
+  })
+  async gifts(
+    @Param('id') id: string,
+    @Query() query: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return LiveGiftsResponseSchema.parse(
+      await this.lives.gifts(
+        this.actor(request).id,
+        parse(id, uuid),
+        parse(query, LiveGiftsQuerySchema).after,
+      ),
+    );
+  }
+
+  @Post(':id/gifts')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @bodySchema(SendLiveGiftRequestSchema)
+  @ok(SendLiveGiftResponseSchema, 201)
+  @ApiOperation({
+    summary: 'Send a gift to the host',
+    description:
+      'The catalog price moves from your wallet to the host in one transaction with the stream check. Idempotent by id: a retry returns the same gift.',
+  })
+  async sendGift(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const actor = this.actor(request, true);
+    this.limiter.consume('live-gift', actor.id, 30, 60_000);
+    return SendLiveGiftResponseSchema.parse(
+      await this.lives.sendGift(
+        actor.id,
+        parse(id, uuid),
+        parse(body, SendLiveGiftRequestSchema),
+      ),
+    );
   }
 }

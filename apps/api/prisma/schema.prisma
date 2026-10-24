@@ -80,6 +80,7 @@ model User {
   callSeat CallSeat?
   lives Live[] @relation("liveHost")
   liveComments LiveComment[]
+  liveGifts LiveGift[] @relation("liveGiftSender")
   messages          DirectMessage[]
   coinWallet        CoinWallet?
   coinsSent         CoinOperation[] @relation("coinSender")
@@ -117,6 +118,7 @@ model CoinOperation {
   idempotencyKey        String? @db.Uuid
   createdAt             DateTime @default(now()) @db.Timestamptz(3)
   sender                User? @relation("coinSender", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  liveGift              LiveGift?
   recipient             User @relation("coinRecipient", fields: [recipientId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([recipientId, claimDate])
@@ -409,6 +411,7 @@ model Live {
   hostSeenAt DateTime @default(now()) @db.Timestamptz(3)
   host User @relation("liveHost", fields: [hostId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   comments LiveComment[]
+  gifts LiveGift[]
   @@index([status, startedAt])
   @@index([hostId, startedAt(sort: Desc)])
   @@map("lives")
@@ -453,4 +456,22 @@ model StoryView {
   @@index([storyId, viewedAt(sort: Desc), userId(sort: Desc)])
   @@index([userId])
   @@map("story_views")
+}
+
+// FR-14 gift shown in a live stream. Its id is the coin operation that moved
+// the price from the sender to the host in the same transaction.
+model LiveGift {
+  id String @id @db.Uuid
+  liveId String @db.Uuid
+  senderId String @db.Uuid
+  idempotencyKey String @db.Uuid
+  giftKey String @db.VarChar(80)
+  price Int
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  operation CoinOperation @relation(fields: [id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  live Live @relation(fields: [liveId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  sender User @relation("liveGiftSender", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([senderId, idempotencyKey])
+  @@index([liveId, createdAt, id])
+  @@map("live_gifts")
 }

@@ -113,6 +113,7 @@ describe('Database Foundation (real PostgreSQL)', () => {
       { name: 'direct_messages' },
       { name: 'follows' },
       { name: 'live_comments' },
+      { name: 'live_gifts' },
       { name: 'lives' },
       { name: 'mail_deliveries' },
       { name: 'media' },

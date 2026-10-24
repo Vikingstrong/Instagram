@@ -2,6 +2,7 @@ import { z } from "zod";
 import { UserSummarySchema, PageCursorSchema } from "./social.js";
 import { profileText } from "./users.js";
 import { CallSignalSchema } from "./calls.js";
+import { CoinAmountSchema } from "./coins.js";
 
 // FR-12 live streams (stage 10, P-15 proposal): the host's browser sends
 // WebRTC media to each viewer; the API only authorizes, relays signals and
@@ -77,7 +78,45 @@ export const LiveCommentsResponseSchema = z.strictObject({
 // SSE "live" event: ids only, the state is read over REST.
 export const LiveNoticeSchema = z.strictObject({ liveId: z.uuid() });
 
+// FR-14 gifts in a live stream (P-17 catalog, owner 2026-10-24). The price
+// in coins comes from this catalog on the server; the viewer sends only the
+// key, and the host receives the full price. Gifts priced above
+// fullscreenAbove play full screen for everyone in the stream.
+export const liveGiftCatalog = [
+  { key: "rose", price: 1 },
+  { key: "heart", price: 3 },
+  { key: "glasses", price: 5 },
+  { key: "instagram", price: 10 },
+  { key: "pumpkin", price: 50 },
+  { key: "cat", price: 100 },
+] as const;
+export const liveGiftRules = { fullscreenAbove: 10 } as const;
+export const LiveGiftKeySchema = z.enum(["rose", "heart", "glasses", "instagram", "pumpkin", "cat"]);
+export type LiveGiftKey = z.infer<typeof LiveGiftKeySchema>;
+export const liveGiftPrice = (key: LiveGiftKey): number =>
+  liveGiftCatalog.find((gift) => gift.key === key)!.price;
+export const isFullscreenGift = (key: LiveGiftKey) =>
+  liveGiftPrice(key) > liveGiftRules.fullscreenAbove;
+// id: one sending intent chosen by the client; a retry keeps the same id.
+export const SendLiveGiftRequestSchema = z.strictObject({ id: z.uuid(), giftKey: LiveGiftKeySchema });
+export const LiveGiftSchema = z.strictObject({
+  id: z.uuid(),
+  giftKey: LiveGiftKeySchema,
+  price: z.int().positive(),
+  sender: UserSummarySchema,
+  createdAt: z.iso.datetime(),
+});
+// balance: the sender's wallet right after the gift.
+export const SendLiveGiftResponseSchema = z.strictObject({ gift: LiveGiftSchema, balance: CoinAmountSchema });
+export const LiveGiftsQuerySchema = z.strictObject({ after: PageCursorSchema.optional() });
+export const LiveGiftsResponseSchema = z.strictObject({
+  items: z.array(LiveGiftSchema),
+  next: PageCursorSchema.nullable(),
+});
+
 export type Live = z.infer<typeof LiveSchema>;
+export type LiveGift = z.infer<typeof LiveGiftSchema>;
+export type SendLiveGiftRequest = z.infer<typeof SendLiveGiftRequestSchema>;
 export type LivePeer = z.infer<typeof LivePeerSchema>;
 export type LiveComment = z.infer<typeof LiveCommentSchema>;
 export type StartLiveRequest = z.infer<typeof StartLiveRequestSchema>;
@@ -98,4 +137,6 @@ export const livesEndpoints = {
   sendSignal: { method: "POST", path: "/api/v1/lives/{id}/signals", successStatus: 200 },
   comments: { method: "GET", path: "/api/v1/lives/{id}/comments", successStatus: 200 },
   comment: { method: "POST", path: "/api/v1/lives/{id}/comments", successStatus: 201 },
+  gifts: { method: "GET", path: "/api/v1/lives/{id}/gifts", successStatus: 200 },
+  sendGift: { method: "POST", path: "/api/v1/lives/{id}/gifts", successStatus: 201 },
 } as const;

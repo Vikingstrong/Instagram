@@ -6,10 +6,13 @@ import {
 } from '@nestjs/common';
 import {
   LiveCommentSchema,
+  LiveGiftSchema,
   LiveSchema,
+  liveGiftPrice,
   liveRules,
   type CallSignal,
   type CreateLiveCommentRequest,
+  type SendLiveGiftRequest,
   type StartLiveRequest,
 } from '@instagram/contracts';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
@@ -32,6 +35,7 @@ import {
   iceConfiguration,
   type CallsConfig,
 } from '../calls/calls.config.js';
+import { CoinsService } from '../coins/coins.service.js';
 import { LiveRooms } from './live-rooms.js';
 
 export const LIVES_CONFIG = Symbol('LIVES_CONFIG');
@@ -57,6 +61,7 @@ const select = { host: { select: summarySelect } } as const;
 type Row = Prisma.LiveGetPayload<{ include: typeof select }>;
 type EndReason = 'HOST' | 'LOST' | 'SIGNED_OUT' | 'TIME_LIMIT';
 const commentSelect = { author: { select: summarySelect } } as const;
+const giftSelect = { sender: { select: summarySelect } } as const;
 const page = 50;
 
 export function liveIceConfiguration(config: CallsConfig, userId: string) {
@@ -83,6 +88,7 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
     private readonly revocations: SessionRevocations,
     @Inject(CALLS_CONFIG) private readonly ice: CallsConfig,
     @Inject(LIVES_CONFIG) private readonly config: LivesConfig,
+    @Inject(CoinsService) private readonly coins: CoinsService,
   ) {}
 
   onModuleInit() {
@@ -459,6 +465,128 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
     return this.comment(saved);
   }
 
+  private gift(row: Prisma.LiveGiftGetPayload<{ include: typeof giftSelect }>) {
+    return LiveGiftSchema.parse({
+      id: row.id,
+      giftKey: row.giftKey,
+      price: row.price,
+      sender: userSummary(row.sender),
+      createdAt: row.createdAt.toISOString(),
+    });
+  }
+
+  // Gifts in (createdAt, id) order, like the chat. They outlive the stream.
+  async gifts(viewerId: string, id: string, cursor?: string) {
+    await this.require(viewerId, id);
+    const after = decodeCursor(cursor, 'date');
+    const rows = after
+      ? await this.db.prisma.liveGift.findMany({
+          where: {
+            liveId: id,
+            OR: [
+              { createdAt: { gt: after.date } },
+              { createdAt: after.date, id: { gt: after.id } },
+            ],
+          },
+          include: giftSelect,
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: page,
+        })
+      : (
+          await this.db.prisma.liveGift.findMany({
+            where: { liveId: id },
+            include: giftSelect,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: page,
+          })
+        ).reverse();
+    const last = rows.at(-1);
+    return {
+      items: rows.map((row) => this.gift(row)),
+      next: last
+        ? encodeCursor(last.createdAt.toISOString(), last.id)
+        : (cursor ?? null),
+    };
+  }
+
+  // FR-14: the viewer pays the catalog price, the host receives all of it.
+  // The stream row is locked first, so ending the stream and a gift are
+  // ordered: a gift either lands while LIVE or is refused without a charge.
+  async sendGift(userId: string, id: string, input: SendLiveGiftRequest) {
+    const price = liveGiftPrice(input.giftKey);
+    const replay = <T extends { liveId: string; giftKey: string }>(
+      saved: T | null,
+    ) => {
+      if (saved && (saved.liveId !== id || saved.giftKey !== input.giftKey))
+        throw new AuthError('COINS_OPERATION_CONFLICT');
+      return saved;
+    };
+    // A retry after a lost response returns the committed gift, even when
+    // the stream has ended since.
+    let saved = replay(
+      await this.db.prisma.liveGift.findUnique({
+        where: {
+          senderId_idempotencyKey: {
+            senderId: userId,
+            idempotencyKey: input.id,
+          },
+        },
+        include: giftSelect,
+      }),
+    );
+    let hostId: string | undefined;
+    if (!saved)
+      saved = await this.db.prisma.$transaction(async (tx) => {
+        const [live] = await tx.$queryRaw<
+          { hostId: string; status: 'LIVE' | 'ENDED' }[]
+        >`SELECT "hostId", "status" FROM "lives" WHERE "id" = ${id}::uuid FOR UPDATE`;
+        if (
+          !live ||
+          !(await tx.user.count({
+            where: { id: live.hostId, ...visibleAuthor(userId) },
+          }))
+        )
+          throw new AuthError('LIVE_NOT_FOUND');
+        if (live.status !== 'LIVE') throw new AuthError('LIVE_ENDED');
+        if (live.hostId === userId) throw new AuthError('LIVE_STATE_CONFLICT');
+        hostId = live.hostId;
+        const { receipt, replayed } = await this.coins.transferGift(tx, {
+          senderId: userId,
+          recipientId: live.hostId,
+          amount: String(price),
+          streamId: id,
+          giftKey: input.giftKey,
+          idempotencyKey: input.id,
+        });
+        // A concurrent retry committed first: its row is already here.
+        if (replayed)
+          return replay(
+            await tx.liveGift.findUnique({
+              where: { id: receipt.id },
+              include: giftSelect,
+            }),
+          );
+        return tx.liveGift.create({
+          data: {
+            id: receipt.id,
+            liveId: id,
+            senderId: userId,
+            idempotencyKey: input.id,
+            giftKey: input.giftKey,
+            price,
+            createdAt: new Date(receipt.createdAt),
+          },
+          include: giftSelect,
+        });
+      });
+    if (!saved) throw new AuthError('COINS_OPERATION_CONFLICT');
+    if (hostId) this.notify(id, hostId);
+    return {
+      gift: this.gift(saved),
+      balance: (await this.coins.wallet(userId)).balance,
+    };
+  }
+
   // Viewer connections of the session end synchronously, before the logout
   // response; the host's stream ends right after.
   private async revoke(revocation: SessionRevocation) {
@@ -528,10 +656,12 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
         if (removed.length) this.notify(liveId, hostId, removed);
       }
     }
+    // A stream with gifts stays: it is the context of their coin transfers.
     await this.db.prisma.live.deleteMany({
       where: {
         status: 'ENDED',
         endedAt: { lt: new Date(now - this.config.keepEndedMs) },
+        gifts: { none: {} },
       },
     });
   }
