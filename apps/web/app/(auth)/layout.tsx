@@ -7,7 +7,8 @@ export const metadata: Metadata = { referrer: "no-referrer", robots: { index: fa
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="auth-layout">
+    // The auth artwork is designed dark, so it keeps the dark palette in both themes.
+    <main className="auth-layout dark">
       {/* Page corners glow in the Instagram logo colours, under both columns. */}
       <span aria-hidden="true" className="auth-page-glow auth-page-glow-tl" />
       <span aria-hidden="true" className="auth-page-glow auth-page-glow-tr" />

@@ -158,3 +158,21 @@
   .auth-form-container { padding: 28px 0; }
 }
 @media (prefers-reduced-motion: reduce) { .auth-layout * { transition: none; } }
+
+/* Theme switch as a book page turn (View Transitions, see lib/theme.ts).
+   The spine is the left edge: going dark the old page lifts off towards the
+   reader, going light the new page is laid back down over the old one. The
+   page underneath sits in the turning page's shadow until it is uncovered. */
+::view-transition-old(root),
+::view-transition-new(root) { mix-blend-mode: normal; transform-origin: left center; backface-visibility: hidden; }
+html[data-theme-flip="forward"]::view-transition-old(root) { z-index: 2; animation: theme-page-turn 1s cubic-bezier(0.55, 0.05, 0.3, 1) both; }
+html[data-theme-flip="forward"]::view-transition-new(root) { z-index: 1; animation: theme-page-shadow 1s cubic-bezier(0.55, 0.05, 0.3, 1) reverse both; }
+html[data-theme-flip="back"]::view-transition-old(root) { z-index: 1; animation: theme-page-shadow 1s cubic-bezier(0.55, 0.05, 0.3, 1) both; }
+html[data-theme-flip="back"]::view-transition-new(root) { z-index: 2; animation: theme-page-turn 1s cubic-bezier(0.55, 0.05, 0.3, 1) reverse both; }
+/* Perspective scales with the viewport so the lifted edge never passes the eye. */
+@keyframes theme-page-turn {
+  0% { transform: perspective(250vw) rotateY(0); filter: brightness(1); }
+  45% { transform: perspective(250vw) rotateY(-38deg) skewY(-1.5deg); filter: brightness(0.92); }
+  100% { transform: perspective(250vw) rotateY(-92deg) skewY(-3deg); filter: brightness(0.6); }
+}
+@keyframes theme-page-shadow { from { filter: brightness(1); } to { filter: brightness(0.55); } }

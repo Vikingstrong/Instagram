@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Coins } from "lucide-react";
+import { Coins, Moon, Sun } from "lucide-react";
 import { createCoinsClient, formatCoins } from "@/lib/api/coins";
 
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/components/icons/ig-icons";
 import { useHomeIdentity } from "@/features/auth/home-access";
 import { LogoutDialog } from "@/features/auth/logout-dialog";
+import { toggleTheme, useTheme } from "@/lib/theme";
 
 const itemClass =
   "flex w-full items-center gap-3 rounded-lg px-4 py-3.5 text-sm transition-colors hover:bg-secondary";
@@ -27,6 +28,7 @@ export function MoreMenu({
   compact?: boolean;
 }) {
   const user = useHomeIdentity();
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [logout, setLogout] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -76,6 +78,30 @@ export function MoreMenu({
           aria-label="Ещё"
           className={`${compact ? "fixed top-16 right-4" : "fixed bottom-20 left-3"} z-60 w-66 rounded-2xl border bg-ig-elevated p-2 shadow-[0_4px_24px_rgb(0_0_0/0.35)]`}
         >
+          {/* Stays open so the switch is seen flipping with the page. */}
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={theme === "dark"}
+            className={itemClass}
+            onClick={toggleTheme}
+          >
+            {theme === "dark" ? (
+              <Moon aria-hidden className="size-5" />
+            ) : (
+              <Sun aria-hidden className="size-5" />
+            )}
+            <span className="flex-1 text-left">Тёмный режим</span>
+            <span
+              aria-hidden
+              className={`relative h-6 w-10 rounded-full transition-colors duration-300 ${theme === "dark" ? "bg-ig-blue" : "bg-muted-foreground/40"}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform duration-300 ${theme === "dark" ? "translate-x-4" : ""}`}
+              />
+            </span>
+          </button>
+          <div className="my-2 h-px bg-border" />
           {user && (
             <>
               <Link
