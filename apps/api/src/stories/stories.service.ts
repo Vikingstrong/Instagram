@@ -29,6 +29,7 @@ import { visibleStory } from './story-policy.js';
 
 const selection = (viewerId: string) =>
   ({
+    _count: { select: { shares: true } },
     id: true,
     createdAt: true,
     expiresAt: true,
@@ -68,6 +69,7 @@ function dto(row: Row): Story {
         ? { url: mediaUrl(m.id, 'video'), durationMs: m.durationMs }
         : null,
     viewed: row.views.length > 0,
+    shareCount: row._count.shares,
   });
 }
 function lifetime() {

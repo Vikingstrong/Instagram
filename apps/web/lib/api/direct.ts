@@ -7,6 +7,8 @@ import {
   DirectMessageListResponseSchema,
   DirectMessageResponseSchema,
   type SendMessageRequest,
+  type ShareContentRequest,
+  ShareContentResponseSchema,
 } from "@instagram/contracts";
 
 import {
@@ -44,8 +46,13 @@ export function createDirectClient(api: ApiClient = createApiClient()) {
         ConversationListResponseSchema,
         { signal },
       ),
-    open: (userId: string) =>
-      mutate(directEndpoints.open, ConversationResponseSchema, { userId }),
+    open: (userId: string, signal?: AbortSignal) =>
+      mutate(
+        directEndpoints.open,
+        ConversationResponseSchema,
+        { userId },
+        signal,
+      ),
     conversation: (id: string, signal?: AbortSignal) =>
       api.request(
         withPath(directEndpoints.conversation, { id }),
@@ -57,6 +64,13 @@ export function createDirectClient(api: ApiClient = createApiClient()) {
         withPath(directEndpoints.messages, { id }, { cursor }),
         DirectMessageListResponseSchema,
         { signal },
+      ),
+    share: (id: string, body: ShareContentRequest, signal?: AbortSignal) =>
+      mutate(
+        withPath(directEndpoints.share, { id }),
+        ShareContentResponseSchema,
+        body,
+        signal,
       ),
     sendMedia: (
       id: string,
