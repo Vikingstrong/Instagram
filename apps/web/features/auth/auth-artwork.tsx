@@ -39,6 +39,11 @@ function StoryCard({
 export function AuthArtwork() {
   return (
     <div className="auth-art" aria-hidden="true">
+      {/* Soft glows in the Instagram logo colours, behind the cards. */}
+      <span className="auth-glow auth-glow-purple" />
+      <span className="auth-glow auth-glow-red" />
+      <span className="auth-glow auth-glow-yellow" />
+      <span className="auth-glow auth-glow-orange" />
       <StoryCard position="left" src="/auth-art/story-left.jpg" progress={70} sizes="168px" />
       <StoryCard position="right" src="/auth-art/story-right.jpg" progress={35} sizes="168px" />
       <StoryCard position="center" src="/auth-art/story-center.jpg" progress={55} sizes="216px" />

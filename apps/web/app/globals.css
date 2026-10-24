@@ -106,7 +106,13 @@
 }
 
 /* Auth: split editorial cover on desktop, focused form on mobile. */
-.auth-layout { display: grid; min-height: 100dvh; grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.85fr); background: #0c1014; color: #f5f5f5; }
+.auth-layout { position: relative; isolation: isolate; overflow: hidden; display: grid; min-height: 100dvh; grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.85fr); background: #0c1014; color: #f5f5f5; }
+.auth-layout > :not(.auth-page-glow) { position: relative; z-index: 1; }
+.auth-page-glow { position: absolute; z-index: 0; width: 520px; height: 520px; border-radius: 50%; filter: blur(140px); opacity: 0.38; pointer-events: none; animation: auth-glow 12s ease-in-out infinite alternate; }
+.auth-page-glow-tl { left: -220px; top: -220px; background: #833ab4; }
+.auth-page-glow-tr { right: -220px; top: -220px; background: #e1306c; animation-delay: -4s; }
+.auth-page-glow-bl { left: -220px; bottom: -220px; background: #fcaf45; animation-delay: -8s; }
+.auth-page-glow-br { right: -220px; bottom: -220px; background: #f56040; animation-delay: -2s; }
 .auth-story { position: relative; display: flex; flex-direction: column; overflow: hidden; padding: 36px 48px 24px; background: radial-gradient(ellipse at 35% 65%, #36203955, transparent 60%); }
 .auth-brand-link { align-self: flex-start; }
 .auth-story-content { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding-top: 38px; text-align: center; }
@@ -114,7 +120,7 @@
 .auth-story h2 { margin-top: 20px; font-family: Georgia, serif; font-size: clamp(36px, 3.6vw, 64px); font-weight: 400; line-height: 1.15; letter-spacing: -.035em; }
 .auth-story h2 span { background: linear-gradient(110deg, #ffc995, #f6a3cf, #bba8ff); background-clip: text; color: transparent; }
 .auth-story-footnote { margin-top: 8px; color: #8f929c; font-size: 12px; }
-.auth-panel { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid #ffffff12; background: #16191e; padding: 72px 48px 24px; }
+.auth-panel { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid #ffffff12; background: radial-gradient(circle at 0% 0%, #833ab447, transparent 38%), radial-gradient(circle at 100% 0%, #e1306c47, transparent 38%), radial-gradient(circle at 0% 100%, #fcaf4538, transparent 38%), radial-gradient(circle at 100% 100%, #f5604047, transparent 38%), #16191ec7; padding: 72px 48px 24px; }
 .auth-form-container { width: 100%; max-width: 400px; margin: auto 0; padding: 28px 0 44px; }
 .auth-mobile-brand { display: none; }
 .auth-footer { display: flex; width: 100%; max-width: 400px; justify-content: space-between; gap: 20px; padding-top: 24px; color: #7d828d; font-size: 11px; }
@@ -124,6 +130,13 @@
 .auth-card-left { left: 18px; top: 62px; width: 168px; height: 280px; transform: rotate(-8deg); }
 .auth-card-right { right: 18px; top: 62px; width: 168px; height: 280px; transform: rotate(8deg); }
 .auth-card-center { left: 122px; top: 8px; z-index: 2; width: 216px; height: 360px; }
+.auth-glow { position: absolute; z-index: 0; width: 190px; height: 190px; border-radius: 50%; filter: blur(64px); opacity: 0.55; pointer-events: none; animation: auth-glow 9s ease-in-out infinite alternate; }
+.auth-glow-purple { left: -40px; top: -30px; background: #833ab4; }
+.auth-glow-red { right: -40px; top: -20px; background: #e1306c; animation-delay: -3s; }
+.auth-glow-yellow { left: -30px; bottom: -40px; background: #fcaf45; animation-delay: -6s; }
+.auth-glow-orange { right: -30px; bottom: -30px; background: #f56040; animation-delay: -1.5s; }
+@keyframes auth-glow { from { transform: scale(0.9) translate(0, 0); opacity: 0.45; } to { transform: scale(1.12) translate(10px, -8px); opacity: 0.65; } }
+@media (prefers-reduced-motion: reduce) { .auth-glow, .auth-page-glow { animation: none; } }
 .auth-story-bars { position: absolute; inset: 10px 12px auto; z-index: 1; display: flex; gap: 4px; }
 .auth-story-bars span { height: 3px; flex: 1; overflow: hidden; border-radius: 3px; background: #ffffff59; }
 .auth-story-bars i { display: block; height: 100%; background: #fff; }
