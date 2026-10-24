@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,7 +58,7 @@ describe("creation chooser", () => {
       const trigger = screen.getByRole("button", { name: "Создать" });
       expect(trigger.hasAttribute("data-auth-required")).toBe(true);
       await user.click(trigger);
-      const dialog = screen.getByRole("dialog", { name: "Что создадим?" });
+      const menu = screen.getByRole("menu", { name: "Создать" });
       for (const [name, href] of [
         ["Публикация", "/create"],
         ["Reels", "/create/reel"],
@@ -66,32 +66,27 @@ describe("creation chooser", () => {
         ["Прямой эфир", "/live"],
       ]) {
         expect(
-          within(dialog).getByRole("link", { name }).getAttribute("href"),
+          within(menu).getByRole("menuitem", { name }).getAttribute("href"),
         ).toBe(href);
       }
-      await user.click(
-        within(dialog).getByRole("button", { name: "Закрыть выбор формата" }),
-      );
-      expect(screen.queryByRole("dialog")).toBeNull();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("menu")).toBeNull();
       expect(document.activeElement).toBe(trigger);
     },
   );
 
-  it("closes on native Escape cancellation and backdrop, but not on dialog content", async () => {
+  it("closes on outside clicks and choosing a format, but not on menu content", async () => {
     render(<MobileHeader />);
     const user = userEvent.setup();
     const trigger = screen.getByRole("button", { name: "Создать" });
     await user.click(trigger);
-    fireEvent(
-      screen.getByRole("dialog"),
-      new Event("cancel", { bubbles: false, cancelable: true }),
-    );
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByText("Создать", { selector: "p" }));
+    expect(screen.getByRole("menu")).toBeTruthy();
+    await user.click(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
     await user.click(trigger);
-    await user.click(screen.getByRole("heading", { name: "Что создадим?" }));
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    fireEvent.click(screen.getByRole("dialog"));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByRole("menuitem", { name: "Reels" }));
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 });
 
