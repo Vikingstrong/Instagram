@@ -32,8 +32,29 @@ function applyTheme(theme: Theme) {
   }
 }
 
-// Switches the theme with a page-turn: going dark turns the page forward
-// (the old page lifts off to the left), going light turns it back.
+// A wavy front (clip-path polygon) sweeping diagonally from the bottom-right
+// corner to the top-left. The front is the line x + y = level with a wave
+// along it; every frame has the same points, so the browser morphs them.
+function waveFrames(): Keyframe[] {
+  const frames: Keyframe[] = [];
+  for (let frame = 0; frame <= 30; frame++) {
+    const t = frame / 30;
+    const level = 215 - t * 240; // past the bottom-right corner → past the top-left
+    const points: string[] = [];
+    for (let u = -300; u <= 300; u += 10) {
+      const wave =
+        6 * Math.sin((u / 100) * 2 * Math.PI + t * 6 * Math.PI) +
+        2.5 * Math.sin((u / 100) * 5 * Math.PI - t * 4 * Math.PI);
+      const x = (level + u) / 2 + wave;
+      const y = (level - u) / 2 + wave;
+      points.push(`${x.toFixed(2)}% ${y.toFixed(2)}%`);
+    }
+    frames.push({ clipPath: `polygon(${points.join(", ")}, 500% 500%)` });
+  }
+  return frames;
+}
+
+// Switches the theme with a wave of the new palette washing over the page.
 export function toggleTheme() {
   const next: Theme = readTheme() === "dark" ? "light" : "dark";
   const root = document.documentElement;
@@ -44,9 +65,16 @@ export function toggleTheme() {
     applyTheme(next);
     return;
   }
-  root.dataset.themeFlip = next === "dark" ? "forward" : "back";
+  root.dataset.themeWave = "";
   const transition = document.startViewTransition(() => applyTheme(next));
+  void transition.ready.then(() => {
+    root.animate(waveFrames(), {
+      duration: 1200,
+      easing: "cubic-bezier(0.45, 0, 0.25, 1)",
+      pseudoElement: "::view-transition-new(root)",
+    });
+  });
   void transition.finished.finally(() => {
-    delete root.dataset.themeFlip;
+    delete root.dataset.themeWave;
   });
 }

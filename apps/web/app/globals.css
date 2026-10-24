@@ -107,8 +107,8 @@
 
 /* Auth: split editorial cover on desktop, focused form on mobile. */
 .auth-layout { position: relative; isolation: isolate; overflow: hidden; display: grid; min-height: 100dvh; grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.85fr); background: var(--background); color: var(--foreground); }
-.auth-layout > :not(.auth-page-glow, .auth-theme-toggle) { position: relative; z-index: 1; }
-.auth-theme-toggle { position: absolute; top: 20px; right: 20px; z-index: 5; display: grid; width: 40px; height: 40px; place-items: center; border-radius: 999px; transition: background-color .2s; }
+.auth-layout > :not(.auth-page-glow) { position: relative; z-index: 1; }
+.auth-theme-toggle { position: absolute; top: 16px; right: 16px; z-index: 5; display: grid; width: 40px; height: 40px; place-items: center; border-radius: 999px; transition: background-color .2s; }
 .auth-theme-toggle:hover { background: var(--secondary); }
 .auth-page-glow { position: absolute; z-index: 0; width: 520px; height: 520px; border-radius: 50%; filter: blur(140px); opacity: 0.38; pointer-events: none; animation: auth-glow 12s ease-in-out infinite alternate; }
 .auth-page-glow-tl { left: -220px; top: -220px; background: #833ab4; }
@@ -169,20 +169,8 @@
 }
 @media (prefers-reduced-motion: reduce) { .auth-layout * { transition: none; } }
 
-/* Theme switch as a book page turn (View Transitions, see lib/theme.ts).
-   The spine is the left edge: going dark the old page lifts off towards the
-   reader, going light the new page is laid back down over the old one. The
-   page underneath sits in the turning page's shadow until it is uncovered. */
-::view-transition-old(root),
-::view-transition-new(root) { mix-blend-mode: normal; transform-origin: left center; backface-visibility: hidden; }
-html[data-theme-flip="forward"]::view-transition-old(root) { z-index: 2; animation: theme-page-turn 1s cubic-bezier(0.55, 0.05, 0.3, 1) both; }
-html[data-theme-flip="forward"]::view-transition-new(root) { z-index: 1; animation: theme-page-shadow 1s cubic-bezier(0.55, 0.05, 0.3, 1) reverse both; }
-html[data-theme-flip="back"]::view-transition-old(root) { z-index: 1; animation: theme-page-shadow 1s cubic-bezier(0.55, 0.05, 0.3, 1) both; }
-html[data-theme-flip="back"]::view-transition-new(root) { z-index: 2; animation: theme-page-turn 1s cubic-bezier(0.55, 0.05, 0.3, 1) reverse both; }
-/* Perspective scales with the viewport so the lifted edge never passes the eye. */
-@keyframes theme-page-turn {
-  0% { transform: perspective(250vw) rotateY(0); filter: brightness(1); }
-  45% { transform: perspective(250vw) rotateY(-38deg) skewY(-1.5deg); filter: brightness(0.92); }
-  100% { transform: perspective(250vw) rotateY(-92deg) skewY(-3deg); filter: brightness(0.6); }
-}
-@keyframes theme-page-shadow { from { filter: brightness(1); } to { filter: brightness(0.55); } }
+/* Theme switch as a wave (View Transitions, see lib/theme.ts): the old page
+   stays still and the new one is revealed by an animated wavy clip-path. */
+html[data-theme-wave]::view-transition-old(root),
+html[data-theme-wave]::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+html[data-theme-wave]::view-transition-new(root) { z-index: 2; }

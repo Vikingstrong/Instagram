@@ -14,7 +14,6 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <span aria-hidden="true" className="auth-page-glow auth-page-glow-tr" />
       <span aria-hidden="true" className="auth-page-glow auth-page-glow-bl" />
       <span aria-hidden="true" className="auth-page-glow auth-page-glow-br" />
-      <ThemeToggle className="auth-theme-toggle" />
       <div className="auth-story">
         <Link href="/auth/login" className="auth-brand-link"><AuthBrand /></Link>
         <div className="auth-story-content">
@@ -25,6 +24,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <div className="auth-panel">
+        <ThemeToggle className="auth-theme-toggle" />
         <Link href="/auth/login" className="auth-mobile-brand"><AuthBrand /></Link>
         <section className="auth-form-container" aria-label="Аккаунт">{children}</section>
         <footer className="auth-footer"><span>© 2026 Instagram Clone</span><span>Русский</span></footer>
