@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
 import type { MediaKind, Prisma } from '../generated/prisma/client.js';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { AudioProcessor } from './audio-processor.js';
 import { ImageProcessor } from './image-processor.js';
 import {
   MEDIA_STORAGE,
@@ -41,6 +43,7 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
 
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(AudioProcessor) private readonly audio: AudioProcessor,
     @Inject(ImageProcessor) private readonly images: ImageProcessor,
     @Inject(MEDIA_STORAGE) private readonly storage: MediaStorage,
     @Inject(VideoProcessor) private readonly videos: VideoProcessor,
@@ -54,7 +57,9 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     kind: MediaKind,
     input: Buffer,
   ): Promise<{ id: string; width: number; height: number }> {
-    const image = await this.images.process(input);
+    const image = await (kind === 'COMMENT' || kind === 'DIRECT'
+      ? this.images.processComment(input)
+      : this.images.process(input));
     const media = await this.database.prisma.media.create({
       data: { ownerId, kind },
       select: { id: true },
@@ -69,10 +74,39 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     return { id: media.id, width: image.width, height: image.height };
   }
 
+  async storeVoice(
+    ownerId: string,
+    input: Buffer,
+  ): Promise<{ id: string; durationMs: number }> {
+    const work = await mkdtemp(join(await this.storage.incoming(), 'voice-'));
+    let id: string | undefined;
+    try {
+      const audio = await this.audio.process(input, work);
+      const row = await this.database.prisma.media.create({
+        data: {
+          ownerId,
+          kind: 'DIRECT',
+          type: 'AUDIO',
+          durationMs: audio.durationMs,
+        },
+        select: { id: true },
+      });
+      id = row.id;
+      await this.storage.importFile(id, 'audio', audio.file);
+      await this.storage.importFile(id, 'opus', audio.opus);
+      return { id, durationMs: audio.durationMs };
+    } catch (error) {
+      if (id) await this.discard(id);
+      throw error;
+    } finally {
+      await rm(work, { recursive: true, force: true });
+    }
+  }
+
   // Conditional PENDING → READY inside the caller's transaction.
   async activate(
     tx: Prisma.TransactionClient,
-    media: { id: string; width: number; height: number },
+    media: { id: string; width?: number; height?: number },
   ): Promise<void> {
     const { count } = await tx.media.updateMany({
       where: { id: media.id, state: 'PENDING' },
@@ -126,11 +160,12 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     tx: Prisma.TransactionClient,
     ownerId: string,
     info: VideoInfo,
+    kind: MediaKind = 'POST',
   ): Promise<{ id: string }> {
     return tx.media.create({
       data: {
         ownerId,
-        kind: 'POST',
+        kind,
         type: 'VIDEO',
         ...outputSize(info.width, info.height),
       },
@@ -196,6 +231,7 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
   // Resolves when no video is being processed (tests, shutdown).
   async idle(): Promise<void> {
     while (this.jobs.size) await Promise.allSettled(this.jobs);
+    await this.audio.idle();
   }
 
   // Removes files, then the row, for DELETED media and abandoned uploads.
@@ -204,7 +240,11 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
     const cutoff = new Date(now.getTime() - PENDING_TTL_MS);
     // Failed videos were kept for their author to see; their posts go now.
     const failed = await this.database.prisma.media.findMany({
-      where: { failedAt: { lt: cutoff }, state: { not: 'DELETED' } },
+      where: {
+        kind: 'POST',
+        failedAt: { lt: cutoff },
+        state: { not: 'DELETED' },
+      },
       select: { id: true },
       take: 100,
     });
@@ -215,6 +255,15 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
           await this.markDeleted(tx, id);
         })
         .catch(() => undefined);
+    await this.database.prisma.media.updateMany({
+      where: {
+        kind: { in: ['COMMENT', 'DIRECT'] },
+        state: 'READY',
+        comment: null,
+        directMessage: null,
+      },
+      data: { state: 'DELETED', deletedAt: now },
+    });
     await this.storage.sweepIncoming(cutoff).catch(() => 0);
     const rows = await this.database.prisma.media.findMany({
       where: {
@@ -226,6 +275,9 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
           },
         ],
         post: null,
+        story: null,
+        comment: null,
+        directMessage: null,
       },
       select: { id: true },
       take: 100,
@@ -245,7 +297,14 @@ export class MediaService implements OnApplicationBootstrap, OnModuleDestroy {
   private async purge(id: string): Promise<void> {
     await this.storage.remove(id);
     await this.database.prisma.media.deleteMany({
-      where: { id, state: { not: 'READY' }, post: null },
+      where: {
+        id,
+        state: { not: 'READY' },
+        post: null,
+        story: null,
+        comment: null,
+        directMessage: null,
+      },
     });
   }
 

@@ -26,11 +26,26 @@ test('publish, view, set an avatar and delete a post', async ({ page, playwright
     await expectLoaded(full);
     const fullUrl = await full.getAttribute('src');
     expect(fullUrl).toMatch(/^\/api\/v1\/media\/[0-9a-f-]{36}\/full$/);
+    // Even the owner cannot send protected media through Next's shared cache.
+    expect((await page.request.get('/_next/image', { params: { url: fullUrl!, w: '128', q: '75' } })).status()).toBe(400);
 
     // A request without the session cookie gets no image.
     const guest = await playwright.request.newContext({ baseURL });
     expect((await guest.get(fullUrl!)).status()).not.toBe(200);
     await guest.dispose();
+
+    await page.getByLabel('Прикрепить фото или GIF').setInputFiles({ name: 'comment.png', mimeType: 'image/png', buffer: photo([80, 170, 110]) });
+    await expect(page.getByAltText('Превью вложения')).toBeVisible();
+    await page.getByRole('button', { name: 'Опубликовать', exact: true }).click();
+    await expectLoaded(page.getByAltText('Вложение комментария'));
+    const attachmentUrl = await page.getByAltText('Вложение комментария').getAttribute('src');
+    await page.reload();
+    await expectLoaded(page.getByAltText('Вложение комментария'));
+    await page.getByLabel('Прикрепить фото или GIF').setInputFiles({ name: 'motion.gif', mimeType: 'image/gif', buffer: Buffer.from('R0lGODlhBAAEAIAAAExpcRQUFCH/C05FVFNDQVBFMi4wAwEAAAAh+QQFCgAAACwAAAAABAAEAAACBIyPGQUAIfkEBRQAAAAsAAAAAAQABACATGlx8PDwAgSMjxkFADs=', 'base64') });
+    await page.getByRole('button', { name: 'Опубликовать', exact: true }).click();
+    await expect(page.getByAltText('Вложение комментария')).toHaveCount(2);
+    await expectLoaded(page.getByAltText('Вложение комментария').nth(1));
+
 
     await page.goto(`/${name}`);
     await expect(page.getByText('1 публикация', { exact: true })).toBeVisible();
@@ -56,6 +71,7 @@ test('publish, view, set an avatar and delete a post', async ({ page, playwright
     await expect(page.getByRole('heading', { name: 'Поделиться фото' })).toBeVisible();
     await expect(page.getByText('0 публикаций', { exact: true })).toBeVisible();
     expect((await page.request.get(fullUrl!)).status()).toBe(404);
+    expect((await page.request.get(attachmentUrl!)).status()).toBe(404);
   } finally {
     for (const fixture of fixtures) await fixture.stop();
   }

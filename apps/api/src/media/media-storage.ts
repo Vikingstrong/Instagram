@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 export type MediaVariant = 'full' | 'thumb';
 // Every stored file of one media item: image variants and the video.
-export type MediaFile = MediaVariant | 'video';
+export type MediaFile = MediaVariant | 'video' | 'audio' | 'opus';
 export const MEDIA_STORAGE = Symbol('MEDIA_STORAGE');
 
 // Private file storage. Only the API reads it, after checking access; there
@@ -58,7 +58,17 @@ export class LocalMediaStorage implements MediaStorage {
   private path(id: string, file?: MediaFile): string {
     if (!uuid.test(id)) throw new Error('Invalid media id.');
     if (!file) return join(this.root, id);
-    return join(this.root, id, file === 'video' ? 'video.mp4' : `${file}.webp`);
+    return join(
+      this.root,
+      id,
+      file === 'video'
+        ? 'video.mp4'
+        : file === 'audio'
+          ? 'audio.m4a'
+          : file === 'opus'
+            ? 'audio.webm'
+            : `${file}.webp`,
+    );
   }
 
   async write(id: string, variant: MediaVariant, data: Buffer): Promise<void> {

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../infrastructure/database/database.module.js';
+import { AudioProcessor } from './audio-processor.js';
 import { ImageProcessor } from './image-processor.js';
 import { VideoProcessor } from './video-processor.js';
 import {
@@ -14,6 +15,7 @@ import { MEDIA_CLEANUP, MediaService } from './media.service.js';
 @Module({
   imports: [DatabaseModule],
   providers: [
+    AudioProcessor,
     ImageProcessor,
     VideoProcessor,
     MediaService,
@@ -29,6 +31,6 @@ import { MEDIA_CLEANUP, MediaService } from './media.service.js';
           : process.env.MEDIA_CLEANUP_ENABLED === 'true',
     },
   ],
-  exports: [MediaService, VideoProcessor],
+  exports: [MediaService, VideoProcessor, MEDIA_CLEANUP],
 })
 export class MediaModule {}

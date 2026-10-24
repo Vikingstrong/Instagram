@@ -78,30 +78,65 @@ export const AuthLogoutResponseSchema = z.strictObject({
   status: z.literal("signed_out"),
 });
 export const AuthLogoutRequestSchema = z.strictObject({});
-export const AuthEmailRequestSchema = z.strictObject({ email: AuthEmailSchema });
-export const AuthLinkTokenSchema = z.string().length(43).regex(/^[A-Za-z0-9_-]{43}$/);
-export const AuthVerifyRequestSchema = z.strictObject({ token: AuthLinkTokenSchema });
+export const AuthEmailRequestSchema = z.strictObject({
+  email: AuthEmailSchema,
+});
+export const AuthLinkTokenSchema = z
+  .string()
+  .length(43)
+  .regex(/^[A-Za-z0-9_-]{43}$/);
+export const AuthVerifyRequestSchema = z.strictObject({
+  token: AuthLinkTokenSchema,
+});
 export const AuthResetPasswordRequestSchema = z.strictObject({
   token: AuthLinkTokenSchema,
   password: AuthPasswordSchema,
 });
-export const AuthEmailAcceptedResponseSchema = z.strictObject({ status: z.literal("accepted") });
-export const AuthVerifiedResponseSchema = z.strictObject({ status: z.literal("verified") });
-export const AuthPasswordResetResponseSchema = z.strictObject({ status: z.literal("password_reset") });
+export const AuthEmailAcceptedResponseSchema = z.strictObject({
+  status: z.literal("accepted"),
+});
+export const AuthVerifiedResponseSchema = z.strictObject({
+  status: z.literal("verified"),
+});
+export const AuthPasswordResetResponseSchema = z.strictObject({
+  status: z.literal("password_reset"),
+});
 
 export const authErrors = {
-  INVALID_OR_EXPIRED_TOKEN: { status: 400, message: "Invalid or expired token." },
+  COINS_INSUFFICIENT_BALANCE: { status: 409, message: "Not enough coins." },
+  COINS_OPERATION_CONFLICT: {
+    status: 409,
+    message: "Coin operation key was already used for a different gift.",
+  },
+  COINS_BALANCE_LIMIT: { status: 409, message: "Coin balance limit reached." },
+  STORY_NOT_FOUND: { status: 404, message: "Story is unavailable or expired." },
+  INVALID_OR_EXPIRED_TOKEN: {
+    status: 400,
+    message: "Invalid or expired token.",
+  },
   INVALID_REQUEST: { status: 400, message: "Invalid request." },
+  INVALID_AUDIO: { status: 400, message: "Invalid or unsupported audio." },
+  AUDIO_TOO_LONG: {
+    status: 400,
+    message: "Voice message exceeds three minutes.",
+  },
+  AUDIO_TOO_LARGE: { status: 413, message: "Voice message exceeds 10 MiB." },
   INVALID_IMAGE: {
     status: 400,
     message: "The image is damaged or its format is not supported.",
   },
-  IMAGE_TOO_LARGE: { status: 413, message: "The image is larger than allowed." },
+  IMAGE_TOO_LARGE: {
+    status: 413,
+    message: "The image is larger than allowed.",
+  },
   INVALID_VIDEO: {
     status: 400,
     message: "The video is damaged or its format is not supported.",
   },
-  VIDEO_TOO_LARGE: { status: 413, message: "The video is larger than allowed." },
+  VIDEO_TOO_LARGE: {
+    status: 413,
+    message: "The video is larger than allowed.",
+  },
   VIDEO_TOO_LONG: { status: 400, message: "The video is longer than allowed." },
   INVALID_CREDENTIALS: { status: 401, message: "Invalid email or password." },
   AUTHENTICATION_REQUIRED: {
@@ -121,7 +156,10 @@ export const authErrors = {
   COMMENT_NOT_FOUND: { status: 404, message: "Comment not found." },
   CALL_NOT_FOUND: { status: 404, message: "Call not found." },
   CALL_BUSY: { status: 409, message: "A participant is already in a call." },
-  CALL_STATE_CONFLICT: { status: 409, message: "Call state or device has changed." },
+  CALL_STATE_CONFLICT: {
+    status: 409,
+    message: "Call state or device has changed.",
+  },
   CALLS_UNAVAILABLE: { status: 503, message: "Calls are not configured." },
   LIVE_NOT_FOUND: { status: 404, message: "Live stream not found." },
   LIVE_BUSY: { status: 409, message: "You already have a live stream." },
@@ -171,8 +209,14 @@ function errorVariant<C extends AuthErrorCode>(code: C) {
 }
 export const AuthApiErrorResponseSchema = z.strictObject({
   error: z.discriminatedUnion("code", [
+    errorVariant("COINS_INSUFFICIENT_BALANCE"),
+    errorVariant("COINS_OPERATION_CONFLICT"),
+    errorVariant("COINS_BALANCE_LIMIT"),
     errorVariant("INVALID_OR_EXPIRED_TOKEN"),
     errorVariant("INVALID_REQUEST"),
+    errorVariant("INVALID_AUDIO"),
+    errorVariant("AUDIO_TOO_LONG"),
+    errorVariant("AUDIO_TOO_LARGE"),
     errorVariant("INVALID_IMAGE"),
     errorVariant("IMAGE_TOO_LARGE"),
     errorVariant("INVALID_VIDEO"),
@@ -186,6 +230,7 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("PROFILE_PRIVATE"),
     errorVariant("USER_NOT_FOUND"),
     errorVariant("FOLLOW_REQUEST_NOT_FOUND"),
+    errorVariant("STORY_NOT_FOUND"),
     errorVariant("POST_NOT_FOUND"),
     errorVariant("MEDIA_NOT_FOUND"),
     errorVariant("COMMENT_NOT_FOUND"),
@@ -212,10 +257,26 @@ export const AuthApiErrorResponseSchema = z.strictObject({
 });
 
 export const authEndpoints = {
-  requestVerification: { method: "POST", path: "/api/v1/auth/verification/request", successStatus: 202 },
-  verify: { method: "POST", path: "/api/v1/auth/verification/confirm", successStatus: 200 },
-  requestPasswordReset: { method: "POST", path: "/api/v1/auth/password/request", successStatus: 202 },
-  resetPassword: { method: "POST", path: "/api/v1/auth/password/reset", successStatus: 200 },
+  requestVerification: {
+    method: "POST",
+    path: "/api/v1/auth/verification/request",
+    successStatus: 202,
+  },
+  verify: {
+    method: "POST",
+    path: "/api/v1/auth/verification/confirm",
+    successStatus: 200,
+  },
+  requestPasswordReset: {
+    method: "POST",
+    path: "/api/v1/auth/password/request",
+    successStatus: 202,
+  },
+  resetPassword: {
+    method: "POST",
+    path: "/api/v1/auth/password/reset",
+    successStatus: 200,
+  },
   csrf: { method: "GET", path: "/api/v1/auth/csrf", successStatus: 200 },
   register: {
     method: "POST",

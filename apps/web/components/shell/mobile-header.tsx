@@ -1,6 +1,8 @@
 import Link from "next/link";
 
-import { CreateIcon, HeartIcon } from "@/components/icons/ig-icons";
+import { HeartIcon } from "@/components/icons/ig-icons";
+import { CreateMenu } from "./create-menu";
+import { MoreMenu } from "./more-menu";
 
 // Mobile top bar; desktop shows the logo inside SidebarNav instead.
 export function MobileHeader() {
@@ -9,10 +11,8 @@ export function MobileHeader() {
       <Link href="/" className="font-wordmark text-[28px] leading-none">
         Instagram
       </Link>
-      <div className="flex items-center gap-5">
-        <Link href="/create" aria-label="Создать" className="active:opacity-60">
-          <CreateIcon />
-        </Link>
+      <div className="flex items-center gap-2">
+        <CreateMenu className="grid size-10 place-items-center rounded-full transition-colors hover:bg-secondary active:opacity-60" />
         <Link
           href="/notifications"
           aria-label="Уведомления"
@@ -20,6 +20,7 @@ export function MobileHeader() {
         >
           <HeartIcon />
         </Link>
+        <MoreMenu compact />
       </div>
     </header>
   );

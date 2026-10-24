@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { CallPreviewSchema } from "./calls.js";
 import { PageCursorSchema, UserSummarySchema } from "./social.js";
-import { profileText } from "./users.js";
+import { MediaUrlSchema, profileText } from "./users.js";
 
 // FR-09 Direct over REST (stage 6): one-to-one text conversations. Any
 // verified user may write to any other, regardless of follows or privacy.
@@ -25,14 +25,49 @@ export const SendMessageRequestSchema = z.strictObject({
   text: DirectMessageTextSchema,
 });
 
-export const DirectMessageSchema = z.strictObject({
-  id: z.uuid(),
-  conversationId: z.uuid(),
-  senderId: z.uuid(),
+export const directImageRules = {
+  maxBytes: 10 * 1024 * 1024,
+  maxFrames: 100,
+  maxTotalPixels: 40_000_000,
+  formats: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+} as const;
+export const voiceMessageRules = {
+  maxBytes: 10 * 1024 * 1024,
+  maxDurationMs: 180_000,
+  formats: ["audio/webm", "audio/mp4", "audio/ogg", "audio/wav", "audio/mpeg"],
+} as const;
+export const SendMediaMessageFieldsSchema = z.strictObject({
   clientMessageId: z.uuid(),
-  text: DirectMessageTextSchema,
-  createdAt: z.iso.datetime(),
+  text: profileText(1000, true).optional().default(""),
 });
+export const DirectAttachmentSchema = z.discriminatedUnion("type", [
+  z.strictObject({
+    type: z.literal("image"),
+    url: MediaUrlSchema,
+    thumbnailUrl: MediaUrlSchema,
+    width: z.int().positive(),
+    height: z.int().positive(),
+  }),
+  z.strictObject({
+    type: z.literal("voice"),
+    opusUrl: MediaUrlSchema.optional(),
+    url: MediaUrlSchema,
+    durationMs: z.int().positive().max(voiceMessageRules.maxDurationMs),
+  }),
+]);
+export const DirectMessageSchema = z
+  .strictObject({
+    id: z.uuid(),
+    conversationId: z.uuid(),
+    senderId: z.uuid(),
+    clientMessageId: z.uuid(),
+    text: profileText(1000, true),
+    attachment: DirectAttachmentSchema.nullable().optional(),
+    createdAt: z.iso.datetime(),
+  })
+  .refine((value) => value.text.trim().length > 0 || !!value.attachment, {
+    message: "Message must contain text or an attachment.",
+  });
 
 export const ConversationSchema = z.strictObject({
   id: z.uuid(),
@@ -64,12 +99,47 @@ export type Conversation = z.infer<typeof ConversationSchema>;
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
 
 export const directEndpoints = {
-  conversations: { method: "GET", path: "/api/v1/direct/conversations", successStatus: 200 },
+  sendImage: {
+    method: "POST",
+    path: "/api/v1/direct/conversations/{id}/messages/image",
+    successStatus: 201,
+  },
+  sendVoice: {
+    method: "POST",
+    path: "/api/v1/direct/conversations/{id}/messages/voice",
+    successStatus: 201,
+  },
+  media: {
+    method: "GET",
+    path: "/api/v1/direct/conversations/{id}/messages/{messageId}/{variant}",
+    successStatus: 200,
+  },
+  conversations: {
+    method: "GET",
+    path: "/api/v1/direct/conversations",
+    successStatus: 200,
+  },
   // Same answer whether the conversation was just created or existed.
-  open: { method: "POST", path: "/api/v1/direct/conversations", successStatus: 200 },
-  conversation: { method: "GET", path: "/api/v1/direct/conversations/{id}", successStatus: 200 },
-  messages: { method: "GET", path: "/api/v1/direct/conversations/{id}/messages", successStatus: 200 },
+  open: {
+    method: "POST",
+    path: "/api/v1/direct/conversations",
+    successStatus: 200,
+  },
+  conversation: {
+    method: "GET",
+    path: "/api/v1/direct/conversations/{id}",
+    successStatus: 200,
+  },
+  messages: {
+    method: "GET",
+    path: "/api/v1/direct/conversations/{id}/messages",
+    successStatus: 200,
+  },
   // A repeat with the same clientMessageId and text returns the stored
   // message again (also 201); another text with that id is 409.
-  send: { method: "POST", path: "/api/v1/direct/conversations/{id}/messages", successStatus: 201 },
+  send: {
+    method: "POST",
+    path: "/api/v1/direct/conversations/{id}/messages",
+    successStatus: 201,
+  },
 } as const;

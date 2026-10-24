@@ -21,6 +21,9 @@ enum FollowStatus {
 }
 
 enum MediaKind {
+  DIRECT
+  COMMENT
+  STORY
   POST
   AVATAR
 }
@@ -33,6 +36,7 @@ enum MediaState {
 
 // FR-10: a post is a photo or a video; avatars are always images.
 enum MediaType {
+  AUDIO
   IMAGE
   VIDEO
 }
@@ -61,6 +65,8 @@ model User {
   followers         Follow[]        @relation("followee")
   avatar            Media?          @relation("avatar", fields: [avatarMediaId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   media             Media[]         @relation("owner")
+  stories           Story[]
+  storyViews        StoryView[]
   posts             Post[]
   likes             PostLike[]
   commentLikes      CommentLike[]
@@ -75,8 +81,50 @@ model User {
   lives Live[] @relation("liveHost")
   liveComments LiveComment[]
   messages          DirectMessage[]
+  coinWallet        CoinWallet?
+  coinsSent         CoinOperation[] @relation("coinSender")
+  coinsReceived     CoinOperation[] @relation("coinRecipient")
 
   @@map("auth_users")
+}
+
+enum CoinOperationKind {
+  DAILY_REWARD
+  GIFT_TRANSFER
+}
+
+model CoinWallet {
+  userId    String   @id @db.Uuid
+  balance   BigInt   @default(0)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("coin_wallets")
+}
+
+// Immutable journal; account deletion needs an explicit retention policy.
+model CoinOperation {
+  id                    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind                  CoinOperationKind
+  senderId              String? @db.Uuid
+  recipientId           String @db.Uuid
+  amount                BigInt
+  senderBalanceAfter    BigInt?
+  recipientBalanceAfter BigInt
+  claimDate             DateTime? @db.Date
+  streamId              String? @db.Uuid
+  giftKey               String? @db.VarChar(80)
+  idempotencyKey        String? @db.Uuid
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+  sender                User? @relation("coinSender", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  recipient             User @relation("coinRecipient", fields: [recipientId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([recipientId, claimDate])
+  @@unique([senderId, idempotencyKey])
+  @@index([recipientId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([senderId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([streamId])
+  @@map("coin_operations")
 }
 
 model AuthSession {
@@ -158,7 +206,7 @@ model Media {
   state      MediaState @default(PENDING)
   width      Int?
   height     Int?
-  // Video only: duration of the transcoded file.
+  // Video or voice: duration measured by the processing pipeline.
   durationMs Int?
   createdAt  DateTime   @default(now()) @db.Timestamptz(3)
   // A video whose processing failed stays PENDING with this set, so its
@@ -167,6 +215,9 @@ model Media {
   deletedAt  DateTime?  @db.Timestamptz(3)
   owner      User       @relation("owner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   avatarOf   User?      @relation("avatar")
+  directMessage DirectMessage?
+  comment    Comment?
+  story      Story?
   post       Post?
 
   @@index([state, createdAt])
@@ -208,6 +259,8 @@ model PostLike {
 }
 
 model Comment {
+  mediaId String? @unique @db.Uuid
+  media Media? @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   postId    String   @db.Uuid
   authorId  String   @db.Uuid
@@ -255,6 +308,9 @@ model Conversation {
 // A retry with the same (senderId, clientMessageId) finds the stored message
 // instead of creating a duplicate.
 model DirectMessage {
+  mediaId String? @unique @db.Uuid
+  sourceHash String? @db.VarChar(64)
+  media Media? @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
   id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   conversationId  String       @db.Uuid
   senderId        String       @db.Uuid
@@ -368,4 +424,33 @@ model LiveComment {
   @@index([liveId, createdAt, id])
   @@index([authorId])
   @@map("live_comments")
+}
+
+// FR-13: expiry is checked on every read, independently of background cleanup.
+model Story {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId  String      @db.Uuid
+  mediaId   String      @unique @db.Uuid
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime    @default(dbgenerated("(CURRENT_TIMESTAMP + '24:00:00'::interval)")) @db.Timestamptz(3)
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  media     Media       @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
+  views     StoryView[]
+
+  @@index([authorId, createdAt, id])
+  @@index([expiresAt])
+  @@map("stories")
+}
+
+model StoryView {
+  storyId String   @db.Uuid
+  userId  String   @db.Uuid
+  viewedAt DateTime @default(now()) @db.Timestamptz(3)
+  story   Story    @relation(fields: [storyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([storyId, userId])
+  @@index([storyId, viewedAt(sort: Desc), userId(sort: Desc)])
+  @@index([userId])
+  @@map("story_views")
 }

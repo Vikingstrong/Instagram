@@ -57,7 +57,10 @@ export function createPostsClient(api: ApiClient = createApiClient()) {
       onProgress?: UploadProgress,
       signal?: AbortSignal,
     ) => {
-      const csrf = await api.request(authEndpoints.csrf, AuthCsrfResponseSchema);
+      const csrf = await api.request(
+        authEndpoints.csrf,
+        AuthCsrfResponseSchema,
+      );
       if (!csrf.ok) return csrf;
       const form = new FormData();
       form.append(videoUploadRules.multipartField, video);
@@ -131,6 +134,22 @@ export function createPostsClient(api: ApiClient = createApiClient()) {
           ...(replyToCommentId && { replyToCommentId }),
         },
       ),
+    addMediaComment: (
+      id: string,
+      image: File,
+      text: string,
+      replyToCommentId?: string,
+    ) => {
+      const form = new FormData();
+      form.append("image", image);
+      form.append("text", text);
+      if (replyToCommentId) form.append("replyToCommentId", replyToCommentId);
+      return mutate(
+        withPath(postsEndpoints.addMediaComment, { id }),
+        CommentResponseSchema,
+        form,
+      );
+    },
     removeComment: (id: string) =>
       mutate(
         withPath(postsEndpoints.removeComment, { id }),

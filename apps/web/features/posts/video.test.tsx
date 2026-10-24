@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,6 +86,23 @@ afterEach(() => {
 });
 
 describe("create video post", () => {
+  it("offers only videos in Reels and rejects a dropped photo before upload", async () => {
+    const fetch = api([]);
+    render(<CreatePost mode="reel" />);
+    expect(screen.getByRole("heading", { name: "Новый Reels" })).toBeTruthy();
+    const field = screen.getByLabelText("Видео для Reels");
+    expect(field.getAttribute("accept")).not.toContain("image/");
+    fireEvent.drop(screen.getByText("Ваш следующий Reels начинается здесь").parentElement!.parentElement!, {
+      dataTransfer: { files: [new File(["x"], "photo.png", { type: "image/png" })] },
+    });
+    expect(screen.getByRole("alert").textContent).toContain("Для Reels выберите видео");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(uploadWithProgress).not.toHaveBeenCalled();
+    await userEvent.setup().upload(field, clip());
+    expect(screen.getByLabelText("Выбранное видео")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("uploads with progress, waits for processing and opens the post", async () => {
     api(["processing", "ready"]);
     let finish!: () => void;

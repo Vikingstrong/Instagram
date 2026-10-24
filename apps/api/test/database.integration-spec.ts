@@ -105,6 +105,8 @@ describe('Database Foundation (real PostgreSQL)', () => {
       { name: 'auth_users' },
       { name: 'call_seats' },
       { name: 'calls' },
+      { name: 'coin_operations' },
+      { name: 'coin_wallets' },
       { name: 'comment_likes' },
       { name: 'comments' },
       { name: 'direct_conversations' },
@@ -116,6 +118,8 @@ describe('Database Foundation (real PostgreSQL)', () => {
       { name: 'media' },
       { name: 'post_likes' },
       { name: 'posts' },
+      { name: 'stories' },
+      { name: 'story_views' },
     ]);
   });
 });

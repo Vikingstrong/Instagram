@@ -7,6 +7,8 @@ import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { SocialModule } from './social/social.module.js';
 import { PostsModule } from './posts/posts.module.js';
+import { CoinsModule } from './coins/coins.module.js';
+import { StoriesModule } from './stories/stories.module.js';
 import { CallsModule } from './calls/calls.module.js';
 import { DirectModule } from './direct/direct.module.js';
 import { LivesModule } from './lives/lives.module.js';
@@ -22,6 +24,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PostsModule,
     DirectModule,
     CallsModule,
+    StoriesModule,
+    CoinsModule,
     LivesModule,
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
@@ -31,7 +35,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'api',
       // Keep credentials/cookies and driver-error snapshots out of APM traces.
       http: {
-        ignore: [/^\/api\/v1\/(?:auth|users|me|search|posts|media|direct|calls|lives)(?:\/|$)/],
+        ignore: [/^\/api\/v1\/(?:auth|users|me|search|posts|media|direct|calls|stories|coins|lives)(?:\/|$)/],
       },
     }),
   ],

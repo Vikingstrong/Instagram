@@ -1,3 +1,4 @@
+import { StoryTray } from "@/features/stories/story-tray";
 import { AppShell } from "@/components/shell/app-shell";
 import { HomeAccess } from "@/features/auth/home-access";
 import { SuggestionsProvider } from "@/features/social/suggestions";
@@ -16,6 +17,7 @@ export default function Home() {
         <div className="flex w-full max-w-117.5 flex-col gap-6 py-4 md:py-6">
           <h1 className="sr-only">Главная</h1>
           <LiveStrip />
+          <StoryTray />
           <SuggestionsCarousel />
           <HomeFeed />
         </div>

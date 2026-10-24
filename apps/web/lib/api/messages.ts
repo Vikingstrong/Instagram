@@ -7,10 +7,16 @@ export function describeFailure(failure: ApiFailure): string {
   switch (failure.kind) {
     case "api":
       switch (failure.error.code) {
+        case "COINS_INSUFFICIENT_BALANCE": return "Недостаточно монет для этого подарка.";
+        case "COINS_OPERATION_CONFLICT": return "Этот запрос уже использован для другого подарка. Обновите страницу.";
+        case "COINS_BALANCE_LIMIT": return "Достигнут предел баланса монет.";
         case "INVALID_OR_EXPIRED_TOKEN":
           return "Ссылка недействительна или срок её действия истёк. Запросите новое письмо.";
         case "SERVICE_UNAVAILABLE":
           return "Сервис временно недоступен. Попробуйте позже.";
+        case "INVALID_AUDIO": return "Не удалось прочитать аудио. Запишите сообщение заново.";
+        case "AUDIO_TOO_LONG": return "Голосовое сообщение длиннее трёх минут.";
+        case "AUDIO_TOO_LARGE": return "Голосовое сообщение больше 10 МБ.";
         case "INVALID_IMAGE":
           return "Файл повреждён или это не JPEG, PNG или WebP.";
         case "IMAGE_TOO_LARGE":
@@ -21,6 +27,8 @@ export function describeFailure(failure: ApiFailure): string {
           return "Видео больше 100 МБ. Выберите файл поменьше.";
         case "VIDEO_TOO_LONG":
           return "Видео длиннее 90 секунд. Обрежьте его и попробуйте снова.";
+        case "STORY_NOT_FOUND":
+          return "История недоступна или срок её действия истёк.";
         case "POST_NOT_FOUND":
           return "Публикация недоступна или удалена.";
         case "MEDIA_NOT_FOUND":

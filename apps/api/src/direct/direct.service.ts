@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { MediaService } from '../media/media.service.js';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ConversationSchema,
@@ -25,16 +27,21 @@ const messageSelect = {
   clientMessageId: true,
   text: true,
   createdAt: true,
+  media: {
+    select: {
+      id: true,
+      type: true,
+      width: true,
+      height: true,
+      durationMs: true,
+    },
+  },
+  sourceHash: true,
 } as const;
 
-type MessageRow = {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  clientMessageId: string;
-  text: string;
-  createdAt: Date;
-};
+type MessageRow = Prisma.DirectMessageGetPayload<{
+  select: typeof messageSelect;
+}>;
 
 const conversationSelect = {
   id: true,
@@ -65,9 +72,36 @@ type ConversationRow = Prisma.ConversationGetPayload<{
   select: typeof conversationSelect;
 }>;
 
+function attachmentUrl(
+  row: { conversationId: string; id: string },
+  variant: string,
+) {
+  return `/api/v1/direct/conversations/${row.conversationId}/messages/${row.id}/${variant}`;
+}
+
 function toMessage(row: MessageRow): DirectMessage {
   return DirectMessageSchema.parse({
-    ...row,
+    id: row.id,
+    conversationId: row.conversationId,
+    senderId: row.senderId,
+    clientMessageId: row.clientMessageId,
+    text: row.text,
+    attachment: row.media
+      ? row.media.type === 'AUDIO'
+        ? {
+            type: 'voice',
+            url: attachmentUrl(row, 'audio'),
+            opusUrl: attachmentUrl(row, 'opus'),
+            durationMs: row.media.durationMs!,
+          }
+        : {
+            type: 'image',
+            url: attachmentUrl(row, 'full'),
+            thumbnailUrl: attachmentUrl(row, 'thumb'),
+            width: row.media.width!,
+            height: row.media.height!,
+          }
+      : null,
     createdAt: row.createdAt.toISOString(),
   });
 }
@@ -110,6 +144,7 @@ const uniqueViolation = (error: unknown) =>
 export class DirectService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(MediaService) private readonly media: MediaService,
     @Inject(DirectEvents) private readonly events: DirectEvents,
   ) {}
 
@@ -291,6 +326,105 @@ export class DirectService {
     }
   }
 
+  async sendMedia(
+    viewerId: string,
+    id: string,
+    input: { clientMessageId: string; text: string },
+    bytes: Buffer,
+    type: 'image' | 'voice',
+  ): Promise<DirectMessage> {
+    const pair = await this.requireParticipant(viewerId, id);
+    const sourceHash = createHash('sha256').update(bytes).digest('hex');
+    const replay = async () => {
+      const row = await this.database.prisma.directMessage.findUnique({
+        where: {
+          senderId_clientMessageId: {
+            senderId: viewerId,
+            clientMessageId: input.clientMessageId,
+          },
+        },
+        select: messageSelect,
+      });
+      if (!row) return undefined;
+      if (
+        row.conversationId !== id ||
+        row.text !== input.text ||
+        row.sourceHash !== sourceHash ||
+        (row.media?.type === 'AUDIO' ? 'voice' : 'image') !== type
+      )
+        throw new AuthError('MESSAGE_ID_CONFLICT');
+      return toMessage(row);
+    };
+    const previous = await replay();
+    if (previous) return previous;
+    const stored =
+      type === 'voice'
+        ? await this.media.storeVoice(viewerId, bytes)
+        : await this.media.store(viewerId, 'DIRECT', bytes);
+    let row: MessageRow;
+    try {
+      row = await this.database.prisma.$transaction(async (tx) => {
+        await this.media.activate(tx, stored);
+        const message = await tx.directMessage.create({
+          data: {
+            conversationId: id,
+            senderId: viewerId,
+            clientMessageId: input.clientMessageId,
+            text: input.text,
+            sourceHash,
+            mediaId: stored.id,
+          },
+          select: messageSelect,
+        });
+        await tx.conversation.updateMany({
+          where: { id, lastActivityAt: { lt: message.createdAt } },
+          data: { lastActivityAt: message.createdAt },
+        });
+        return message;
+      });
+    } catch (error) {
+      await this.media.discard(stored.id);
+      if (uniqueViolation(error)) {
+        const previous = await replay();
+        if (previous) return previous;
+      }
+      throw error;
+    }
+    // A notification or serialization failure after commit must never discard
+    // the durable attachment. Retrying still returns the stored message.
+    this.events.notify([pair.userAId, pair.userBId], {
+      conversationId: id,
+      messageId: row.id,
+    });
+    return toMessage(row);
+  }
+
+  // Direct owns its participant policy; MediaModule only opens private bytes.
+  async attachment(
+    viewerId: string,
+    id: string,
+    messageId: string,
+    variant: 'full' | 'thumb' | 'audio' | 'opus',
+  ) {
+    await this.requireParticipant(viewerId, id);
+    const row = await this.database.prisma.directMessage.findFirst({
+      where: {
+        id: messageId,
+        conversationId: id,
+        media: {
+          kind: 'DIRECT',
+          state: 'READY',
+          type: variant === 'audio' || variant === 'opus' ? 'AUDIO' : 'IMAGE',
+        },
+      },
+      select: { mediaId: true },
+    });
+    if (!row?.mediaId) throw new AuthError('MEDIA_NOT_FOUND');
+    const file = await this.media.open(row.mediaId, variant);
+    if (!file) throw new AuthError('MEDIA_NOT_FOUND');
+    return file;
+  }
+
   private async replay(
     viewerId: string,
     id: string,
@@ -306,7 +440,11 @@ export class DirectService {
       select: messageSelect,
     });
     if (!stored) return undefined;
-    if (stored.conversationId !== id || stored.text !== input.text)
+    if (
+      stored.conversationId !== id ||
+      stored.text !== input.text ||
+      stored.sourceHash !== null
+    )
       throw new AuthError('MESSAGE_ID_CONFLICT');
     return toMessage(stored);
   }

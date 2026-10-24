@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import sharp from 'sharp';
-import { imageUploadRules } from '@instagram/contracts';
+import { commentAttachmentRules, imageUploadRules } from '@instagram/contracts';
 import { AuthError } from '../auth/auth.error.js';
 
 export type ProcessedImage = {
@@ -31,6 +31,50 @@ export class ImageProcessor {
       this.active -= 1;
       this.waiting.shift()?.();
     }
+  }
+
+  processComment(input: Buffer): Promise<ProcessedImage> {
+    if (input.length > commentAttachmentRules.maxBytes)
+      throw new AuthError('IMAGE_TOO_LARGE');
+    return this.slot(async () => {
+      try {
+        const options = {
+          limitInputPixels: commentAttachmentRules.maxTotalPixels,
+          failOn: 'error' as const,
+        };
+        const meta = await sharp(input, options).metadata();
+        const pages = meta.pages ?? 1;
+        const height = meta.pageHeight ?? meta.height;
+        if (
+          !meta.width ||
+          !height ||
+          !meta.format ||
+          !['jpeg', 'png', 'webp', 'gif'].includes(meta.format) ||
+          pages > commentAttachmentRules.maxFrames ||
+          meta.width * height * pages > commentAttachmentRules.maxTotalPixels ||
+          (pages > 1 && meta.format !== 'gif')
+        )
+          throw new Error('Invalid image');
+        const full = await sharp(input, { ...options, animated: true })
+          .rotate()
+          .resize(1080, 1080, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 80, effort: 3 })
+          .toBuffer({ resolveWithObject: true });
+        const thumb = await sharp(input, options)
+          .rotate()
+          .resize(320, 320, { fit: 'inside', withoutEnlargement: true })
+          .webp()
+          .toBuffer();
+        return {
+          full: full.data,
+          thumb,
+          width: full.info.width,
+          height: full.info.pageHeight ?? full.info.height,
+        };
+      } catch {
+        throw new AuthError('INVALID_IMAGE');
+      }
+    });
   }
 
   process(input: Buffer): Promise<ProcessedImage> {

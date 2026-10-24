@@ -9,7 +9,9 @@ import { describeFailure } from "@/lib/api/messages";
 
 // A message the user wrote that the server has not confirmed yet. Its
 // clientMessageId is fixed at creation and reused by every retry.
+export type OutgoingAttachment = { file: File; type: "image" | "voice" };
 export type Outgoing = {
+  attachment?: OutgoingAttachment;
   clientMessageId: string;
   text: string;
   status: "sending" | "failed";
@@ -95,13 +97,21 @@ async function fetchPage(
   signal: AbortSignal,
   dispatch: (action: Action) => void,
 ) {
-  const result = await createDirectClient().messages(conversationId, cursor, signal);
+  const result = await createDirectClient().messages(
+    conversationId,
+    cursor,
+    signal,
+  );
   if (signal.aborted) return;
   if (!result.ok) {
     dispatch({ type: "fail", failure: result.failure });
     return;
   }
-  dispatch({ type: "page", items: result.data.items, older: result.data.nextCursor });
+  dispatch({
+    type: "page",
+    items: result.data.items,
+    older: result.data.nextCursor,
+  });
 }
 
 // Most pages a sync reads back while looking for a message it already has.
@@ -120,6 +130,7 @@ export function useThread(conversationId: string, onSent?: () => void) {
     outbox: [],
   });
   const request = useRef<AbortController | undefined>(undefined);
+  const deliveries = useRef(new Set<AbortController>());
   const known = useRef(new Set<string>());
   const syncing = useRef(false);
   const syncAgain = useRef(false);
@@ -138,7 +149,12 @@ export function useThread(conversationId: string, onSent?: () => void) {
     const controller = new AbortController();
     request.current = controller;
     void fetchPage(conversationId, undefined, controller.signal, dispatch);
-    return () => request.current?.abort();
+    const active = deliveries.current;
+    return () => {
+      request.current?.abort();
+      for (const controller of active) controller.abort();
+      active.clear();
+    };
   }, [conversationId]);
 
   async function sync(): Promise<void> {
@@ -157,7 +173,8 @@ export function useThread(conversationId: string, onSent?: () => void) {
         if (!result.ok) return;
         const { items, nextCursor } = result.data;
         const reached =
-          known.current.size === 0 || items.some((item) => known.current.has(item.id));
+          known.current.size === 0 ||
+          items.some((item) => known.current.has(item.id));
         dispatch({ type: "page", items, older: undefined });
         if (reached || !nextCursor) return;
         cursor = nextCursor;
@@ -172,10 +189,24 @@ export function useThread(conversationId: string, onSent?: () => void) {
   }
 
   async function deliver(message: Outgoing) {
-    const result = await createDirectClient().send(conversationId, {
+    const controller = new AbortController();
+    deliveries.current.add(controller);
+    const client = createDirectClient();
+    const body = {
       clientMessageId: message.clientMessageId,
       text: message.text,
-    });
+    };
+    const result = message.attachment
+      ? await client.sendMedia(
+          conversationId,
+          body,
+          message.attachment.file,
+          message.attachment.type,
+          controller.signal,
+        )
+      : await client.send(conversationId, body, controller.signal);
+    deliveries.current.delete(controller);
+    if (controller.signal.aborted) return;
     if (result.ok) {
       dispatch({ type: "sent", message: result.data.message });
       onSent?.();
@@ -207,10 +238,11 @@ export function useThread(conversationId: string, onSent?: () => void) {
       dispatch({ type: "start" });
       load(state.loaded ? (state.older ?? undefined) : undefined);
     },
-    send(text: string) {
+    send(text: string, attachment?: OutgoingAttachment) {
       const message: Outgoing = {
         clientMessageId: crypto.randomUUID(),
         text,
+        attachment,
         status: "sending",
       };
       dispatch({ type: "queue", message });
@@ -223,7 +255,11 @@ export function useThread(conversationId: string, onSent?: () => void) {
         (item) => item.clientMessageId === clientMessageId,
       );
       if (!message || message.status === "sending") return;
-      const again = { ...message, status: "sending" as const, error: undefined };
+      const again = {
+        ...message,
+        status: "sending" as const,
+        error: undefined,
+      };
       dispatch({ type: "drop", clientMessageId });
       dispatch({ type: "queue", message: again });
       void deliver(again);

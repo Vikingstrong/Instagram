@@ -106,10 +106,18 @@ images use plain <img> via components/ui-ig/media-image.tsx, never next/image.
 Stage 5 (FR-05/06): GET /api/v1/feed, likes and comments live in PostsModule
 (interactions.service/controller); web feed, like and comments are in
 apps/web/features/posts; see docs/development/feed-api.md.
+Comment photo/GIF attachments use MediaKind.COMMENT and multipart
+/posts/{id}/comments/image; Sharp preserves GIF animation as WebP. Access follows
+the owning post and orphan files are cleaned by MediaService; see
+docs/development/comment-attachments.md.
 Stage 6 (FR-09 over REST): DirectModule (apps/api/src/direct) with
 /api/v1/direct/conversations; idempotent sends by clientMessageId; web in
 apps/web/features/direct (/direct, /direct/t/[id]); see
-docs/development/direct-api.md. Stage 7 realtime: SSE GET /api/v1/direct/events
+docs/development/direct-api.md. Direct attachments (photo/GIF/voice) use
+MediaKind.DIRECT, multipart messages/image and messages/voice, exact-byte
+idempotency and participant-checked message media routes. FFmpeg outputs
+AAC/M4A and Opus/WebM, web captures with MediaRecorder; see
+docs/development/direct-attachments.md. Stage 7 realtime: SSE GET /api/v1/direct/events
 (DirectEvents in-memory hub, ids only; SessionRevocations closes streams on
 logout/reset); web subscribes, waits for "ready", then syncs over REST; see
 docs/development/direct-realtime.md.
@@ -118,6 +126,19 @@ background ffmpeg-static transcode in MediaService, VideoProcessor), video
 streaming with Range at /api/v1/media/{id}/video, GET /api/v1/reels; web
 /create (photo or video), VideoPlayer, /reels; see
 docs/development/video-reels.md.
+Stage 13 Coins (FR-14): CoinsModule owns bigint wallets, Dushanbe calendar
+rewards and the immutable operation journal; /api/v1/coins wallet/daily-claim/
+transactions, web /coins and More menu. CoinsService.transferGift(tx, command)
+is an internal transaction primitive for future Live, not an arbitrary HTTP
+transfer; Live must resolve author/price and enforce access/lifecycle in the
+same transaction. See docs/development/coins.md. Wire amounts are decimal strings.
+Stage 11 Stories (FR-13): StoriesModule, `/api/v1/stories`, photo/video uploads,
+24h expiry, subscription tray, per-story views and owner-only audience list;
+web `/stories/create`, `/stories/[id]`, `/stories/user/[id]`.
+Shared media delivery checks story expiry and author visibility on each read.
+StoriesService removes expired story rows via its cleanup and delegates files
+to MediaService; see
+`docs/development/stories.md`. Stories and Live have separate owners/scopes.
 Stage 9 calls slice: CallsModule and global web CallsProvider implement audio/video 1:1 with REST/SSE signaling; see `docs/development/calls-api.md`. TURN configuration and real-network acceptance remain required.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in

@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
-import { CommentTextSchema, type Comment } from "@instagram/contracts";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  commentAttachmentRules,
+  PostCaptionSchema,
+  CommentTextSchema,
+  type Comment,
+} from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
+import { MediaImage } from "@/components/ui-ig/media-image";
 import { Avatar } from "@/components/ui-ig/avatar";
 import { ConfirmDialog } from "@/components/ui-ig/confirm-dialog";
 import { usePagedList } from "@/features/social/use-paged-list";
@@ -33,7 +39,15 @@ export function CommentForm({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
   const pending = useRef(false);
-  const valid = CommentTextSchema.safeParse(text).success;
+  const [image, setImage] = useState<File>();
+  const [preview, setPreview] = useState<string>();
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (preview) return () => URL.revokeObjectURL(preview);
+  }, [preview]);
+  const valid = image
+    ? PostCaptionSchema.safeParse(text).success
+    : CommentTextSchema.safeParse(text).success;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -41,11 +55,10 @@ export function CommentForm({
     pending.current = true;
     setSending(true);
     setError(undefined);
-    const result = await createPostsClient().addComment(
-      postId,
-      text,
-      replyTo?.id,
-    );
+    const client = createPostsClient();
+    const result = image
+      ? await client.addMediaComment(postId, image, text, replyTo?.id)
+      : await client.addComment(postId, text, replyTo?.id);
     pending.current = false;
     setSending(false);
     if (!result.ok) {
@@ -53,6 +66,9 @@ export function CommentForm({
       return;
     }
     setText("");
+    setImage(undefined);
+    setPreview(undefined);
+    if (input.current) input.current.value = "";
     onAdded(result.data.comment);
   }
 
@@ -68,6 +84,55 @@ export function CommentForm({
           <span className="font-semibold">@{replyTo.author.username}</span>
         </p>
       )}
+      {image && preview && (
+        <div className="relative w-fit rounded-lg border p-2">
+          <MediaImage
+            src={preview}
+            alt="Превью вложения"
+            className="max-h-44 max-w-full rounded object-contain"
+          />
+          <button
+            type="button"
+            disabled={sending}
+            onClick={() => {
+              setImage(undefined);
+              setPreview(undefined);
+              if (input.current) input.current.value = "";
+            }}
+            className="mt-2 text-xs font-semibold"
+          >
+            Убрать вложение
+          </button>
+        </div>
+      )}
+      <label className="w-fit cursor-pointer text-xs font-semibold text-muted-foreground">
+        Фото / GIF
+        <input
+          ref={input}
+          type="file"
+          aria-label="Прикрепить фото или GIF"
+          accept={commentAttachmentRules.formats.join(",")}
+          disabled={sending}
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (
+              !(commentAttachmentRules.formats as readonly string[]).includes(
+                file.type,
+              ) ||
+              file.size > commentAttachmentRules.maxBytes
+            ) {
+              setError("Выберите JPEG, PNG, WebP или GIF до 10 МБ.");
+              event.target.value = "";
+              return;
+            }
+            setError(undefined);
+            setImage(file);
+            setPreview(URL.createObjectURL(file));
+          }}
+        />
+      </label>
       <div className="flex items-center gap-2">
         <label htmlFor={`comment-${replyTo?.id ?? postId}`} className="sr-only">
           {replyTo ? "Ответ" : "Комментарий"}
@@ -91,7 +156,7 @@ export function CommentForm({
           }}
           className="max-h-20 min-w-0 flex-1 resize-none bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
         />
-        {text.length > 0 && (
+        {(text.length > 0 || image) && (
           <button
             type="submit"
             disabled={!valid || sending}
@@ -179,6 +244,23 @@ export function CommentItem({
             )}
             {comment.text}
           </p>
+          {comment.attachment && (
+            <a
+              href={comment.attachment.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 block w-fit max-w-full"
+            >
+              <MediaImage
+                src={comment.attachment.url}
+                alt="Вложение комментария"
+                width={comment.attachment.width}
+                height={comment.attachment.height}
+                loading="lazy"
+                className="max-h-72 max-w-full rounded-lg object-contain"
+              />
+            </a>
+          )}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <time dateTime={comment.createdAt}>
               {timeAgo(comment.createdAt)}

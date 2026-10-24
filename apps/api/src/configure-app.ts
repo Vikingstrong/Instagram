@@ -52,7 +52,7 @@ export function configureApp(app: INestApplication): void {
           const target = new URL(request.url, window.location.href);
           if (
             target.origin === window.location.origin &&
-            /^\/api\/v1\/(?:auth|users|me|search|posts|comments|direct|calls)(?:\/|$)/.test(
+            /^\/api\/v1\/(?:auth|users|me|search|posts|comments|direct|calls|stories|coins)(?:\/|$)/.test(
               target.pathname,
             ) &&
             request.method.toUpperCase() !== 'GET'

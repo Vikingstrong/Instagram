@@ -62,8 +62,8 @@ test('publish a video, watch it in the post and in Reels', async ({ page, browse
     const caption = `Ролик ${randomUUID().slice(0, 8)}`;
 
     await login(page, owner.account);
-    await page.goto('/create');
-    await page.getByLabel('Фото или видео для публикации').setInputFiles({
+    await page.goto('/create/reel');
+    await page.getByLabel('Видео для Reels').setInputFiles({
       name: 'clip.mp4',
       mimeType: 'video/mp4',
       buffer: await makeClip(),

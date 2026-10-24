@@ -667,4 +667,76 @@ describe('Feed, likes and comments with real PostgreSQL', () => {
       }),
     ).toBe(0);
   });
+  it('uploads photo-only comments and GIF replies, checks privacy and cleans cascaded media', async () => {
+    const owner = await account(true);
+    const reader = await account();
+    const outsider = await account();
+    await follow(reader, owner);
+    const publication = await post(owner, 'attachments');
+    const upload = async (
+      who: Account,
+      bytes: Buffer,
+      fields: Record<string, string> = {},
+    ) => {
+      const token = await csrf(who.client);
+      const req = who.client
+        .post(`/api/v1/posts/${publication.id}/comments/image`)
+        .set('Origin', origin)
+        .set('X-CSRF-Token', token);
+      for (const [key, value] of Object.entries(fields)) req.field(key, value);
+      return req.attach('image', bytes, {
+        filename: 'untrusted.dat',
+        contentType: 'application/octet-stream',
+      });
+    };
+    const response = await upload(reader, image);
+    expect(response.status).toBe(201);
+    const comment = CommentResponseSchema.parse(response.body).comment;
+    expect(comment.text).toBe('');
+    expect(comment.attachment).toBeTruthy();
+    const url = comment.attachment!.url;
+    await reader.client.get(url).expect(200);
+    await outsider.client.get(url).expect(404);
+    await request(app.getHttpServer()).get(url).expect(401);
+    // Two distinct frames must remain animated after sanitization.
+    const frames = Buffer.concat([
+      Buffer.alloc(4 * 4 * 3, 20),
+      Buffer.alloc(4 * 4 * 3, 240),
+    ]);
+    const gif = await sharp(frames, {
+      raw: { width: 4, height: 8, channels: 3, pageHeight: 4 },
+    })
+      .gif({ delay: [100, 200], loop: 0 })
+      .toBuffer();
+    const replyResponse = await upload(reader, gif, {
+      replyToCommentId: comment.id,
+    });
+    expect(replyResponse.status).toBe(201);
+    const reply = CommentResponseSchema.parse(replyResponse.body).comment;
+    expect(reply.parentId).toBe(comment.id);
+    const animated = await reader.client.get(reply.attachment!.url).expect(200);
+    expect((await sharp(animated.body).metadata()).pages).toBe(2);
+    expect((await upload(reader, Buffer.from('<svg/>'))).status).toBe(400);
+    expect((await upload(reader, image, { injected: 'yes' })).status).toBe(400);
+    await reader.client
+      .post(`/api/v1/posts/${publication.id}/comments/image`)
+      .attach('image', image, 'x.jpg')
+      .expect(403);
+    expect((await upload(outsider, image)).status).toBe(404);
+    await unfollow(reader, owner);
+    await reader.client.get(url).expect(404);
+    // Own-comment deletion remains allowed after losing post access.
+    expect(
+      (await send(reader, 'delete', `/api/v1/comments/${comment.id}`)).status,
+    ).toBe(200);
+    await owner.client.get(url).expect(404);
+    await owner.client.get(reply.attachment!.url).expect(404);
+    const { MediaService } = await import('../src/media/media.service.js');
+    await app.get(MediaService).cleanup();
+    expect(
+      await database.prisma.media.count({
+        where: { ownerId: reader.id, kind: 'COMMENT' },
+      }),
+    ).toBe(0);
+  });
 });

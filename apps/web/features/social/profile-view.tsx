@@ -7,7 +7,7 @@ import type { UserProfile } from "@instagram/contracts";
 
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { SettingsIcon } from "@/components/icons/ig-icons";
-import { DefaultAvatar } from "@/components/ui-ig/avatar";
+import { ProfileStoryAvatar } from "@/features/stories/profile-story-avatar";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
 import { MessageButton } from "@/features/direct/message-button";
 import { LiveAvatar, useHostLive } from "@/features/live/live-strip";
@@ -48,14 +48,15 @@ export function ProfileView() {
   return <ProfileContent key={username} username={decodeURIComponent(username)} />;
 }
 
-// A stream on air turns the avatar into its live ring (FR-12).
+// A stream on air turns the avatar into its live ring (FR-12); otherwise
+// it shows the story ring (FR-13).
 function ProfileAvatar({ profile, viewerId }: { profile: UserProfile; viewerId?: string }) {
   const live = useHostLive(profile.id, true);
   if (!live)
     return (
       <>
-        <DefaultAvatar size={150} src={profile.avatarUrl} className="hidden md:flex" />
-        <DefaultAvatar size={77} src={profile.avatarUrl} className="md:hidden" />
+        <ProfileStoryAvatar key={`${profile.id}-desktop`} userId={profile.id} username={profile.username} size={150} src={profile.avatarUrl} className="hidden md:flex" />
+        <ProfileStoryAvatar key={`${profile.id}-mobile`} userId={profile.id} username={profile.username} size={77} src={profile.avatarUrl} className="md:hidden" />
       </>
     );
   return (

@@ -6,7 +6,7 @@ import {
   type Post,
   type PostListResponse,
 } from '@instagram/contracts';
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Prisma, MediaType } from '../generated/prisma/client.js';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
 import { AuthError } from '../auth/auth.error.js';
 import { MediaService, mediaUrl } from '../media/media.service.js';
@@ -18,6 +18,7 @@ import {
   summarySelect,
   userSummary,
 } from '../users/user-summary.js';
+import { visibleStory } from '../stories/story-policy.js';
 import { visibleAuthor, visiblePost } from './post-policy.js';
 
 // Counters and the viewer's own like are read with the post in one query.
@@ -48,7 +49,7 @@ type PostRow = {
   createdAt: Date;
   media: {
     id: string;
-    type: 'IMAGE' | 'VIDEO';
+    type: MediaType;
     state: 'PENDING' | 'READY' | 'DELETED';
     width: number | null;
     height: number | null;
@@ -332,7 +333,9 @@ export class PostsService {
         id,
         state: 'READY',
         OR: [
+          { kind: 'COMMENT', comment: { post: visiblePost(viewerId) } },
           { kind: 'POST', post: visiblePost(viewerId) },
+          { kind: 'STORY', story: visibleStory(viewerId) },
           {
             kind: 'AVATAR',
             avatarOf: { emailVerifiedAt: { not: null } },
@@ -353,10 +356,13 @@ export class PostsService {
     const allowed = await this.database.prisma.media.findFirst({
       where: {
         id,
-        kind: 'POST',
         type: 'VIDEO',
         state: 'READY',
-        post: visiblePost(viewerId),
+        OR: [
+          { kind: 'COMMENT', comment: { post: visiblePost(viewerId) } },
+          { kind: 'POST', post: visiblePost(viewerId) },
+          { kind: 'STORY', story: visibleStory(viewerId) },
+        ],
       },
       select: { id: true },
     });

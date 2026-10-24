@@ -1,7 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 import {
   imageUploadRules,
   PostCaptionSchema,
@@ -9,6 +14,7 @@ import {
 } from "@instagram/contracts";
 
 import { CreateIcon } from "@/components/icons/ig-icons";
+import { Film, ImagePlus } from "lucide-react";
 import { Avatar } from "@/components/ui-ig/avatar";
 import { MediaImage } from "@/components/ui-ig/media-image";
 import { useHomeIdentity } from "@/features/auth/home-access";
@@ -39,7 +45,8 @@ type Phase =
 // the final word. A failed upload keeps the file and caption so "Повторить"
 // sends them again. A video is shown as processing until the server has
 // prepared it, then the post opens.
-export function CreatePost() {
+export function CreatePost({ mode = "post" }: { mode?: "post" | "reel" }) {
+  const reel = mode === "reel";
   const viewer = useHomeIdentity();
   const [picked, setPicked] = useState<Picked>();
   const [caption, setCaption] = useState("");
@@ -53,9 +60,12 @@ export function CreatePost() {
 
   // Each preview URL is released once it is replaced or the page closes.
   const preview = picked?.preview;
-  useEffect(() => () => {
-    if (preview) URL.revokeObjectURL(preview);
-  }, [preview]);
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
 
   // Waits for the server to finish the video, then opens the post.
   const processingId = phase.state === "processing" ? phase.postId : undefined;
@@ -64,7 +74,10 @@ export function CreatePost() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
     const check = async () => {
-      const result = await createPostsClient().get(processingId, controller.signal);
+      const result = await createPostsClient().get(
+        processingId,
+        controller.signal,
+      );
       if (controller.signal.aborted) return;
       if (result.ok && result.data.post.status === "ready") {
         replaceLocation(`/p/${processingId}`);
@@ -88,6 +101,10 @@ export function CreatePost() {
     if (!file || pending.current) return;
     setFailed(false);
     const video = isVideoFile(file);
+    if (reel && !video) {
+      setError("Для Reels выберите видео в формате MP4, MOV или WebM.");
+      return;
+    }
     const problem = video ? checkVideoFile(file) : checkImageFile(file);
     if (problem) {
       setError(
@@ -138,19 +155,39 @@ export function CreatePost() {
 
   const kind = picked?.video ? "видео" : "фото";
   return (
-    <div className="mx-auto w-full max-w-233.75 px-4 py-6 md:px-5 md:py-10">
+    <div className="mx-auto w-full max-w-233.75 px-4 py-6 md:px-6 md:py-10">
+      <div className="mb-6">
+        <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+          Ваша творческая студия
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {reel ? "Новый Reels" : "Создание публикации"}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          {reel
+            ? "Один момент. Своя история. Поделитесь ей в видео."
+            : "Сохраните момент в ленте и в своём профиле."}
+        </p>
+      </div>
       <form
         onSubmit={submit}
         noValidate
-        className="overflow-hidden rounded-xl border bg-ig-elevated"
+        className="overflow-hidden rounded-3xl border bg-background shadow-xl shadow-black/5"
       >
-        <header className="relative flex h-11 items-center justify-center border-b px-4">
-          <h1 className="text-base font-semibold">Создание публикации</h1>
+        <header className="relative flex h-16 items-center justify-between border-b bg-secondary/25 px-5">
+          <span className="flex items-center gap-2 text-sm font-medium">
+            {reel ? (
+              <Film aria-hidden className="size-4 text-violet-400" />
+            ) : (
+              <ImagePlus aria-hidden className="size-4 text-blue-400" />
+            )}
+            {reel ? "Короткое видео" : "Фото или видео"}
+          </span>
           {picked && phase.state === "editing" && (
             <button
               type="submit"
               disabled={!captionValid}
-              className="absolute right-4 text-sm font-semibold text-ig-blue hover:text-foreground disabled:opacity-50"
+              className="rounded-xl bg-ig-blue px-4 py-2 text-sm font-semibold text-white hover:bg-ig-blue-hover disabled:opacity-50"
             >
               {failed ? "Повторить" : "Поделиться"}
             </button>
@@ -160,10 +197,15 @@ export function CreatePost() {
         <input
           ref={input}
           type="file"
-          accept={[...imageUploadRules.formats, ...videoUploadRules.formats].join(",")}
+          accept={(reel
+            ? videoUploadRules.formats
+            : [...imageUploadRules.formats, ...videoUploadRules.formats]
+          ).join(",")}
           className="sr-only"
           tabIndex={-1}
-          aria-label="Фото или видео для публикации"
+          aria-label={
+            reel ? "Видео для Reels" : "Фото или видео для публикации"
+          }
           onChange={(event) => {
             pick(event.target.files?.[0]);
             // Choosing the same file again must fire change again.
@@ -180,23 +222,44 @@ export function CreatePost() {
             onDragLeave={() => setDragging(false)}
             onDrop={drop}
             className={cn(
-              "flex min-h-100 flex-col items-center justify-center gap-4 px-6 py-16 text-center transition-colors",
+              "relative flex min-h-110 flex-col items-center justify-center gap-5 bg-linear-to-br from-violet-500/5 via-transparent to-blue-500/5 px-6 py-16 text-center transition-colors",
               dragging && "bg-secondary",
             )}
           >
-            <CreateIcon className="size-20 stroke-1" />
-            <p className="text-xl">Перетащите сюда фото или видео</p>
-            <p className="text-sm text-muted-foreground">
-              Фото: JPEG, PNG или WebP до 10 МБ. Видео: MP4, MOV или WebM до 100 МБ и
-              90 секунд.
-            </p>
+            <div
+              aria-hidden
+              className="mb-1 grid size-24 place-items-center rounded-3xl border border-violet-400/20 bg-linear-to-br from-violet-500/15 to-blue-500/10 shadow-xl shadow-violet-500/5"
+            >
+              {reel ? (
+                <Film className="size-11 text-violet-400" strokeWidth={1.4} />
+              ) : (
+                <CreateIcon className="size-11 stroke-1 text-blue-400" />
+              )}
+            </div>
+            <div className="space-y-2">
+              <p className="text-xl font-medium">
+                {reel
+                  ? "Ваш следующий Reels начинается здесь"
+                  : "Момент, которым хочется поделиться"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {reel
+                  ? "Перетащите сюда видео или выберите файл"
+                  : "Перетащите сюда фото или видео"}
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => input.current?.click()}
-              className="h-8 rounded-lg bg-ig-blue px-4 text-sm font-semibold text-white hover:bg-ig-blue-hover"
+              className="min-h-11 rounded-xl bg-ig-blue px-6 text-sm font-semibold text-white shadow-lg shadow-ig-blue/15 hover:bg-ig-blue-hover"
             >
               Выбрать на компьютере
             </button>
+            <p className="max-w-sm text-xs leading-5 text-muted-foreground">
+              {reel
+                ? "MP4, MOV или WebM · до 100 МБ · до 90 секунд"
+                : "Фото: JPEG, PNG, WebP · до 10 МБ. Видео: MP4, MOV, WebM · до 100 МБ и 90 секунд."}
+            </p>
             {error && (
               <p role="alert" className="text-sm text-destructive">
                 {error}
@@ -229,7 +292,9 @@ export function CreatePost() {
               {viewer && (
                 <div className="flex items-center gap-3">
                   <Avatar name={viewer.username} size={28} />
-                  <span className="text-sm font-semibold">{viewer.username}</span>
+                  <span className="text-sm font-semibold">
+                    {viewer.username}
+                  </span>
                 </div>
               )}
               <label htmlFor="post-caption" className="sr-only">
@@ -279,23 +344,6 @@ export function CreatePost() {
           </div>
         )}
       </form>
-      <Link
-        href="/live"
-        className="mt-4 flex items-center gap-3 rounded-xl border bg-ig-elevated p-4 hover:bg-secondary/40"
-      >
-        <span
-          aria-hidden
-          className="rounded-md bg-linear-to-r from-[#d300c5] to-[#ff0069] px-1.5 py-0.5 text-[11px] font-bold text-white uppercase"
-        >
-          Live
-        </span>
-        <span className="text-sm">
-          <b className="block">Прямой эфир</b>
-          <span className="text-muted-foreground">
-            Покажите подписчикам, что происходит прямо сейчас
-          </span>
-        </span>
-      </Link>
     </div>
   );
 }

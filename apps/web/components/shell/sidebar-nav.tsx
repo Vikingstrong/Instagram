@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useHomeIdentity } from "@/features/auth/home-access";
 
 import { MoreMenu } from "./more-menu";
+import { CreateMenu } from "./create-menu";
 import { isNavItemActive, navHref, navItems } from "./nav-items";
 
 const rowClass =
@@ -56,14 +57,20 @@ export function SidebarNav() {
             const active = isNavItemActive(pathname, href);
             return (
               <li key={id}>
-                <Link
-                  href={href}
-                  aria-current={active ? "page" : undefined}
-                  className={rowClass}
-                >
-                  <Icon active={active} />
-                  <RowLabel bold={active}>{label}</RowLabel>
-                </Link>
+                {id === "create" ? (
+                  <CreateMenu className={rowClass}>
+                    <RowLabel bold={active}>{label}</RowLabel>
+                  </CreateMenu>
+                ) : (
+                  <Link
+                    href={href}
+                    aria-current={active ? "page" : undefined}
+                    className={rowClass}
+                  >
+                    <Icon active={active} />
+                    <RowLabel bold={active}>{label}</RowLabel>
+                  </Link>
+                )}
               </li>
             );
           })}
