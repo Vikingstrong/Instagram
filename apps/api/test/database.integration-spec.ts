@@ -114,6 +114,8 @@ describe('Database Foundation (real PostgreSQL)', () => {
       { name: 'follows' },
       { name: 'live_comments' },
       { name: 'live_gifts' },
+      { name: 'live_moderators' },
+      { name: 'live_restrictions' },
       { name: 'lives' },
       { name: 'mail_deliveries' },
       { name: 'media' },

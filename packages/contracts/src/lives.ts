@@ -14,6 +14,13 @@ export const liveRules = {
 } as const;
 
 export const LiveStatusSchema = z.enum(["LIVE", "ENDED"]);
+// Moderation of a host's streams (all of them, not one stream). A mute
+// forbids chat and gifts until mutedUntil, or for good when it is null.
+export const LiveRoleSchema = z.enum(["host", "moderator", "viewer"]);
+export const LiveViewerAccessSchema = z.strictObject({
+  role: LiveRoleSchema,
+  muted: z.strictObject({ until: z.iso.datetime().nullable() }).nullable(),
+});
 export const LiveSchema = z.strictObject({
   id: z.uuid(),
   host: UserSummarySchema,
@@ -21,6 +28,8 @@ export const LiveSchema = z.strictObject({
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime().nullable(),
   viewerCount: z.int().nonnegative(),
+  // The caller's own role and mute, where the response is about one stream.
+  viewer: LiveViewerAccessSchema.optional(),
 });
 export const LiveResponseSchema = z.strictObject({ live: LiveSchema });
 export const OptionalLiveResponseSchema = z.strictObject({ live: LiveSchema.nullable() });
@@ -114,7 +123,32 @@ export const LiveGiftsResponseSchema = z.strictObject({
   next: PageCursorSchema.nullable(),
 });
 
+export const liveMuteMinutes = [5, 60, 1440] as const;
+export const LiveRestrictionKindSchema = z.enum(["mute", "ban"]);
+// minutes: one of liveMuteMinutes, or null for good. A ban is always for good.
+export const CreateLiveRestrictionRequestSchema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("mute"),
+    userId: z.uuid(),
+    minutes: z.union([z.literal(5), z.literal(60), z.literal(1440), z.null()]),
+  }),
+  z.strictObject({ kind: z.literal("ban"), userId: z.uuid() }),
+]);
+export const LiveRestrictionSchema = z.strictObject({
+  user: UserSummarySchema,
+  kind: LiveRestrictionKindSchema,
+  until: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export const LiveRestrictionResponseSchema = z.strictObject({ restriction: LiveRestrictionSchema });
+export const LiveRestrictionListResponseSchema = z.strictObject({ items: z.array(LiveRestrictionSchema) });
+export const AddLiveModeratorRequestSchema = z.strictObject({ userId: z.uuid() });
+export const LiveModeratorListResponseSchema = z.strictObject({ items: z.array(UserSummarySchema) });
+
 export type Live = z.infer<typeof LiveSchema>;
+export type LiveViewerAccess = z.infer<typeof LiveViewerAccessSchema>;
+export type LiveRestriction = z.infer<typeof LiveRestrictionSchema>;
+export type CreateLiveRestrictionRequest = z.infer<typeof CreateLiveRestrictionRequestSchema>;
 export type LiveGift = z.infer<typeof LiveGiftSchema>;
 export type SendLiveGiftRequest = z.infer<typeof SendLiveGiftRequestSchema>;
 export type LivePeer = z.infer<typeof LivePeerSchema>;
@@ -139,4 +173,10 @@ export const livesEndpoints = {
   comment: { method: "POST", path: "/api/v1/lives/{id}/comments", successStatus: 201 },
   gifts: { method: "GET", path: "/api/v1/lives/{id}/gifts", successStatus: 200 },
   sendGift: { method: "POST", path: "/api/v1/lives/{id}/gifts", successStatus: 201 },
+  moderators: { method: "GET", path: "/api/v1/lives/hosts/{id}/moderators", successStatus: 200 },
+  addModerator: { method: "POST", path: "/api/v1/lives/hosts/{id}/moderators", successStatus: 200 },
+  removeModerator: { method: "DELETE", path: "/api/v1/lives/hosts/{id}/moderators/{userId}", successStatus: 200 },
+  restrictions: { method: "GET", path: "/api/v1/lives/hosts/{id}/restrictions", successStatus: 200 },
+  restrict: { method: "POST", path: "/api/v1/lives/hosts/{id}/restrictions", successStatus: 200 },
+  unrestrict: { method: "DELETE", path: "/api/v1/lives/hosts/{id}/restrictions/{userId}/{kind}", successStatus: 200 },
 } as const;

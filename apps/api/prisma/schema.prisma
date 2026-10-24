@@ -81,6 +81,11 @@ model User {
   lives Live[] @relation("liveHost")
   liveComments LiveComment[]
   liveGifts LiveGift[] @relation("liveGiftSender")
+  liveModerators LiveModerator[] @relation("liveModeratorHost")
+  liveModerating LiveModerator[] @relation("liveModeratorUser")
+  liveRestrictions LiveRestriction[] @relation("liveRestrictionHost")
+  liveRestricted LiveRestriction[] @relation("liveRestrictionUser")
+  liveRestrictionsMade LiveRestriction[] @relation("liveRestrictionAuthor")
   messages          DirectMessage[]
   coinWallet        CoinWallet?
   coinsSent         CoinOperation[] @relation("coinSender")
@@ -474,4 +479,36 @@ model LiveGift {
   @@unique([senderId, idempotencyKey])
   @@index([liveId, createdAt, id])
   @@map("live_gifts")
+}
+
+// Moderation of all live streams of a host: moderators chosen by the host
+// and restrictions of users (MUTE until a time or for good, BAN for good).
+enum LiveRestrictionKind {
+  MUTE
+  BAN
+}
+model LiveModerator {
+  hostId String @db.Uuid
+  userId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  host User @relation("liveModeratorHost", fields: [hostId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user User @relation("liveModeratorUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  @@id([hostId, userId])
+  @@index([userId])
+  @@map("live_moderators")
+}
+model LiveRestriction {
+  hostId String @db.Uuid
+  userId String @db.Uuid
+  kind LiveRestrictionKind
+  // NULL: for good.
+  until DateTime? @db.Timestamptz(3)
+  createdById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  host User @relation("liveRestrictionHost", fields: [hostId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user User @relation("liveRestrictionUser", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  createdBy User @relation("liveRestrictionAuthor", fields: [createdById], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  @@id([hostId, userId, kind])
+  @@index([userId, kind])
+  @@map("live_restrictions")
 }

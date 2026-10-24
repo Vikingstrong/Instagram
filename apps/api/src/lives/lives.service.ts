@@ -7,11 +7,13 @@ import {
 import {
   LiveCommentSchema,
   LiveGiftSchema,
+  LiveRestrictionSchema,
   LiveSchema,
   liveGiftPrice,
   liveRules,
   type CallSignal,
   type CreateLiveCommentRequest,
+  type CreateLiveRestrictionRequest,
   type SendLiveGiftRequest,
   type StartLiveRequest,
 } from '@instagram/contracts';
@@ -37,6 +39,12 @@ import {
 } from '../calls/calls.config.js';
 import { CoinsService } from '../coins/coins.service.js';
 import { LiveRooms } from './live-rooms.js';
+import {
+  assertCanModerate,
+  assertCanSpeak,
+  moderationAccess,
+  type ModerationAccess,
+} from './live-moderation.js';
 
 export const LIVES_CONFIG = Symbol('LIVES_CONFIG');
 export type LivesConfig = {
@@ -112,7 +120,8 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
     return liveIceConfiguration(this.ice, userId);
   }
 
-  private dto(row: Row) {
+  // access: role and mute of the caller, for responses about one stream.
+  private dto(row: Row, access?: ModerationAccess) {
     return LiveSchema.parse({
       id: row.id,
       host: userSummary(row.host),
@@ -120,6 +129,7 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
       startedAt: row.startedAt.toISOString(),
       endedAt: row.endedAt?.toISOString() ?? null,
       viewerCount: row.status === 'LIVE' ? this.rooms.count(row.id) : 0,
+      ...(access && { viewer: { role: access.role, muted: access.muted } }),
     });
   }
 
@@ -131,6 +141,14 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  // The post rule, and no ban by the host.
+  private async canWatch(viewerId: string, hostId: string) {
+    return (
+      (await this.visible(viewerId, hostId)) &&
+      !(await moderationAccess(this.db.prisma, hostId, viewerId)).banned
+    );
+  }
+
   // The stream as the viewer may see it. A viewer who lost access is also
   // disconnected, so the host stops sending media at its next sync.
   private async require(viewerId: string, id: string) {
@@ -138,9 +156,22 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
       where: { id },
       include: select,
     });
-    if (row && (await this.visible(viewerId, row.hostId))) return row;
+    if (row && (await this.visible(viewerId, row.hostId))) {
+      const access = await moderationAccess(
+        this.db.prisma,
+        row.hostId,
+        viewerId,
+      );
+      if (!access.banned) return Object.assign(row, { access });
+    }
     if (row && this.rooms.removeUser(row.id, viewerId))
       this.notify(row.id, row.hostId);
+    // A banned user is told so: the client leaves with that message.
+    if (
+      row &&
+      (await moderationAccess(this.db.prisma, row.hostId, viewerId)).banned
+    )
+      throw new AuthError('LIVE_BANNED');
     throw new AuthError('LIVE_NOT_FOUND');
   }
 
@@ -230,6 +261,9 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
         status: 'LIVE',
         host: {
           emailVerifiedAt: { not: null },
+          NOT: {
+            liveRestrictions: { some: { userId: viewerId, kind: 'BAN' } },
+          },
           OR: [
             { id: viewerId },
             {
@@ -254,13 +288,14 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
       where: { activeHostId: hostId },
       include: select,
     });
-    return row && (await this.visible(viewerId, row.hostId))
+    return row && (await this.canWatch(viewerId, row.hostId))
       ? this.dto(row)
       : null;
   }
 
   async get(viewerId: string, id: string) {
-    return this.dto(await this.require(viewerId, id));
+    const row = await this.require(viewerId, id);
+    return this.dto(row, row.access);
   }
 
   private async finish(row: Row, reason: EndReason, leaseCheck = false) {
@@ -309,11 +344,11 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
       });
       return this.get(userId, id);
     }
-    if (row.status !== 'LIVE') return this.dto(row);
+    if (row.status !== 'LIVE') return this.dto(row, row.access);
     const peer = this.rooms.peerOf(id, userId, hash, clientId);
     if (!peer) throw new AuthError('LIVE_STATE_CONFLICT');
     peer.seenAt = Date.now();
-    return this.dto(row);
+    return this.dto(row, row.access);
   }
 
   async join(userId: string, hash: string, id: string, clientId: string) {
@@ -332,7 +367,7 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
       this.config.maxViewers,
     );
     this.notify(id, row.hostId);
-    return { live: this.dto(row), peerId: peer.peerId };
+    return { live: this.dto(row, row.access), peerId: peer.peerId };
   }
 
   leave(userId: string, hash: string, id: string, clientId: string) {
@@ -436,6 +471,7 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
   ) {
     const row = await this.require(userId, id);
     if (row.status !== 'LIVE') throw new AuthError('LIVE_ENDED');
+    assertCanSpeak(row.access);
     let saved;
     try {
       saved = await this.db.prisma.liveComment.create({
@@ -549,6 +585,7 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
           throw new AuthError('LIVE_NOT_FOUND');
         if (live.status !== 'LIVE') throw new AuthError('LIVE_ENDED');
         if (live.hostId === userId) throw new AuthError('LIVE_STATE_CONFLICT');
+        assertCanSpeak(await moderationAccess(tx, live.hostId, userId));
         hostId = live.hostId;
         const { receipt, replayed } = await this.coins.transferGift(tx, {
           senderId: userId,
@@ -585,6 +622,145 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
       gift: this.gift(saved),
       balance: (await this.coins.wallet(userId)).balance,
     };
+  }
+
+  // Moderation of all streams of a host (live-moderation.ts holds the rules).
+  private async onAir(hostId: string) {
+    return this.db.prisma.live.findUnique({
+      where: { activeHostId: hostId },
+      select: { id: true },
+    });
+  }
+
+  private async target(userId: string) {
+    const user = await this.db.prisma.user.findFirst({
+      where: { id: userId, emailVerifiedAt: { not: null } },
+      select: summarySelect,
+    });
+    if (!user) throw new AuthError('USER_NOT_FOUND');
+    return user;
+  }
+
+  // Roles changed: everyone in the stream re-reads their access.
+  private async touch(hostId: string, others: string[] = []) {
+    const live = await this.onAir(hostId);
+    if (live) this.notify(live.id, hostId, others);
+  }
+
+  async moderators(actorId: string, hostId: string) {
+    if (actorId !== hostId) throw new AuthError('LIVE_MODERATION_FORBIDDEN');
+    const rows = await this.db.prisma.liveModerator.findMany({
+      where: { hostId },
+      include: { user: { select: summarySelect } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => userSummary(row.user));
+  }
+
+  // Only the host appoints; a new moderator loses any mute or ban.
+  async addModerator(actorId: string, hostId: string, userId: string) {
+    if (actorId !== hostId || userId === hostId)
+      throw new AuthError('LIVE_MODERATION_FORBIDDEN');
+    await this.target(userId);
+    await this.db.prisma.$transaction([
+      this.db.prisma.liveRestriction.deleteMany({ where: { hostId, userId } }),
+      this.db.prisma.liveModerator.upsert({
+        where: { hostId_userId: { hostId, userId } },
+        create: { hostId, userId },
+        update: {},
+      }),
+    ]);
+    await this.touch(hostId, [userId]);
+    return this.moderators(actorId, hostId);
+  }
+
+  async removeModerator(actorId: string, hostId: string, userId: string) {
+    if (actorId !== hostId) throw new AuthError('LIVE_MODERATION_FORBIDDEN');
+    await this.db.prisma.liveModerator.deleteMany({
+      where: { hostId, userId },
+    });
+    await this.touch(hostId, [userId]);
+    return this.moderators(actorId, hostId);
+  }
+
+  private restriction(
+    row: Prisma.LiveRestrictionGetPayload<{
+      include: { user: { select: typeof summarySelect } };
+    }>,
+  ) {
+    return LiveRestrictionSchema.parse({
+      user: userSummary(row.user),
+      kind: row.kind === 'BAN' ? 'ban' : 'mute',
+      until: row.until?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+    });
+  }
+
+  // Active restrictions; an expired mute is no longer listed.
+  async restrictions(actorId: string, hostId: string) {
+    await assertCanModerate(this.db.prisma, actorId, hostId);
+    const rows = await this.db.prisma.liveRestriction.findMany({
+      where: {
+        hostId,
+        OR: [{ kind: 'BAN' }, { until: null }, { until: { gt: new Date() } }],
+      },
+      include: { user: { select: summarySelect } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => this.restriction(row));
+  }
+
+  // A ban disconnects the user at once and removes their lines from the
+  // chat on air; the user's client then learns LIVE_BANNED and leaves.
+  async restrict(
+    actorId: string,
+    hostId: string,
+    input: CreateLiveRestrictionRequest,
+  ) {
+    await assertCanModerate(this.db.prisma, actorId, hostId, input.userId);
+    await this.target(input.userId);
+    const kind = input.kind === 'ban' ? 'BAN' : 'MUTE';
+    const until =
+      input.kind === 'mute' && input.minutes !== null
+        ? new Date(Date.now() + input.minutes * 60_000)
+        : null;
+    const key = { hostId, userId: input.userId, kind } as const;
+    const live = await this.onAir(hostId);
+    const row = await this.db.prisma.$transaction(async (tx) => {
+      const saved = await tx.liveRestriction.upsert({
+        where: { hostId_userId_kind: key },
+        create: { ...key, until, createdById: actorId },
+        update: { until, createdById: actorId, createdAt: new Date() },
+        include: { user: { select: summarySelect } },
+      });
+      if (kind === 'BAN') {
+        // The host may ban a moderator, who then loses the role.
+        await tx.liveModerator.deleteMany({
+          where: { hostId, userId: input.userId },
+        });
+        if (live)
+          await tx.liveComment.deleteMany({
+            where: { liveId: live.id, authorId: input.userId },
+          });
+      }
+      return saved;
+    });
+    if (kind === 'BAN' && live) this.rooms.removeUser(live.id, input.userId);
+    await this.touch(hostId, [input.userId]);
+    return this.restriction(row);
+  }
+
+  async unrestrict(
+    actorId: string,
+    hostId: string,
+    userId: string,
+    kind: 'mute' | 'ban',
+  ) {
+    await assertCanModerate(this.db.prisma, actorId, hostId, userId);
+    await this.db.prisma.liveRestriction.deleteMany({
+      where: { hostId, userId, kind: kind === 'ban' ? 'BAN' : 'MUTE' },
+    });
+    await this.touch(hostId, [userId]);
   }
 
   // Viewer connections of the session end synchronously, before the logout
@@ -648,7 +824,7 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
         for (const peer of this.rooms.viewers(liveId))
           if (
             peer.seenAt < now - this.config.leaseMs ||
-            !(await this.visible(peer.userId, hostId))
+            !(await this.canWatch(peer.userId, hostId))
           ) {
             this.rooms.remove(liveId, peer.peerId);
             removed.push(peer.userId);

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Post,
   Header,
@@ -23,7 +24,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  AddLiveModeratorRequestSchema,
   CallIceConfigSchema,
+  CreateLiveRestrictionRequestSchema,
   CreateLiveCommentRequestSchema,
   EmptyRequestSchema,
   JoinLiveResponseSchema,
@@ -35,6 +38,10 @@ import {
   LiveGiftsQuerySchema,
   LiveGiftsResponseSchema,
   LiveListResponseSchema,
+  LiveModeratorListResponseSchema,
+  LiveRestrictionKindSchema,
+  LiveRestrictionListResponseSchema,
+  LiveRestrictionResponseSchema,
   LiveResponseSchema,
   LiveSignalsQuerySchema,
   LiveSignalsResponseSchema,
@@ -407,5 +414,128 @@ export class LivesController {
         parse(body, SendLiveGiftRequestSchema),
       ),
     );
+  }
+
+  // Moderation of all streams of a host. Only the host manages moderators;
+  // the host and moderators mute and ban.
+  @Get('hosts/:id/moderators')
+  @Header('Cache-Control', 'no-store')
+  @ok(LiveModeratorListResponseSchema)
+  async moderators(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return LiveModeratorListResponseSchema.parse({
+      items: await this.lives.moderators(
+        this.actor(request).id,
+        parse(id, uuid),
+      ),
+    });
+  }
+
+  @Post('hosts/:id/moderators')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @bodySchema(AddLiveModeratorRequestSchema)
+  @ok(LiveModeratorListResponseSchema)
+  @ApiOperation({ summary: 'Appoint a moderator of your streams' })
+  async addModerator(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const actor = this.actor(request, true);
+    return LiveModeratorListResponseSchema.parse({
+      items: await this.lives.addModerator(
+        actor.id,
+        parse(id, uuid),
+        parse(body, AddLiveModeratorRequestSchema).userId,
+      ),
+    });
+  }
+
+  @Delete('hosts/:id/moderators/:userId')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(LivesMutationGuard)
+  @ApiSecurity('csrfToken')
+  @ok(LiveModeratorListResponseSchema)
+  async removeModerator(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const actor = this.actor(request, true);
+    return LiveModeratorListResponseSchema.parse({
+      items: await this.lives.removeModerator(
+        actor.id,
+        parse(id, uuid),
+        parse(userId, uuid),
+      ),
+    });
+  }
+
+  @Get('hosts/:id/restrictions')
+  @Header('Cache-Control', 'no-store')
+  @ok(LiveRestrictionListResponseSchema)
+  async restrictions(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return LiveRestrictionListResponseSchema.parse({
+      items: await this.lives.restrictions(
+        this.actor(request).id,
+        parse(id, uuid),
+      ),
+    });
+  }
+
+  @Post('hosts/:id/restrictions')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @bodySchema(CreateLiveRestrictionRequestSchema)
+  @ok(LiveRestrictionResponseSchema)
+  @ApiOperation({
+    summary:
+      'Mute (for minutes or for good) or ban a user in all streams of the host',
+    description:
+      'A ban hides the host streams from the user, disconnects them at once and removes their lines from the chat on air.',
+  })
+  async restrict(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const actor = this.actor(request, true);
+    this.limiter.consume('live-moderation', actor.id, 60, 60_000);
+    return LiveRestrictionResponseSchema.parse({
+      restriction: await this.lives.restrict(
+        actor.id,
+        parse(id, uuid),
+        parse(body, CreateLiveRestrictionRequestSchema),
+      ),
+    });
+  }
+
+  @Delete('hosts/:id/restrictions/:userId/:kind')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(LivesMutationGuard)
+  @ApiSecurity('csrfToken')
+  @ok(LiveAcceptedSchema)
+  async unrestrict(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @Param('kind') kind: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const actor = this.actor(request, true);
+    await this.lives.unrestrict(
+      actor.id,
+      parse(id, uuid),
+      parse(userId, uuid),
+      parse(kind, LiveRestrictionKindSchema),
+    );
+    return { status: 'accepted' as const };
   }
 }

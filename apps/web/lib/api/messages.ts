@@ -47,6 +47,9 @@ export function describeFailure(failure: ApiFailure): string {
         case "LIVE_ENDED": return "Эфир уже завершён.";
         case "LIVE_STATE_CONFLICT": return "Эфир открыт на другом устройстве или в другой вкладке.";
         case "LIVES_UNAVAILABLE": return "Прямые эфиры пока не настроены на сервере.";
+        case "LIVE_BANNED": return "Вас забанили на трансляции.";
+        case "LIVE_MUTED": return "Вы не можете писать и дарить подарки в этом эфире.";
+        case "LIVE_MODERATION_FORBIDDEN": return "Недостаточно прав для модерации этого пользователя.";
         case "CONVERSATION_NOT_FOUND":
           return "Диалог не найден.";
         case "CANNOT_MESSAGE_SELF":
