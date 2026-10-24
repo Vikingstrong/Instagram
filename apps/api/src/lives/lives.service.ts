@@ -260,7 +260,6 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
       where: {
         status: 'LIVE',
         host: {
-          emailVerifiedAt: { not: null },
           NOT: {
             liveRestrictions: { some: { userId: viewerId, kind: 'BAN' } },
           },
@@ -634,7 +633,7 @@ export class LivesService implements OnModuleInit, OnModuleDestroy {
 
   private async target(userId: string) {
     const user = await this.db.prisma.user.findFirst({
-      where: { id: userId, emailVerifiedAt: { not: null } },
+      where: { id: userId },
       select: summarySelect,
     });
     if (!user) throw new AuthError('USER_NOT_FOUND');

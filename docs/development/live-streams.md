@@ -118,7 +118,16 @@ Developer 2 (Claude Code), backend и frontend. Решения P-15 принят
 prerender или Cache Components.
 
 PR #40 отдельно убирает email verification. Git не показывает текстовых
-конфликтов с текущей веткой, но совместная сборка требует адаптации нового
-LivesModule и live browser fixtures к SessionGuard/registeredAccount и удаления
-emailVerifiedAt-фильтров в эфирах. До такой адаптации две ветки нельзя считать
-совместимыми только на основании зелёной кнопки Merge.
+конфликтов с текущей веткой, но простое объединение не обеспечивает совместимость API. После merge PR #40 в main ветка #39 обновлена от main;
+LivesModule и live browser fixtures адаптированы к SessionGuard/registeredAccount,
+emailVerifiedAt-фильтры удалены из эфиров и модерации. Все live integration
+fixtures теперь используют обычные аккаунты без ручного подтверждения.
+PR #40 уже объединён владельцем; исправленный #39 подготовлен к review.
+Агент не выполнял merge в main.
+OpenAPI E2E дополнен точным перечнем 16 live routes, чтобы проверять весь
+контракт Swagger вместе с ранее реализованными API.
+
+Локально совместный результат прошёл build, types, lint (два прежних warning),
+249 unit/contracts, 157 PostgreSQL integration и 4 API E2E. Browser desktop/mobile
+и итоговый GitHub CI фиксируются в описании PR после завершения прогонов.
+Реальные камеры/микрофоны и разные сети/TURN остаются отдельной ручной приёмкой.

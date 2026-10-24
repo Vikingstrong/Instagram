@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
-import { login, verifiedAccount, type Fixture } from "./helpers/app.mjs";
+import { login, registeredAccount, type Fixture } from "./helpers/app.mjs";
 
 // Headless CI has no physical camera or microphone. Scope synthetic devices
 // to call tests; real-network/TURN acceptance remains a separate check.
@@ -54,8 +54,8 @@ for (const kind of ["AUDIO", "VIDEO"] as const) {
     const fixtures: Fixture[] = [];
     let secondContext: BrowserContext | undefined;
     try {
-      const first = await verifiedAccount(),
-        second = await verifiedAccount();
+      const first = await registeredAccount(),
+        second = await registeredAccount();
       fixtures.push(first, second);
       await instrument(context);
       secondContext = await browser.newContext({

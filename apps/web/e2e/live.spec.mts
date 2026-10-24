@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
-import { login, verifiedAccount, type Fixture } from "./helpers/app.mjs";
+import { login, registeredAccount, type Fixture } from "./helpers/app.mjs";
 
 // FR-12 / stage 10: a private host goes live; an approved follower is told,
 // watches real WebRTC media and chats; a stranger gets nothing; the end of
@@ -47,11 +47,11 @@ test("private host goes live; follower watches and chats; stranger is refused", 
   const fixtures: Fixture[] = [];
   const contexts: BrowserContext[] = [];
   try {
-    const host = await verifiedAccount();
+    const host = await registeredAccount();
     fixtures.push(host);
-    const follower = await verifiedAccount();
+    const follower = await registeredAccount();
     fixtures.push(follower);
-    const stranger = await verifiedAccount();
+    const stranger = await registeredAccount();
     fixtures.push(stranger);
     const name = host.account.username;
     const open = async () => {

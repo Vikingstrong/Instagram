@@ -178,13 +178,14 @@ describe('Direct realtime notices over SSE with real PostgreSQL', () => {
       text,
     });
 
-  it('opens only for a verified session and announces readiness first', async () => {
+  it('opens only for a session and announces readiness first', async () => {
     const anonymous = connect(port);
     await anonymous.ended;
     expect(anonymous.status()).toBe(401);
     const unverified = connect(port, (await account(false)).cookie);
-    await unverified.ended;
-    expect(unverified.status()).toBe(403);
+    await unverified.until(() => unverified.frames.length > 0);
+    expect(unverified.status()).toBe(200);
+    unverified.close();
 
     const alice = await account();
     const stream = connect(port, alice.cookie);

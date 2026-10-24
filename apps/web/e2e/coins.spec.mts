@@ -3,7 +3,7 @@ import {
   AuthCsrfResponseSchema,
   CoinClaimResponseSchema,
 } from "@instagram/contracts";
-import { login, verifiedAccount, type Fixture } from "./helpers/app.mjs";
+import { login, registeredAccount, type Fixture } from "./helpers/app.mjs";
 
 test("More opens the real wallet, daily claim persists and a second account sees its own balance", async ({
   page,
@@ -12,9 +12,9 @@ test("More opens the real wallet, daily claim persists and a second account sees
   test.setTimeout(180_000);
   const fixtures: Fixture[] = [];
   try {
-    const owner = await verifiedAccount();
+    const owner = await registeredAccount();
     fixtures.push(owner);
-    const other = await verifiedAccount();
+    const other = await registeredAccount();
     fixtures.push(other);
     await login(page, owner.account);
     const more = page

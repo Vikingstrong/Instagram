@@ -97,10 +97,10 @@ describe('Live gifts with real PostgreSQL', () => {
       .expect(201);
     const user = AuthUserResponseSchema.parse(response.body).user;
     ownedIds.push(user.id);
+    expect(user.emailVerified).toBe(false);
     await database.prisma.user.update({
       where: { id: user.id },
       data: {
-        emailVerifiedAt: new Date(),
         isPrivate: options.isPrivate ?? false,
       },
     });

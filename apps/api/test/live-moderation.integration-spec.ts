@@ -94,10 +94,7 @@ describe('Live moderation with real PostgreSQL', () => {
       .expect(201);
     const user = AuthUserResponseSchema.parse(response.body).user;
     ownedIds.push(user.id);
-    await database.prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerifiedAt: new Date() },
-    });
+    expect(user.emailVerified).toBe(false);
     if (coins !== undefined)
       await database.prisma.coinWallet.create({
         data: { userId: user.id, balance: BigInt(coins) },

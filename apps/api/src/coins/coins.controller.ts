@@ -25,7 +25,7 @@ import {
   PageQuerySchema,
 } from '@instagram/contracts';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { AuthRateLimiter } from '../auth/auth-rate-limiter.js';
@@ -43,7 +43,7 @@ const ok = (value: Parameters<typeof schema>[0]) =>
 @ApiTags('Coins')
 @ApiSecurity('session')
 @Controller('coins')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(400)
 @errorResponse(401)
 @errorResponse(403)

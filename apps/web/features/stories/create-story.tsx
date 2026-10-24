@@ -32,7 +32,7 @@ export function CreateStory() {
     },
     [preview],
   );
-  if (!user?.emailVerified)
+  if (!user)
     return (
       <p className="p-8">
         Войдите и подтвердите email, чтобы публиковать истории.{" "}

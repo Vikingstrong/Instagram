@@ -40,7 +40,7 @@ describe("AuthForm", () => {
     const user = await fill(password);
     await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
     // Registration signs in; an unverified account goes to the confirmation page.
-    await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith("/auth/session"));
+    await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith("/"));
     expect(fetch).toHaveBeenCalledTimes(2);
     const [path, init] = fetch.mock.calls[1];
     expect(path).toBe("/api/v1/auth/register");
@@ -89,6 +89,6 @@ it("accepts exactly eight password characters and lets the user reveal them", as
   await user.click(screen.getByRole("button", { name: "Показать пароль" }));
   expect(screen.getByLabelText("Пароль").getAttribute("type")).toBe("text");
   await user.click(screen.getByRole("button", { name: "Создать аккаунт" }));
-  await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith("/auth/session"));
+  await waitFor(() => expect(replaceLocation).toHaveBeenCalledWith("/"));
   expect(JSON.parse(fetch.mock.calls[1][1].body).password).toBe("12345678");
 });

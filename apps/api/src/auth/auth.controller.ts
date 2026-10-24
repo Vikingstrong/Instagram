@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
+  AuthCapabilitiesResponseSchema,
   AuthRegisterRequestSchema,
   AuthLoginRequestSchema,
   AuthLogoutRequestSchema,
@@ -19,13 +20,12 @@ import {
   AuthCsrfResponseSchema,
   AuthLogoutResponseSchema,
   AuthEmailRequestSchema,
-  AuthVerifyRequestSchema,
   AuthResetPasswordRequestSchema,
   AuthEmailAcceptedResponseSchema,
-  AuthVerifiedResponseSchema,
   AuthPasswordResetResponseSchema,
 } from '@instagram/contracts';
 import type { Request, Response } from 'express';
+import { MailService } from '../mail/mail.service.js';
 import { AuthService, SESSION_TTL_MS } from './auth.service.js';
 import { AuthSecurity, cookieValue } from './auth-security.js';
 import { AuthRateLimiter } from './auth-rate-limiter.js';
@@ -44,6 +44,7 @@ import {
 @errorResponse(503)
 export class AuthController {
   constructor(
+    @Inject(MailService) private readonly mail: MailService,
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(AuthSecurity) private readonly security: AuthSecurity,
     @Inject(AuthRateLimiter) private readonly limiter: AuthRateLimiter,
@@ -58,52 +59,28 @@ export class AuthController {
   }
 
   private emailLimit(email: string): void {
-    // Charge all addresses, including nonexistent/verified accounts, equally.
+    // Charge all addresses, including nonexistent/accounts, equally.
     this.limiter.consume('mail-minute', email.toLowerCase(), 1, 60_000);
     this.limiter.consume('mail-hour', email.toLowerCase(), 3, 3600_000);
   }
 
-  @Post('verification/request')
-  @HttpCode(202)
+  @Get('capabilities')
   @Header('Cache-Control', 'no-store')
-  @mutationBody(AuthEmailRequestSchema, { email: 'person@example.test' })
   @ApiOperation({
-    operationId: 'requestEmailVerification',
-    summary: 'Request an email verification link',
-    description:
-      'Same accepted response for unknown, verified and unverified addresses. Recipient limits apply to all addresses. SMTP delivery is queued durably.',
-  })
-  @ApiResponse({
-    status: 202,
-    headers: noStore,
-    schema: schema(AuthEmailAcceptedResponseSchema),
-  })
-  async requestVerification(@Body() body: unknown) {
-    const input = parse(body, AuthEmailRequestSchema);
-    this.emailLimit(input.email);
-    await this.auth.requestEmail(input.email, 'EMAIL_VERIFICATION');
-    return AuthEmailAcceptedResponseSchema.parse({ status: 'accepted' });
-  }
-
-  @Post('verification/confirm')
-  @Header('Cache-Control', 'no-store')
-  @HttpCode(200)
-  @mutationBody(AuthVerifyRequestSchema, { token: 'a'.repeat(43) })
-  @ApiOperation({
-    operationId: 'confirmEmailVerification',
-    summary: 'Consume an email verification token',
-    description:
-      'Explicit POST, not a link GET. Single-use, purpose-bound, 24-hour expiry. Does not sign in.',
+    operationId: 'getAuthCapabilities',
+    summary:
+      'Read optional password recovery availability; registration is always independent of mail',
   })
   @ApiResponse({
     status: 200,
     headers: noStore,
-    schema: schema(AuthVerifiedResponseSchema),
+    schema: schema(AuthCapabilitiesResponseSchema),
   })
-  async verifyEmail(@Body() body: unknown) {
-    const input = parse(body, AuthVerifyRequestSchema);
-    await this.auth.verifyEmail(input.token);
-    return AuthVerifiedResponseSchema.parse({ status: 'verified' });
+  capabilities(@Req() request: Request) {
+    this.readLimit(request);
+    return AuthCapabilitiesResponseSchema.parse({
+      passwordRecoveryEnabled: this.mail.recoveryAvailable(),
+    });
   }
 
   @Post('password/request')
@@ -186,9 +163,9 @@ export class AuthController {
   })
   @ApiOperation({
     operationId: 'registerAuth',
-    summary: 'Create an unverified account and sign it in',
+    summary: 'Register and sign in immediately; no email verification',
     description:
-      'Open registration. Requires an allowed browser Origin and CSRF cookie/header. Atomically creates the account, queues the verification email and sets an HttpOnly session cookie. Protected features remain unavailable until the email is verified.',
+      'Open registration. Requires an allowed browser Origin and CSRF cookie/header. Atomically creates the account and an HttpOnly session cookie. No verification token or mail is created; SMTP is optional.',
   })
   @ApiResponse({
     status: 201,
@@ -233,7 +210,7 @@ export class AuthController {
     operationId: 'loginAuth',
     summary: 'Create a persistent cookie session',
     description:
-      'Requires allowed Origin and CSRF. Sets an HttpOnly host-only session cookie; bearer token is never returned in JSON. Unverified accounts can sign in only for auth/verification/recovery pages.',
+      'Requires allowed Origin and CSRF. Sets an HttpOnly host-only session cookie; bearer token is never returned in JSON. Email ownership is not a condition for authenticated features.',
   })
   @ApiResponse({
     status: 200,

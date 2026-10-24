@@ -94,7 +94,7 @@ describe('Live streams with real PostgreSQL', () => {
     return AuthCsrfResponseSchema.parse(response.body).csrfToken;
   }
   async function account(
-    options: { verified?: boolean; isPrivate?: boolean } = {},
+    options: { isPrivate?: boolean } = {},
   ): Promise<Account> {
     const client = request.agent(app.getHttpServer());
     const suffix = randomUUID().replaceAll('-', '');
@@ -111,10 +111,10 @@ describe('Live streams with real PostgreSQL', () => {
       .expect(201);
     const user = AuthUserResponseSchema.parse(response.body).user;
     ownedIds.push(user.id);
+    expect(user.emailVerified).toBe(false);
     await database.prisma.user.update({
       where: { id: user.id },
       data: {
-        emailVerifiedAt: options.verified === false ? null : new Date(),
         isPrivate: options.isPrivate ?? false,
       },
     });
@@ -185,13 +185,13 @@ describe('Live streams with real PostgreSQL', () => {
   ) => send(who, 'post', url(liveId, '/comments'), { id, text });
   const rooms = () => (lives as unknown as { rooms: LiveRooms }).rooms;
 
-  it('requires a verified session, Origin and CSRF, and rejects forged input', async () => {
+  it('accepts a session without email verification, requires Origin/CSRF and rejects forged input', async () => {
     const host = await account(),
-      unverified = await account({ verified: false });
+      newAccount = await account();
     const anonymous = request(app.getHttpServer());
     expect((await anonymous.get(livesEndpoints.list.path)).status).toBe(401);
-    expect((await unverified.client.get(livesEndpoints.list.path)).status).toBe(
-      403,
+    expect((await newAccount.client.get(livesEndpoints.list.path)).status).toBe(
+      200,
     );
     expect(
       (

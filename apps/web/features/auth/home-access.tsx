@@ -1,8 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type MouseEvent } from "react";
-import { authEndpoints, AuthSessionResponseSchema, type AuthUser } from "@instagram/contracts";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type MouseEvent,
+} from "react";
+import {
+  authEndpoints,
+  AuthSessionResponseSchema,
+  type AuthUser,
+} from "@instagram/contracts";
 import { createApiClient, type ApiFailure } from "@/lib/api/client";
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { AuthBrand, authButtonClass } from "./auth-design";
@@ -13,10 +25,13 @@ export const useHomeIdentity = () => useContext(HomeIdentity);
 // then). Pages use it to tell a guest from a brief focus recheck.
 const HomeChecking = createContext(false);
 export const useHomeChecking = () => useContext(HomeChecking);
-type Access = { state: "loading" } | { state: "error"; failure: ApiFailure } | { state: "ready"; user: AuthUser | null };
+type Access =
+  | { state: "loading" }
+  | { state: "error"; failure: ApiFailure }
+  | { state: "ready"; user: AuthUser | null };
 
 // Guest selection changes presentation only. Protected API routes still require
-// their own verified session; a URL parameter never grants server permissions.
+// their own authenticated session; a URL parameter never grants server permissions.
 export function HomeAccess({ children }: { children: ReactNode }) {
   const [access, setAccess] = useState<Access>({ state: "loading" });
   const [prompt, setPrompt] = useState(false);
@@ -42,18 +57,29 @@ export function HomeAccess({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       request = controller;
       hideIdentity();
-      const result = await createApiClient().request(authEndpoints.session, AuthSessionResponseSchema, { signal: controller.signal });
-      if (!active || controller.signal.aborted || version !== generation.current) return;
+      const result = await createApiClient().request(
+        authEndpoints.session,
+        AuthSessionResponseSchema,
+        { signal: controller.signal },
+      );
+      if (
+        !active ||
+        controller.signal.aborted ||
+        version !== generation.current
+      )
+        return;
       if (!result.ok) {
         // A failed background check keeps the feed but not the unconfirmed identity.
-        if (!shown.current) setAccess({ state: "error", failure: result.failure });
+        if (!shown.current)
+          setAccess({ state: "error", failure: result.failure });
         return;
       }
-      if (result.data.user && !result.data.user.emailVerified) {
-        window.location.replace("/auth/session"); return;
-      }
-      if (!result.data.user && new URLSearchParams(window.location.search).get("guest") !== "1") {
-        window.location.replace("/auth/login"); return;
+      if (
+        !result.data.user &&
+        new URLSearchParams(window.location.search).get("guest") !== "1"
+      ) {
+        window.location.replace("/auth/login");
+        return;
       }
       // The account key remounts the feed only when the cookie changes identity.
       shown.current = true;
@@ -86,12 +112,20 @@ export function HomeAccess({ children }: { children: ReactNode }) {
   }, [prompt]);
 
   function interact(event: MouseEvent<HTMLDivElement>) {
-    if (access.state !== "ready" || access.user || !(event.target instanceof Element)) return;
+    if (
+      access.state !== "ready" ||
+      access.user ||
+      !(event.target instanceof Element)
+    )
+      return;
     const target = event.target.closest<HTMLElement>("[data-auth-required], a");
     if (!target) return;
     if (target instanceof HTMLAnchorElement) {
       const url = new URL(target.href, window.location.origin);
-      if (url.origin !== window.location.origin || url.pathname.startsWith("/auth/")) {
+      if (
+        url.origin !== window.location.origin ||
+        url.pathname.startsWith("/auth/")
+      ) {
         if (url.pathname !== "/auth/session") return;
       } else if (url.pathname === "/") {
         if (url.hash) return;
@@ -107,16 +141,65 @@ export function HomeAccess({ children }: { children: ReactNode }) {
     setPrompt(true);
   }
 
-  if (access.state === "loading") return <main className="grid min-h-dvh place-content-center gap-6 text-center"><AuthBrand /><p role="status" className="text-sm text-muted-foreground">Проверяем сессию…</p></main>;
-  if (access.state === "error") return <main className="mx-auto grid min-h-dvh max-w-sm place-content-center gap-6 px-6"><AuthBrand /><ApiErrorNotice failure={access.failure} onRetry={() => setRevision(value => value + 1)} /><Link href="/auth/login" className="text-ig-link">Перейти ко входу</Link></main>;
-  return <HomeIdentity value={checking ? null : access.user}><HomeChecking value={checking}>
-    <div key={access.user?.id ?? "guest"} onClickCapture={interact}>{children}</div>
-    <dialog ref={modal} onCancel={() => setPrompt(false)} onClose={() => setPrompt(false)} aria-labelledby="guest-prompt-title" className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-3xl border bg-[#1b1e24] p-7 text-center text-white shadow-2xl backdrop:bg-black/70">
-      <h2 id="guest-prompt-title" className="text-2xl font-semibold">Будьте частью момента</h2>
-      <p className="mt-3 mb-6 text-sm leading-6 text-muted-foreground">Войдите, чтобы ставить лайки, подписываться и общаться.</p>
-      <Link href="/auth/login" className={authButtonClass}>Войти</Link>
-      <Link href="/auth/register" className="mt-4 block text-sm font-semibold text-[#adb8ff]">Создать аккаунт</Link>
-      <button type="button" onClick={() => setPrompt(false)} className="mt-6 text-sm text-muted-foreground">Продолжить просмотр</button>
-    </dialog>
-  </HomeChecking></HomeIdentity>;
+  if (access.state === "loading")
+    return (
+      <main className="grid min-h-dvh place-content-center gap-6 text-center">
+        <AuthBrand />
+        <p role="status" className="text-sm text-muted-foreground">
+          Проверяем сессию…
+        </p>
+      </main>
+    );
+  if (access.state === "error")
+    return (
+      <main className="mx-auto grid min-h-dvh max-w-sm place-content-center gap-6 px-6">
+        <AuthBrand />
+        <ApiErrorNotice
+          failure={access.failure}
+          onRetry={() => setRevision((value) => value + 1)}
+        />
+        <Link href="/auth/login" className="text-ig-link">
+          Перейти ко входу
+        </Link>
+      </main>
+    );
+  return (
+    <HomeIdentity value={checking ? null : access.user}>
+      <HomeChecking value={checking}>
+        <div key={access.user?.id ?? "guest"} onClickCapture={interact}>
+          {children}
+        </div>
+        <dialog
+          ref={modal}
+          onCancel={() => setPrompt(false)}
+          onClose={() => setPrompt(false)}
+          aria-labelledby="guest-prompt-title"
+          className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-sm rounded-3xl border bg-[#1b1e24] p-7 text-center text-white shadow-2xl backdrop:bg-black/70"
+        >
+          <h2 id="guest-prompt-title" className="text-2xl font-semibold">
+            Будьте частью момента
+          </h2>
+          <p className="mt-3 mb-6 text-sm leading-6 text-muted-foreground">
+            Войдите, чтобы ставить лайки, подписываться и общаться.
+          </p>
+          <Link href="/auth/login" className={authButtonClass}>
+            Войти
+          </Link>
+          <Link
+            href="/auth/register"
+            className="mt-4 block text-sm font-semibold text-[#adb8ff]"
+          >
+            Создать аккаунт
+          </Link>
+          <button
+            type="button"
+            onClick={() => setPrompt(false)}
+            className="mt-6 text-sm text-muted-foreground"
+          >
+            Продолжить просмотр
+          </button>
+        </dialog>
+      </HomeChecking>
+    </HomeIdentity>
+  );
 }

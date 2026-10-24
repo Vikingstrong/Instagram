@@ -13,11 +13,10 @@ export {
 export {
   AuthEmailRequestSchema,
   AuthLinkTokenSchema,
-  AuthVerifyRequestSchema,
   AuthResetPasswordRequestSchema,
   AuthEmailAcceptedResponseSchema,
-  AuthVerifiedResponseSchema,
   AuthPasswordResetResponseSchema,
+  AuthCapabilitiesResponseSchema,
   AuthUserSchema,
   AuthUserResponseSchema,
   AuthSessionResponseSchema,

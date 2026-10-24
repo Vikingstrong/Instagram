@@ -56,7 +56,7 @@ import { LivesService } from './lives.service.js';
 import { AuthSecurity, cookieValue } from '../auth/auth-security.js';
 import { sessionHash } from '../auth/auth.service.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { AuthRateLimiter } from '../auth/auth-rate-limiter.js';
@@ -97,7 +97,7 @@ const uuid = UserSummarySchema.shape.id;
 @ApiTags('Lives')
 @ApiSecurity('session')
 @Controller('lives')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(400)
 @errorResponse(401)
 @errorResponse(403)

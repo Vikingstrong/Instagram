@@ -7,7 +7,7 @@ import { startAuthApi } from './auth-api.mjs';
 // generated photo.
 export type Fixture = Awaited<ReturnType<typeof startAuthApi>>;
 
-export async function verifiedAccount(): Promise<Fixture> {
+export async function registeredAccount(): Promise<Fixture> {
   const fixture = await startAuthApi();
   const csrfResponse = await fetch(fixture.origin + '/api/v1/auth/csrf');
   const csrf = AuthCsrfResponseSchema.parse(await csrfResponse.json());
@@ -22,7 +22,6 @@ export async function verifiedAccount(): Promise<Fixture> {
     body: JSON.stringify(fixture.account),
   });
   expect(registration.status).toBe(201);
-  await fixture.verify();
   return fixture;
 }
 

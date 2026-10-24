@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, verifiedAccount, type Fixture } from "./helpers/app.mjs";
+import { login, registeredAccount, type Fixture } from "./helpers/app.mjs";
 
 // FR-14 gifts in a live stream: a viewer spends the daily coins on gifts,
 // the host receives them; a gift above 10 coins plays full screen for both.
@@ -22,9 +22,9 @@ test("viewer sends gifts with coins; big ones play full screen for everyone", as
     viewport: info.project.use.viewport,
   });
   try {
-    const host = await verifiedAccount();
+    const host = await registeredAccount();
     fixtures.push(host);
-    const viewer = await verifiedAccount();
+    const viewer = await registeredAccount();
     fixtures.push(viewer);
     const name = host.account.username;
     const fan = viewer.account.username;

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { login, verifiedAccount, type Fixture } from "./helpers/app.mjs";
+import { login, registeredAccount, type Fixture } from "./helpers/app.mjs";
 
 // Live moderation: the host appoints a moderator, the moderator mutes a
 // viewer, the host bans them — the viewer is sent home with the message
@@ -22,11 +22,11 @@ test("host appoints a moderator who mutes; a banned viewer is sent home", async 
     [0, 1].map(() => browser.newContext({ baseURL, viewport: info.project.use.viewport })),
   );
   try {
-    const host = await verifiedAccount();
+    const host = await registeredAccount();
     fixtures.push(host);
-    const helper = await verifiedAccount();
+    const helper = await registeredAccount();
     fixtures.push(helper);
-    const troll = await verifiedAccount();
+    const troll = await registeredAccount();
     fixtures.push(troll);
     const name = host.account.username;
     await hostContext.grantPermissions(["microphone", "camera"]);

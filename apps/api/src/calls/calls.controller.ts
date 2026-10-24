@@ -46,7 +46,7 @@ import {
 import { AuthSecurity, cookieValue } from '../auth/auth-security.js';
 import { sessionHash } from '../auth/auth.service.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { AuthRateLimiter } from '../auth/auth-rate-limiter.js';
@@ -83,7 +83,7 @@ const bodySchema = (value: Parameters<typeof schema>[0]) =>
 @ApiTags('Calls')
 @ApiSecurity('session')
 @Controller('calls')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(400)
 @errorResponse(401)
 @errorResponse(403)

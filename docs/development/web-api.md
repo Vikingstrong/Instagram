@@ -39,7 +39,7 @@ docker compose up -d --wait postgres
 pnpm dev
 ```
 
-Инструкции настройки БД и Mailpit: [FND-03](local-environment.md).
+Инструкции настройки PostgreSQL без Mailpit: [FND-03](local-environment.md).
 Deployment сохраняет общий HTTPS origin с маршрутизацией API непосредственно
 в NestJS. Этот срез не подтверждает production proxy, cookie-auth или SSE.
 

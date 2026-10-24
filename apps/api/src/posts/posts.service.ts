@@ -209,7 +209,7 @@ export class PostsService {
     page: PageQuery,
   ): Promise<PostListResponse> {
     const author = await this.database.prisma.user.findFirst({
-      where: { id: userId, emailVerifiedAt: { not: null } },
+      where: { id: userId },
       select: { id: true },
     });
     if (!author) throw new AuthError('USER_NOT_FOUND');
@@ -323,7 +323,7 @@ export class PostsService {
 
   // Image bytes after the same checks as the owning post or profile: post
   // images follow post visibility; avatars follow the profile summary, which
-  // every verified user may read (FR-02). Anything else is 404.
+  // every authenticated user may read (FR-02). Anything else is 404.
   async readImage(
     viewerId: string,
     id: string,
@@ -339,7 +339,7 @@ export class PostsService {
           { kind: 'STORY', story: visibleStory(viewerId) },
           {
             kind: 'AVATAR',
-            avatarOf: { emailVerifiedAt: { not: null } },
+            avatarOf: { isNot: null },
           },
         ],
       },

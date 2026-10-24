@@ -7,7 +7,7 @@ import { createDirectClient } from "@/lib/api/direct";
 import { describeFailure } from "@/lib/api/messages";
 
 // Profile action: opens (or creates) the conversation and goes to it. Works
-// for any verified user, including private accounts (FR-09).
+// for any authenticated user, including private accounts (FR-09).
 export function MessageButton({ userId }: { userId: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { login, verifiedAccount, type Fixture } from './helpers/app.mjs';
+import { login, registeredAccount, type Fixture } from './helpers/app.mjs';
 
 const thread = (page: Page) => page.getByRole('list', { name: 'Сообщения' });
 async function say(page: Page, text: string) {
@@ -24,11 +24,11 @@ test('direct messages in real time with recovery after an outage', async ({ page
     return context;
   };
   try {
-    const alice = await verifiedAccount();
+    const alice = await registeredAccount();
     fixtures.push(alice);
-    const bob = await verifiedAccount();
+    const bob = await registeredAccount();
     fixtures.push(bob);
-    const eve = await verifiedAccount();
+    const eve = await registeredAccount();
     fixtures.push(eve);
 
     await login(page, alice.account);

@@ -26,6 +26,14 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
     @Inject(SmtpSender) private readonly sender: SmtpSender,
   ) {}
 
+  assertAvailable(): void {
+    if (!this.config.enabled || !this.config.key)
+      throw new ServiceUnavailableException();
+  }
+  recoveryAvailable(): boolean {
+    return this.config.enabled && !!this.config.key;
+  }
+
   private encrypt(value: string, tokenId: string): string {
     if (!this.config.key) throw new ServiceUnavailableException();
     const iv = randomBytes(12);
@@ -115,7 +123,8 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   // Public to the API's integration harness, never an HTTP endpoint.
-  async processOne(): Promise<void> {
+  async processOne(userId: string | null = null): Promise<void> {
+    if (!this.recoveryAvailable()) return;
     const claim = randomUUID();
     const claimed = await this.database.prisma.$queryRaw<{ id: string }[]>`
       UPDATE mail_deliveries SET "claimId" = ${claim}::uuid,
@@ -123,6 +132,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       WHERE id = (
         SELECT id FROM mail_deliveries
         WHERE "sentAt" IS NULL AND "cancelledAt" IS NULL
+          AND (${userId}::uuid IS NULL OR "tokenId" IN (SELECT id FROM auth_tokens WHERE "userId" = ${userId}::uuid))
           AND "nextAttemptAt" <= CURRENT_TIMESTAMP
           AND ("leaseUntil" IS NULL OR "leaseUntil" <= CURRENT_TIMESTAMP)
         ORDER BY "nextAttemptAt", id FOR UPDATE SKIP LOCKED LIMIT 1
@@ -152,7 +162,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       token.revokedAt ||
       token.expiresAt.getTime() <= Date.now() ||
       token.credentialVersion !== token.user.credentialVersion ||
-      (token.purpose === 'EMAIL_VERIFICATION' && token.user.emailVerifiedAt)
+      token.purpose !== 'PASSWORD_RESET'
     ) {
       await this.database.prisma.mailDelivery.updateMany({
         where,
@@ -169,7 +179,6 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       await this.sender.send({
         id: delivery.id,
         to: token.user.email,
-        verification: token.purpose === 'EMAIL_VERIFICATION',
         link: this.decrypt(delivery.payload, delivery.tokenId),
       });
       await this.database.prisma.mailDelivery.updateMany({

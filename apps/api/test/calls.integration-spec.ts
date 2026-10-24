@@ -145,7 +145,7 @@ describe('Calls with real PostgreSQL', () => {
       url(id, `/signals?clientId=${clientId(who)}&after=${after}`),
     );
 
-  it('requires verified sessions, Origin/CSRF and rejects forged data', async () => {
+  it('requires sessions, Origin/CSRF and rejects forged data', async () => {
     expect(
       (await request(app.getHttpServer()).get(callsEndpoints.current.path))
         .status,
@@ -153,7 +153,7 @@ describe('Calls with real PostgreSQL', () => {
     const unverified = await account({ verified: false });
     expect(
       (await unverified.client.get(callsEndpoints.current.path)).status,
-    ).toBe(403);
+    ).toBe(200);
     const first = await account(),
       second = await account();
     const conversation = await open(first, second);
