@@ -394,20 +394,12 @@ function MessageContent({
         </a>
       )}
       {attachment?.type === "voice" && (
-        <div className="max-w-full rounded-2xl border bg-secondary/40 p-2">
-          <PrivateAudio
-            src={attachment.url}
-            opusUrl={attachment.opusUrl}
-            label="Голосовое сообщение"
-          />
-          <p className="mt-1 px-2 text-xs tabular-nums text-muted-foreground">
-            {Math.floor(attachment.durationMs / 60000)}:
-            {String(Math.floor(attachment.durationMs / 1000) % 60).padStart(
-              2,
-              "0",
-            )}
-          </p>
-        </div>
+        <PrivateAudio
+          src={attachment.url}
+          opusUrl={attachment.opusUrl}
+          label="Голосовое сообщение"
+          durationMs={attachment.durationMs}
+        />
       )}
       {message.text && <Bubble mine={mine} text={message.text} />}
     </div>
