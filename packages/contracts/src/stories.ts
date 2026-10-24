@@ -17,6 +17,7 @@ export const StorySchema = z.strictObject({
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
   viewed: z.boolean(),
+  shareCount: z.int().nonnegative().optional(),
 });
 export const StoryResponseSchema = z.strictObject({ story: StorySchema });
 export const StoryListResponseSchema = z.strictObject({

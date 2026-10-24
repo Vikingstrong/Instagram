@@ -272,3 +272,13 @@ lastActivityAt фиксируются одной транзакцией; SSE и�
 файла, без раскрытия хеша клиенту. Общий endpoint публикаций не выдаёт DIRECT
 media. Контракты, ограничения декодирования, приватный Range и lifecycle записи
 описаны в [Direct attachments](../development/direct-attachments.md).
+
+## Пересылка оригиналов в Direct (2026-10-24)
+
+DirectService атомарно сохраняет ссылку сообщения и журнал уникальных аккаунтов
+post_shares/story_shares. SharedContentService пакетно разрешает ссылки с
+visiblePost/visibleStory для текущего читателя при каждом чтении. В сообщении нет
+снимка приватного превью: удаление, отзыв доступа и истечение истории дают
+unavailable без автора, подписи, id и URL. Posts/Stories читают агрегат журнала;
+Reels и видеопост используют один источник и счётчик. Подробности —
+[Content sharing](../development/content-sharing.md).

@@ -55,6 +55,30 @@ export const DirectAttachmentSchema = z.discriminatedUnion("type", [
     durationMs: z.int().positive().max(voiceMessageRules.maxDurationMs),
   }),
 ]);
+export const ShareContentRequestSchema = z.strictObject({
+  clientMessageId: z.uuid(),
+  kind: z.enum(["post", "reel", "story"]),
+  contentId: z.uuid(),
+  text: profileText(1000, true).optional().default(""),
+});
+export const SharedContentSchema = z.discriminatedUnion("status", [
+  z.strictObject({
+    status: z.literal("unavailable"),
+    kind: z.enum(["post", "reel", "story"]),
+  }),
+  z.strictObject({
+    status: z.literal("available"),
+    kind: z.enum(["post", "reel", "story"]),
+    id: z.uuid(),
+    author: UserSummarySchema,
+    caption: profileText(2200, true),
+    thumbnailUrl: MediaUrlSchema,
+    href: z.string().regex(/^\/(?:p|stories)\/[0-9a-f-]{36}$/),
+    expiresAt: z.iso.datetime().nullable(),
+  }),
+]);
+export type SharedContent = z.infer<typeof SharedContentSchema>;
+export type ShareContentRequest = z.infer<typeof ShareContentRequestSchema>;
 export const DirectMessageSchema = z
   .strictObject({
     id: z.uuid(),
@@ -63,12 +87,23 @@ export const DirectMessageSchema = z
     clientMessageId: z.uuid(),
     text: profileText(1000, true),
     attachment: DirectAttachmentSchema.nullable().optional(),
+    sharedContent: SharedContentSchema.nullable().optional(),
     createdAt: z.iso.datetime(),
   })
-  .refine((value) => value.text.trim().length > 0 || !!value.attachment, {
-    message: "Message must contain text or an attachment.",
-  });
+  .refine(
+    (value) =>
+      value.text.trim().length > 0 ||
+      !!value.attachment ||
+      !!value.sharedContent,
+    {
+      message: "Message must contain text or an attachment.",
+    },
+  );
 
+export const ShareContentResponseSchema = z.strictObject({
+  message: DirectMessageSchema,
+  shareCount: z.int().nonnegative().nullable(),
+});
 export const ConversationSchema = z.strictObject({
   id: z.uuid(),
   peer: UserSummarySchema,
@@ -99,6 +134,11 @@ export type Conversation = z.infer<typeof ConversationSchema>;
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
 
 export const directEndpoints = {
+  share: {
+    method: "POST",
+    path: "/api/v1/direct/conversations/{id}/messages/share",
+    successStatus: 201,
+  },
   sendImage: {
     method: "POST",
     path: "/api/v1/direct/conversations/{id}/messages/image",
