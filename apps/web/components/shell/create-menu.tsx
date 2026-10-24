@@ -1,15 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CirclePlus, Clapperboard, Images, Radio } from "lucide-react";
+import { Images, Radio } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { CreateIcon } from "@/components/icons/ig-icons";
 
 const formats = [
   { title: "Публикация", href: "/create", icon: Images },
-  { title: "Reels", href: "/create/reel", icon: Clapperboard },
-  { title: "История", href: "/stories/create", icon: CirclePlus },
   { title: "Прямой эфир", href: "/live", icon: Radio },
 ];
 

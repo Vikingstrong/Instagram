@@ -61,8 +61,6 @@ describe("creation chooser", () => {
       const menu = screen.getByRole("menu", { name: "Создать" });
       for (const [name, href] of [
         ["Публикация", "/create"],
-        ["Reels", "/create/reel"],
-        ["История", "/stories/create"],
         ["Прямой эфир", "/live"],
       ]) {
         expect(
@@ -85,7 +83,7 @@ describe("creation chooser", () => {
     await user.click(document.body);
     expect(screen.queryByRole("menu")).toBeNull();
     await user.click(trigger);
-    await user.click(screen.getByRole("menuitem", { name: "Reels" }));
+    await user.click(screen.getByRole("menuitem", { name: "Публикация" }));
     expect(screen.queryByRole("menu")).toBeNull();
   });
 });
