@@ -20,6 +20,7 @@ import { createCallsClient } from "@/lib/api/calls";
 import { describeFailure } from "@/lib/api/messages";
 import { RtcSession } from "./rtc-session";
 import { CallOverlay } from "./call-overlay";
+import { relayLiveNotice } from "@/features/live/live-notices";
 
 type Controls = {
   start: (conversation: Conversation, kind: "AUDIO" | "VIDEO") => void;
@@ -392,6 +393,10 @@ export function CallsProvider({ children }: { children: ReactNode }) {
         /* Ignore malformed hints; polling repairs state. */
       }
     });
+    // The same tab stream carries live stream notices (FR-12).
+    source.addEventListener("live", (event) =>
+      relayLiveNotice((event as MessageEvent<string>).data),
+    );
     const timer = setInterval(run, 1500);
     window.addEventListener("online", run);
     const closeMedia = () => engine.current?.close();

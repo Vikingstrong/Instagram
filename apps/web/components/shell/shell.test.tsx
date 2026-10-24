@@ -63,6 +63,7 @@ describe("creation chooser", () => {
         ["Публикация", "/create"],
         ["Reels", "/create/reel"],
         ["История", "/stories/create"],
+        ["Прямой эфир", "/live"],
       ]) {
         expect(
           within(dialog).getByRole("link", { name }).getAttribute("href"),

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, CirclePlus, Film, ImagePlus, X } from "lucide-react";
+import { ArrowUpRight, CirclePlus, Film, ImagePlus, Radio, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { CreateIcon } from "@/components/icons/ig-icons";
@@ -31,6 +31,14 @@ const formats = [
     icon: CirclePlus,
     tone: "from-orange-400/20 to-rose-500/10 text-orange-400",
     detail: "Исчезнет через 24 часа",
+  },
+  {
+    title: "Прямой эфир",
+    description: "Покажите подписчикам, что происходит прямо сейчас",
+    href: "/live",
+    icon: Radio,
+    tone: "from-pink-500/20 to-red-500/10 text-pink-400",
+    detail: "Без записи, до 10 зрителей",
   },
 ];
 

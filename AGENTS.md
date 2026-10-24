@@ -148,6 +148,11 @@ Shared media delivery checks story expiry and author visibility on each read.
 StoriesService removes expired story rows via its cleanup and delegates files
 to MediaService; see
 `docs/development/stories.md`. Stories and Live have separate owners/scopes.
+Stage 10 Live: LivesModule owns streams, moderation and gift transactions; web
+features/live uses the shared SSE transport. Live uses SessionGuard with no email
+verification gate; its browser fixtures use registeredAccount(). Global LiveAlerts
+must remain inside its own Suspense boundary for dynamic routes with Cache
+Components. See `docs/development/live-streams.md` and `docs/development/live-moderation-plan.md`.
 Stage 9 calls slice: CallsModule and global web CallsProvider implement audio/video 1:1 with REST/SSE signaling; see `docs/development/calls-api.md`. TURN configuration and real-network acceptance remain required.
 Stage 3 web pages (profile, settings,
 requests, search, API suggestions on home) are described in

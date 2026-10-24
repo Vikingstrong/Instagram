@@ -86,6 +86,8 @@ export async function startAuthApi(smtp?: { port: number }) {
     `process.on('message', async (message) => { if (message !== 'flush-recovery') return; const owner=await app.get(DatabaseService).prisma.user.findUniqueOrThrow({where:{emailKey:${JSON.stringify(account.email)}}}); await app.get(MailService).processOne(owner.id); process.send({ recoveryFlushed:true }); });`,
     "process.on('message', async (message) => { if (message !== 'stop') return; let status = 0; try {",
     `const db = app.get(DatabaseService).prisma; const owner = await db.user.findUnique({ where: { emailKey: ${JSON.stringify(account.email)} }, select: { id: true } });`,
+    // Live gifts reference their coin operations: remove them first.
+    "if (owner) await db.liveGift.deleteMany({ where: { OR: [{ senderId: owner.id }, { live: { hostId: owner.id } }] } });",
     "if (owner) await db.coinOperation.deleteMany({ where: { OR: [{ senderId: owner.id }, { recipientId: owner.id }] } });",
     `await app.get(DatabaseService).prisma.user.deleteMany({ where: { emailKey: ${JSON.stringify(account.email)}, usernameKey: ${JSON.stringify(account.username)} } });`,
     "} catch { status = 1; } finally { await app.close(); process.exit(status); } });",

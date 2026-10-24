@@ -10,6 +10,7 @@ import { SettingsIcon } from "@/components/icons/ig-icons";
 import { ProfileStoryAvatar } from "@/features/stories/profile-story-avatar";
 import { useHomeChecking, useHomeIdentity } from "@/features/auth/home-access";
 import { MessageButton } from "@/features/direct/message-button";
+import { LiveAvatar, useHostLive } from "@/features/live/live-strip";
 import { ProfileGrid } from "@/features/posts/profile-grid";
 import type { ApiFailure } from "@/lib/api/client";
 import { createSocialClient } from "@/lib/api/social";
@@ -45,6 +46,29 @@ export function ProfileView() {
   const { username } = useParams<{ username: string }>();
   // A new username is a new page: drop the previous profile's state.
   return <ProfileContent key={username} username={decodeURIComponent(username)} />;
+}
+
+// A stream on air turns the avatar into its live ring (FR-12); otherwise
+// it shows the story ring (FR-13).
+function ProfileAvatar({ profile, viewerId }: { profile: UserProfile; viewerId?: string }) {
+  const live = useHostLive(profile.id, true);
+  if (!live)
+    return (
+      <>
+        <ProfileStoryAvatar key={`${profile.id}-desktop`} userId={profile.id} username={profile.username} size={150} src={profile.avatarUrl} className="hidden md:flex" />
+        <ProfileStoryAvatar key={`${profile.id}-mobile`} userId={profile.id} username={profile.username} size={77} src={profile.avatarUrl} className="md:hidden" />
+      </>
+    );
+  return (
+    <>
+      <span className="hidden md:flex">
+        <LiveAvatar live={live} viewerId={viewerId} size={142} />
+      </span>
+      <span className="md:hidden">
+        <LiveAvatar live={live} viewerId={viewerId} size={70} />
+      </span>
+    </>
+  );
 }
 
 function ProfileContent({ username }: { username: string }) {
@@ -126,8 +150,7 @@ function ProfileContent({ username }: { username: string }) {
   return (
     <div className="mx-auto w-full max-w-233.75 px-4 pt-6 md:px-5 md:pt-8">
       <header className="flex gap-6 md:gap-20 md:px-12">
-        <ProfileStoryAvatar key={`${profile.id}-desktop`} userId={profile.id} username={profile.username} size={150} src={profile.avatarUrl} className="hidden md:flex" />
-        <ProfileStoryAvatar key={`${profile.id}-mobile`} userId={profile.id} username={profile.username} size={77} src={profile.avatarUrl} className="md:hidden" />
+        <ProfileAvatar profile={profile} viewerId={viewerId} />
         <section className="flex min-w-0 flex-1 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="truncate text-xl">{profile.username}</h1>

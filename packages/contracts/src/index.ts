@@ -163,3 +163,4 @@ export * from "./calls.js";
 
 export * from "./stories.js";
 export * from "./coins.js";
+export * from "./lives.js";

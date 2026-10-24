@@ -3,6 +3,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { HomeAccess } from "@/features/auth/home-access";
 import { SuggestionsProvider } from "@/features/social/suggestions";
 import { HomeFeed } from "@/features/posts/home-feed";
+import { LiveStrip } from "@/features/live/live-strip";
 import { RightSidebar } from "@/components/home/right-sidebar";
 import { SuggestionsCarousel } from "@/components/home/suggestions-carousel";
 
@@ -15,6 +16,7 @@ export default function Home() {
       <div className="flex w-full max-w-157.5 justify-center">
         <div className="flex w-full max-w-117.5 flex-col gap-6 py-4 md:py-6">
           <h1 className="sr-only">Главная</h1>
+          <LiveStrip />
           <StoryTray />
           <SuggestionsCarousel />
           <HomeFeed />
