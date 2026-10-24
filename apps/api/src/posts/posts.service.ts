@@ -39,7 +39,7 @@ const postSelect = (viewerId: string) =>
       },
     },
     author: { select: summarySelect },
-    _count: { select: { likes: true, comments: true } },
+    _count: { select: { likes: true, comments: true, shares: true } },
     likes: { where: { userId: viewerId }, select: { userId: true }, take: 1 },
   }) as const;
 
@@ -57,7 +57,7 @@ type PostRow = {
     failedAt: Date | null;
   };
   author: Parameters<typeof userSummary>[0];
-  _count: { likes: number; comments: number };
+  _count: { likes: number; comments: number; shares: number };
   likes: { userId: string }[];
 };
 
@@ -85,6 +85,7 @@ function toPost(row: PostRow): Post {
     createdAt: row.createdAt.toISOString(),
     likeCount: row._count.likes,
     commentCount: row._count.comments,
+    shareCount: row._count.shares,
     liked: row.likes.length > 0,
   });
 }

@@ -59,6 +59,7 @@ export const PostSchema = z.strictObject({
   // FR-06: counters and the viewer's own like, read with the post.
   likeCount: z.int().nonnegative(),
   commentCount: z.int().nonnegative(),
+  shareCount: z.int().nonnegative().optional(),
   liked: z.boolean(),
 });
 export const PostResponseSchema = z.strictObject({ post: PostSchema });

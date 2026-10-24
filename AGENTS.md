@@ -117,7 +117,11 @@ docs/development/direct-api.md. Direct attachments (photo/GIF/voice) use
 MediaKind.DIRECT, multipart messages/image and messages/voice, exact-byte
 idempotency and participant-checked message media routes. FFmpeg outputs
 AAC/M4A and Opus/WebM, web captures with MediaRecorder; see
-docs/development/direct-attachments.md. Stage 7 realtime: SSE GET /api/v1/direct/events
+docs/development/direct-attachments.md. Shared content uses messages/share,
+SharedContentService resolves originals per reader with existing visibility
+policies; post_shares/story_shares journals count unique accounts atomically.
+No copied private preview in messages; see docs/development/content-sharing.md.
+Stage 7 realtime: SSE GET /api/v1/direct/events
 (DirectEvents in-memory hub, ids only; SessionRevocations closes streams on
 logout/reset); web subscribes, waits for "ready", then syncs over REST; see
 docs/development/direct-realtime.md.

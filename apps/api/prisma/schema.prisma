@@ -42,6 +42,8 @@ enum MediaType {
 }
 
 model User {
+  postShares PostShare[]
+  storyShares StoryShare[]
   id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email             String          @db.VarChar(254)
   emailKey          String          @unique @db.VarChar(254)
@@ -231,6 +233,8 @@ model Media {
 // READY media; a video post is created PENDING and becomes visible when its
 // media turns READY.
 model Post {
+  shares PostShare[]
+  sharedMessages DirectMessage[] @relation("sharedPost")
   id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   authorId  String     @db.Uuid
   mediaId   String     @unique @db.Uuid
@@ -310,6 +314,12 @@ model Conversation {
 // A retry with the same (senderId, clientMessageId) finds the stored message
 // instead of creating a duplicate.
 model DirectMessage {
+  sharedKind SharedContentKind?
+  sharedTargetId String? @db.Uuid
+  sharedPostId String? @db.Uuid
+  sharedStoryId String? @db.Uuid
+  sharedPost Post? @relation("sharedPost", fields: [sharedPostId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  sharedStory Story? @relation("sharedStory", fields: [sharedStoryId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   mediaId String? @unique @db.Uuid
   sourceHash String? @db.VarChar(64)
   media Media? @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
@@ -324,6 +334,8 @@ model DirectMessage {
 
   @@unique([senderId, clientMessageId])
   @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([sharedPostId])
+  @@index([sharedStoryId])
   @@map("direct_messages")
 }
 
@@ -431,6 +443,8 @@ model LiveComment {
 
 // FR-13: expiry is checked on every read, independently of background cleanup.
 model Story {
+  shares StoryShare[]
+  sharedMessages DirectMessage[] @relation("sharedStory")
   id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   authorId  String      @db.Uuid
   mediaId   String      @unique @db.Uuid
@@ -474,4 +488,31 @@ model LiveGift {
   @@unique([senderId, idempotencyKey])
   @@index([liveId, createdAt, id])
   @@map("live_gifts")
+}
+
+// Direct owns the durable unique-sharer journal; product modules read its count.
+enum SharedContentKind {
+  POST
+  REEL
+  STORY
+}
+model PostShare {
+  postId String @db.Uuid
+  userId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("post_shares")
+}
+model StoryShare {
+  storyId String @db.Uuid
+  userId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  @@id([storyId, userId])
+  @@index([userId])
+  @@map("story_shares")
 }

@@ -64,7 +64,7 @@ export function Inbox({
             const preview = recentCall
               ? `${lastCall.kind === "VIDEO" ? "Видеозвонок" : "Аудиозвонок"} · ${{ RINGING: "Вызов", ACTIVE: "Идёт звонок", ENDED: "Завершён", DECLINED: "Отклонён", MISSED: "Пропущен", FAILED: "Соединение прервано" }[lastCall.status]}`
               : lastMessage
-                ? `${lastMessage.senderId === viewerId ? "Вы: " : ""}${lastMessage.text || (lastMessage.attachment?.type === "voice" ? "Голосовое сообщение" : "Фото / GIF")}`
+                ? `${lastMessage.senderId === viewerId ? "Вы: " : ""}${lastMessage.text || (lastMessage.sharedContent ? "Поделились материалом" : "") || (lastMessage.attachment?.type === "voice" ? "Голосовое сообщение" : "Фото / GIF")}`
                 : "Начните диалог";
             return (
               <li key={conversation.id}>

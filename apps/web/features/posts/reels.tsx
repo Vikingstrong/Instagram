@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ShareButton } from "@/features/sharing/share-button";
 import { useEffect, useRef, useState } from "react";
 import type { Post } from "@instagram/contracts";
 
@@ -26,7 +27,9 @@ export function Reels() {
   if (!shownId && !checking)
     return (
       <div className="m-auto flex flex-col items-center gap-3 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Войдите, чтобы смотреть Reels.</p>
+        <p className="text-sm text-muted-foreground">
+          Войдите, чтобы смотреть Reels.
+        </p>
         <Link href="/auth/login" className="font-semibold text-ig-link">
           Войти
         </Link>
@@ -45,7 +48,8 @@ function ReelsList({ viewerId }: { viewerId: string }) {
 
   function reached(index: number) {
     // Two reels before the end: fetch the next page in time.
-    if (index >= list.items.length - 2 && list.cursor && !list.loading) list.more();
+    if (index >= list.items.length - 2 && list.cursor && !list.loading)
+      list.more();
   }
 
   if (list.items.length === 0) {
@@ -70,7 +74,10 @@ function ReelsList({ viewerId }: { viewerId: string }) {
         <p className="text-sm text-muted-foreground">
           Здесь появятся видео ваших подписок и открытых аккаунтов.
         </p>
-        <Link href="/create" className="text-sm font-semibold text-ig-link hover:text-foreground">
+        <Link
+          href="/create"
+          className="text-sm font-semibold text-ig-link hover:text-foreground"
+        >
           Опубликовать видео
         </Link>
       </div>
@@ -80,7 +87,7 @@ function ReelsList({ viewerId }: { viewerId: string }) {
   return (
     <section
       aria-label="Reels"
-      className="h-[calc(100dvh-3rem-env(safe-area-inset-bottom))] snap-y snap-mandatory overflow-y-auto md:h-dvh"
+      className="h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] snap-y snap-mandatory overflow-y-auto md:h-dvh"
     >
       <h1 className="sr-only">Reels</h1>
       {list.items.map((post, index) => (
@@ -170,19 +177,27 @@ function Reel({
         className="h-full max-w-full cursor-pointer object-contain md:aspect-9/16 md:object-cover"
       />
       {paused && (
-        <span aria-hidden className="pointer-events-none absolute text-5xl text-white/80">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute text-5xl text-white/80"
+        >
           ▶
         </span>
       )}
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-3 bg-linear-to-t from-black/70 to-transparent p-4 pr-20 text-white">
         <div className="pointer-events-auto min-w-0 flex-1">
-          <Link href={`/${author.username}`} className="flex items-center gap-2 text-sm font-semibold">
+          <Link
+            href={`/${author.username}`}
+            className="flex items-center gap-2 text-sm font-semibold"
+          >
             <Avatar name={author.username} src={author.avatarUrl} size={32} />
             {author.username}
           </Link>
           {post.caption && (
-            <p className="mt-2 line-clamp-2 text-sm whitespace-pre-line">{post.caption}</p>
+            <p className="mt-2 line-clamp-2 text-sm whitespace-pre-line">
+              {post.caption}
+            </p>
           )}
         </div>
       </div>
@@ -190,7 +205,9 @@ function Reel({
       <div className="absolute right-3 bottom-6 flex flex-col items-center gap-4 text-white">
         <div className="flex flex-col items-center gap-1">
           <LikeButton liked={like.liked} onToggle={like.toggle} />
-          <span className="text-xs">{like.likeCount.toLocaleString("ru-RU")}</span>
+          <span className="text-xs">
+            {like.likeCount.toLocaleString("ru-RU")}
+          </span>
         </div>
         <Link
           href={`/p/${post.id}`}
@@ -198,8 +215,19 @@ function Reel({
           className="flex flex-col items-center gap-1"
         >
           <CommentIcon />
-          <span className="text-xs">{post.commentCount.toLocaleString("ru-RU")}</span>
+          <span className="text-xs">
+            {post.commentCount.toLocaleString("ru-RU")}
+          </span>
         </Link>
+        <ShareButton
+          kind="reel"
+          contentId={post.id}
+          initialCount={post.shareCount}
+          compact
+          onOpenChange={(open) => {
+            if (open) video.current?.pause();
+          }}
+        />
         <button
           type="button"
           onClick={onToggleSound}

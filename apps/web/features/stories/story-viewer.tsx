@@ -2,6 +2,7 @@
 import { ConfirmDialog, openModal } from "@/components/ui-ig/confirm-dialog";
 import { MediaImage } from "@/components/ui-ig/media-image";
 import Link from "next/link";
+import { ShareButton } from "@/features/sharing/share-button";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -24,6 +25,7 @@ function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
   const [story, setStory] = useState<Story>();
   const [siblings, setSiblings] = useState<Story[]>([]);
   const [error, setError] = useState<string>();
+  const [sharingOpen, setSharingOpen] = useState(false);
   const [paused, setPaused] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [holding, setHolding] = useState(false);
@@ -48,6 +50,7 @@ function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
     holding ||
     hidden ||
     audienceOpen ||
+    sharingOpen ||
     deleting ||
     !ready ||
     siblings.length === 0;
@@ -398,7 +401,7 @@ function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
             {playbackError}
           </p>
         )}
-        <footer className="z-10 flex items-center justify-between gap-2 bg-black/70 p-4 text-sm">
+        <footer className="z-10 flex flex-wrap items-center justify-between gap-2 bg-black/70 p-4 text-sm">
           <button
             type="button"
             onClick={() => void next(-1)}
@@ -407,6 +410,14 @@ function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
           >
             Предыдущая
           </button>
+          <ShareButton
+            key={story.id}
+            kind="story"
+            contentId={story.id}
+            initialCount={story.shareCount}
+            compact
+            onOpenChange={setSharingOpen}
+          />
           {self && (
             <>
               <button
