@@ -145,7 +145,7 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
     };
   }
 
-  it('requires a verified session for every social route', async () => {
+  it('requires a session for every social route', async () => {
     const target = await account();
     const anonymous = request.agent(app.getHttpServer());
     const unverified = await account({ verified: false });
@@ -158,8 +158,7 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
     for (const url of reads) {
       expect((await anonymous.get(url)).status).toBe(401);
       const denied = await unverified.client.get(url);
-      expect(denied.status).toBe(403);
-      expect(errorCode(denied.body)).toBe('EMAIL_VERIFICATION_REQUIRED');
+      expect(denied.status).toBe(200);
     }
     expect(
       (
@@ -170,7 +169,7 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
         )
       ).status,
     ).toBe(401);
-    expect((await follow(unverified, target.id)).status).toBe(403);
+    expect((await follow(unverified, target.id)).status).toBe(200);
   });
 
   it('follows a public profile at once, idempotently, and updates counters', async () => {
@@ -196,13 +195,14 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
     });
   });
 
-  it('rejects self, unknown, unverified, malformed and forged follow requests', async () => {
+  it('rejects self, unknown, malformed and forged follow requests', async () => {
     const viewer = await account();
     const unverified = await account({ verified: false });
     const self = await follow(viewer, viewer.id);
     expect(self.status).toBe(400);
     expect(errorCode(self.body)).toBe('CANNOT_FOLLOW_SELF');
-    for (const id of [randomUUID(), unverified.id]) {
+    expect((await follow(viewer, unverified.id)).status).toBe(200);
+    for (const id of [randomUUID()]) {
       const missing = await follow(viewer, id);
       expect(missing.status).toBe(404);
       expect(errorCode(missing.body)).toBe('USER_NOT_FOUND');
@@ -226,7 +226,7 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
     expect(errorCode(forged.body)).toBe('REQUEST_FORBIDDEN');
     expect(
       await database.prisma.follow.count({ where: { followerId: viewer.id } }),
-    ).toBe(0);
+    ).toBe(1);
   });
 
   it('turns a private follow into a request that the owner accepts or declines', async () => {
@@ -436,18 +436,17 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
     ).toBe(404);
   });
 
-  it('suggests random verified accounts the viewer neither follows nor requested', async () => {
+  it('suggests random accounts the viewer neither follows nor requested', async () => {
     const viewer = await account();
     const followed = await account();
     const requested = await account({ isPrivate: true });
-    const unverified = await account({ verified: false });
+    await account({ verified: false });
     await follow(viewer, followed.id);
     await follow(viewer, requested.id);
     const excluded = new Set([
       viewer.id,
       followed.id,
       requested.id,
-      unverified.id,
     ]);
     for (let i = 0; i < 3; i++) {
       const response = await viewer.client
@@ -481,7 +480,7 @@ describe('Social graph, suggestions and search with real PostgreSQL', () => {
         account({ displayName: `${name} Zq${token}` }),
       ),
     );
-    await account({ verified: false, displayName: `Hidden Zq${token}` });
+    named.push(await account({ verified: false, displayName: `Legacy Zq${token}` }));
     // Unicode case folding must not depend on the database collation.
     const cyrillic = await account({ displayName: `Ёжик Ж${token}` });
     const search = (query: string) =>

@@ -9,7 +9,7 @@ import {
   expectLoaded,
   login,
   photo,
-  verifiedAccount,
+  registeredAccount,
   type Fixture,
 } from "./helpers/app.mjs";
 
@@ -56,9 +56,9 @@ test("share post, story and reel in Direct with unique counters, retry and priva
   const fixtures: Fixture[] = [];
   const contexts: BrowserContext[] = [];
   try {
-    const alice = await verifiedAccount();
+    const alice = await registeredAccount();
     fixtures.push(alice);
-    const bob = await verifiedAccount();
+    const bob = await registeredAccount();
     fixtures.push(bob);
     await login(page, alice.account);
     await page.goto("/create");

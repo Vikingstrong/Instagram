@@ -95,6 +95,7 @@ describe('AppController (e2e)', () => {
       >;
     };
     expect(Object.keys(document.paths).sort()).toEqual([
+      '/api/v1/auth/capabilities',
       '/api/v1/auth/csrf',
       '/api/v1/auth/login',
       '/api/v1/auth/logout',
@@ -102,8 +103,6 @@ describe('AppController (e2e)', () => {
       '/api/v1/auth/password/reset',
       '/api/v1/auth/register',
       '/api/v1/auth/session',
-      '/api/v1/auth/verification/confirm',
-      '/api/v1/auth/verification/request',
       '/api/v1/calls',
       '/api/v1/calls/config',
       '/api/v1/calls/current',

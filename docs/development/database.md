@@ -8,7 +8,7 @@
 настоящей SMTP-доставки описаны в [Auth email](auth-email.md).
 Браузерный runner и локальная схема origin зафиксированы в
 [FND-01 baseline](foundation-baseline.md); их интеграционная проверка остаётся отдельной работой.
-Локальная почта Mailpit настроена в Compose: [FND-03](local-environment.md).
+В Compose только PostgreSQL; почта не нужна для регистрации: [инструкция](local-environment.md).
 
 ## Версии и размещение
 

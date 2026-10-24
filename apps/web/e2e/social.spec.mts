@@ -5,7 +5,7 @@ import { startAuthApi } from './helpers/auth-api.mjs';
 type Fixture = Awaited<ReturnType<typeof startAuthApi>>;
 
 // Creates and verifies a unique TEST-database account through its helper API.
-async function verifiedAccount(): Promise<Fixture> {
+async function registeredAccount(): Promise<Fixture> {
   const fixture = await startAuthApi();
   const csrfResponse = await fetch(fixture.origin + '/api/v1/auth/csrf');
   const csrf = AuthCsrfResponseSchema.parse(await csrfResponse.json());
@@ -20,7 +20,6 @@ async function verifiedAccount(): Promise<Fixture> {
     body: JSON.stringify(fixture.account),
   });
   expect(registration.status).toBe(201);
-  await fixture.verify();
   return fixture;
 }
 
@@ -39,9 +38,9 @@ test('two users: search, private follow request, approval and unfollow', async (
   const fixtures: Fixture[] = [];
   let ownerContext: BrowserContext | undefined;
   try {
-    const requester = await verifiedAccount();
+    const requester = await registeredAccount();
     fixtures.push(requester);
-    const owner = await verifiedAccount();
+    const owner = await registeredAccount();
     fixtures.push(owner);
     const name = owner.account.username;
 

@@ -49,7 +49,7 @@ import { AuthError } from '../auth/auth.error.js';
 import { parseRange } from '../media/byte-range.js';
 import { DirectService } from './direct.service.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { AuthRateLimiter } from '../auth/auth-rate-limiter.js';
@@ -124,7 +124,7 @@ function attachmentUpload(type: 'image' | 'voice') {
 @ApiTags('Direct')
 @ApiSecurity('session')
 @Controller('direct/conversations')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(401)
 @errorResponse(403)
 @errorResponse(429)
@@ -163,7 +163,7 @@ export class DirectController {
     operationId: 'openConversation',
     summary: 'Open (or create) the conversation with a user',
     description:
-      'Any verified user may write to any other, regardless of follows or privacy (FR-09). Repeats return the same conversation. Yourself: 400 CANNOT_MESSAGE_SELF; unknown user: 404.',
+      'Any authenticated user may write to any other, regardless of follows or privacy (FR-09). Repeats return the same conversation. Yourself: 400 CANNOT_MESSAGE_SELF; unknown user: 404.',
   })
   @ok(ConversationResponseSchema)
   @errorResponse(404)

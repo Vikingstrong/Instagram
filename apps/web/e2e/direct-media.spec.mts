@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
-import { expectLoaded, login, photo, verifiedAccount, type Fixture } from './helpers/app.mjs';
+import { expectLoaded, login, photo, registeredAccount, type Fixture } from './helpers/app.mjs';
 
 test.use({
   permissions: ['microphone'],
@@ -11,9 +11,9 @@ test('private photos, GIF and recorded voice in Direct survive reload and a lost
   const fixtures: Fixture[] = [];
   const contexts: BrowserContext[] = [];
   try {
-    const alice = await verifiedAccount(); fixtures.push(alice);
-    const bob = await verifiedAccount(); fixtures.push(bob);
-    const eve = await verifiedAccount(); fixtures.push(eve);
+    const alice = await registeredAccount(); fixtures.push(alice);
+    const bob = await registeredAccount(); fixtures.push(bob);
+    const eve = await registeredAccount(); fixtures.push(eve);
     await login(page, alice.account);
     await page.goto(`/${bob.account.username}`);
     await page.getByRole('button', { name: 'Написать' }).click();

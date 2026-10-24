@@ -12,7 +12,7 @@ import { AuthError } from './auth.error.js';
 
 export type AuthenticatedRequest = Request & { authUser?: AuthUser };
 @Injectable()
-export class VerifiedSessionGuard implements CanActivate {
+export class SessionGuard implements CanActivate {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(AuthSecurity) private readonly security: AuthSecurity,
@@ -23,7 +23,6 @@ export class VerifiedSessionGuard implements CanActivate {
       cookieValue(request, this.security.sessionCookie),
     );
     if (!user) throw new AuthError('AUTHENTICATION_REQUIRED');
-    if (!user.emailVerified) throw new AuthError('EMAIL_VERIFICATION_REQUIRED');
     request.authUser = user;
     return true;
   }

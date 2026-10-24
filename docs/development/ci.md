@@ -12,8 +12,8 @@ Node берётся из `.nvmrc`, Corepack выбирает pnpm из корн�
 1. `scripts/ci/prepare-env.mjs` создаёт новый приватный `.env` со случайными
    локальными паролями и отдельными dev/test ролями и базами. Существующий файл
    не перезаписывается; значения не печатаются. GitHub Secrets для этого не нужны.
-2. `docker compose up -d --wait --wait-timeout 90 postgres mailpit` запускает
-   PostgreSQL 18.6 и Mailpit. Init-скрипт создаёт изолированные БД и права, healthcheck
+2. `docker compose up -d --wait --wait-timeout 90 postgres` запускает
+   PostgreSQL 18.6. Init-скрипт создаёт изолированные БД и права, healthcheck
    ожидает готовность сервера. Затем проверяется Prisma schema.
 3. `pnpm build`, `pnpm check-types`, `pnpm lint`, `pnpm test` выполняют явные
    задачи API, web и contracts. Шаги последовательны: несколько API-команд
@@ -45,13 +45,14 @@ Browser readiness реализован в `apps/web/e2e/readiness.spec.mts`: б�
 proxy, внутренний адрес и серверный клиент. API readiness 200/503 с настоящей
 БД проверяется также отдельно. Компонентные и браузерные проверки описаны в [FND-06](frontend-testing.md).
 Auth HTTP integration теперь проверяет регистрацию, cookie-сессии,
-Origin/CSRF, лимиты и запрет неподтверждённым пользователям. Browser smoke
+Origin/CSRF, лимиты, доступ аккаунтов с emailVerified=false и отказ гостям. Browser smoke
 `auth-swagger.spec.mts` выполняет register/login/session/logout через Swagger
 с отдельным API-процессом и test-БД, затем очищает только свои записи.
-Следующий [email-срез](auth-email.md) добавляет реальные SMTP integration и
-browser-flow двух пользователей через письма Mailpit, resend, verification и
-recovery. `prepare-env.mjs` создаёт также временный MAIL_OUTBOX_KEY; отдельный
-SMTP-провайдер и публичная доставка не проверяются. Совместная приёмка
+[Необязательное recovery](auth-email.md) проверяется через настоящий SMTP
+к изолированному loopback receiver на случайном порту, без Mailpit. Browser-flow
+проверяет регистрацию без письма и reset с отзывом двух сессий. Fixture явно
+включает SMTP и генерирует свой временный ключ; prepare-env не требует почтовых
+настроек. Внешний провайдер и публичная доставка не проверяются. Совместная приёмка
 Foundation остаётся FND-08.
 
 В hover-тесте rail курсор явно отводится от панели, затем проверяется завершение

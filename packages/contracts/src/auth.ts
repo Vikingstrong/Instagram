@@ -65,6 +65,7 @@ export const AuthUserSchema = z.strictObject({
   id: z.uuid(),
   email: AuthEmailSchema,
   username: AuthUsernameSchema,
+  // Historical metadata only, never an access requirement.
   emailVerified: z.boolean(),
 });
 export const AuthUserResponseSchema = z.strictObject({ user: AuthUserSchema });
@@ -85,9 +86,6 @@ export const AuthLinkTokenSchema = z
   .string()
   .length(43)
   .regex(/^[A-Za-z0-9_-]{43}$/);
-export const AuthVerifyRequestSchema = z.strictObject({
-  token: AuthLinkTokenSchema,
-});
 export const AuthResetPasswordRequestSchema = z.strictObject({
   token: AuthLinkTokenSchema,
   password: AuthPasswordSchema,
@@ -95,8 +93,8 @@ export const AuthResetPasswordRequestSchema = z.strictObject({
 export const AuthEmailAcceptedResponseSchema = z.strictObject({
   status: z.literal("accepted"),
 });
-export const AuthVerifiedResponseSchema = z.strictObject({
-  status: z.literal("verified"),
+export const AuthCapabilitiesResponseSchema = z.strictObject({
+  passwordRecoveryEnabled: z.boolean(),
 });
 export const AuthPasswordResetResponseSchema = z.strictObject({
   status: z.literal("password_reset"),
@@ -142,10 +140,6 @@ export const authErrors = {
   AUTHENTICATION_REQUIRED: {
     status: 401,
     message: "Authentication is required.",
-  },
-  EMAIL_VERIFICATION_REQUIRED: {
-    status: 403,
-    message: "Email verification is required.",
   },
   REQUEST_FORBIDDEN: { status: 403, message: "Request is forbidden." },
   CANNOT_FOLLOW_SELF: { status: 400, message: "You cannot follow yourself." },
@@ -218,7 +212,6 @@ export const AuthApiErrorResponseSchema = z.strictObject({
     errorVariant("VIDEO_TOO_LONG"),
     errorVariant("INVALID_CREDENTIALS"),
     errorVariant("AUTHENTICATION_REQUIRED"),
-    errorVariant("EMAIL_VERIFICATION_REQUIRED"),
     errorVariant("REQUEST_FORBIDDEN"),
     errorVariant("CANNOT_FOLLOW_SELF"),
     errorVariant("PROFILE_PRIVATE"),
@@ -245,14 +238,9 @@ export const AuthApiErrorResponseSchema = z.strictObject({
 });
 
 export const authEndpoints = {
-  requestVerification: {
-    method: "POST",
-    path: "/api/v1/auth/verification/request",
-    successStatus: 202,
-  },
-  verify: {
-    method: "POST",
-    path: "/api/v1/auth/verification/confirm",
+  capabilities: {
+    method: "GET",
+    path: "/api/v1/auth/capabilities",
     successStatus: 200,
   },
   requestPasswordReset: {

@@ -12,10 +12,6 @@ const contents = [
   'POSTGRES_PORT=5432',
   `DATABASE_URL=postgresql://instagram_dev:${development}@127.0.0.1:5432/instagram_dev`,
   `TEST_DATABASE_URL=postgresql://instagram_test:${test}@127.0.0.1:5432/instagram_test`,
-  `MAIL_OUTBOX_KEY=${randomBytes(32).toString('hex')}`,
-  'SMTP_HOST=127.0.0.1',
-  'SMTP_PORT=1025',
-  'SMTP_FROM=noreply@example.test',
   '',
 ].join('\n');
 

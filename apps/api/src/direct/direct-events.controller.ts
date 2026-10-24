@@ -9,7 +9,7 @@ import {
 import type { Response } from 'express';
 import { DirectEvents } from './direct-events.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { AuthSecurity, cookieValue } from '../auth/auth-security.js';
@@ -22,7 +22,7 @@ import { errorResponse } from '../auth/auth-http.js';
 @ApiTags('Direct')
 @ApiSecurity('session')
 @Controller('direct')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 export class DirectEventsController {
   constructor(
     @Inject(DirectEvents) private readonly events: DirectEvents,

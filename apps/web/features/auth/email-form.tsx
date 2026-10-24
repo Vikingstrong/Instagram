@@ -2,23 +2,27 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { authEndpoints, AuthEmailRequestSchema, AuthLinkTokenSchema, AuthPasswordSchema, AuthSessionResponseSchema } from "@instagram/contracts";
+import {
+  authEndpoints,
+  AuthEmailRequestSchema,
+  AuthLinkTokenSchema,
+  AuthPasswordSchema,
+  AuthCapabilitiesResponseSchema,
+} from "@instagram/contracts";
 import { createAuthClient } from "@/lib/api/auth";
 import { replaceLocation } from "@/lib/navigation";
 import { createApiClient, type ApiFailure } from "@/lib/api/client";
 import { ApiErrorNotice } from "@/components/api/api-error-notice";
 import { authInputClass as inputClass, authButtonClass } from "./auth-design";
 
-type Mode = "request-verification" | "forgot-password" | "verify" | "reset-password";
+type Mode = "forgot-password" | "reset-password";
 const titles: Record<Mode, string> = {
-  "request-verification": "Подтверждение email",
   "forgot-password": "Восстановление пароля",
-  verify: "Подтвердить email",
   "reset-password": "Новый пароль",
 };
 
 export function EmailForm({ mode }: { mode: Mode }) {
-  const request = mode === "request-verification" || mode === "forgot-password";
+  const request = mode === "forgot-password";
   const pending = useRef(false);
   const capturedToken = useRef<string | undefined>(undefined);
   const alive = useRef(true);
@@ -27,15 +31,18 @@ export function EmailForm({ mode }: { mode: Mode }) {
   const [invalid, setInvalid] = useState(false);
   const [failure, setFailure] = useState<ApiFailure>();
   const [done, setDone] = useState(false);
-  const [prefill, setPrefill] = useState("");
-  // Signed-in users resend to their own address without retyping it.
+  const [recoveryEnabled, setRecoveryEnabled] = useState<boolean>();
   useEffect(() => {
-    if (mode !== "request-verification") return;
+    if (mode !== "forgot-password") return;
     const controller = new AbortController();
     void createApiClient()
-      .request(authEndpoints.session, AuthSessionResponseSchema, { signal: controller.signal })
+      .request(authEndpoints.capabilities, AuthCapabilitiesResponseSchema, {
+        signal: controller.signal,
+      })
       .then((result) => {
-        if (result.ok && result.data.user) setPrefill(result.data.user.email);
+        if (controller.signal.aborted) return;
+        if (result.ok) setRecoveryEnabled(result.data.passwordRecoveryEnabled);
+        else setFailure(result.failure);
       });
     return () => controller.abort();
   }, [mode]);
@@ -43,9 +50,17 @@ export function EmailForm({ mode }: { mode: Mode }) {
     alive.current = true;
     let active = true;
     function capture() {
-      const value = new URLSearchParams(window.location.hash.slice(1)).get("token");
-      capturedToken.current = AuthLinkTokenSchema.safeParse(value).success ? value! : "";
-      window.history.replaceState(window.history.state, "", window.location.pathname);
+      const value = new URLSearchParams(window.location.hash.slice(1)).get(
+        "token",
+      );
+      capturedToken.current = AuthLinkTokenSchema.safeParse(value).success
+        ? value!
+        : "";
+      window.history.replaceState(
+        window.history.state,
+        "",
+        window.location.pathname,
+      );
     }
     function changed() {
       if (!window.location.hash) return;
@@ -58,7 +73,9 @@ export function EmailForm({ mode }: { mode: Mode }) {
     if (!request) {
       // StrictMode replays effects after the initial fragment is removed.
       if (capturedToken.current === undefined) capture();
-      queueMicrotask(() => { if (active) setToken(capturedToken.current); });
+      queueMicrotask(() => {
+        if (active) setToken(capturedToken.current);
+      });
       window.addEventListener("hashchange", changed);
     }
     return () => {
@@ -75,8 +92,11 @@ export function EmailForm({ mode }: { mode: Mode }) {
     const data = new FormData(form);
     const email = String(data.get("email") ?? "");
     const password = String(data.get("password") ?? "");
-    const valid = request ? AuthEmailRequestSchema.safeParse({ email }).success
-      : AuthLinkTokenSchema.safeParse(token).success && (mode !== "reset-password" || AuthPasswordSchema.safeParse(password).success);
+    const valid = request
+      ? AuthEmailRequestSchema.safeParse({ email }).success
+      : AuthLinkTokenSchema.safeParse(token).success &&
+        (mode !== "reset-password" ||
+          AuthPasswordSchema.safeParse(password).success);
     setInvalid(!valid);
     setFailure(undefined);
     if (!valid) return;
@@ -85,16 +105,17 @@ export function EmailForm({ mode }: { mode: Mode }) {
     const submittedToken = token;
     try {
       const auth = createAuthClient();
-      const result = mode === "request-verification" ? await auth.requestVerification(email)
-        : mode === "forgot-password" ? await auth.requestPasswordReset(email)
-        : mode === "verify" ? await auth.verify(token!) : await auth.resetPassword(token!, password);
-      if (!alive.current || (!request && capturedToken.current !== submittedToken)) return;
+      const result =
+        mode === "forgot-password"
+          ? await auth.requestPasswordReset(email)
+          : await auth.resetPassword(token!, password);
+      if (
+        !alive.current ||
+        (!request && capturedToken.current !== submittedToken)
+      )
+        return;
       if (!result.ok) setFailure(result.failure);
-      else if (mode === "verify") {
-        // Straight to the feed: the home page shows it to the now-verified
-        // session, or asks to sign in when the link was opened elsewhere.
-        replaceLocation("/");
-      } else if (mode === "reset-password") {
+      else if (mode === "reset-password") {
         // Drop any state of the account whose sessions were just revoked.
         replaceLocation("/auth/password-changed");
       } else {
@@ -110,21 +131,102 @@ export function EmailForm({ mode }: { mode: Mode }) {
     }
   }
 
-  return <div className="space-y-5">
-    <h1 className="text-2xl font-semibold">{titles[mode]}</h1>
-    {done ? <>
-      <p role="status">Если для этого адреса доступно действие, письмо будет отправлено. Проверьте входящие и папку «Спам». Повторная отправка доступна не чаще раза в минуту.</p>
-    </> : <form onSubmit={submit} noValidate className="space-y-5" aria-busy={busy}>
-      {request && <div><label htmlFor="request-email">Email</label><input id="request-email" key={prefill} defaultValue={prefill} className={inputClass} name="email" type="email" autoComplete="email" required disabled={busy} /></div>}
-      {!request && token === undefined && <p role="status">Проверяем ссылку…</p>}
-      {!request && token === "" && <p role="alert">В ссылке нет действительного токена. Запросите новое письмо.</p>}
-      {mode === "reset-password" && <div><label htmlFor="reset-password">Новый пароль</label><input id="reset-password" className={inputClass} name="password" type="password" autoComplete="new-password" required disabled={busy} aria-describedby="reset-help" /><p id="reset-help" className="mt-2 text-sm text-muted-foreground">8–128 символов. Пробелы и Unicode разрешены. После смены пароля потребуется новый вход на всех устройствах.</p></div>}
-      {mode === "verify" && token && <p>Нажмите кнопку, чтобы подтвердить адрес email.</p>}
-      {invalid && <p role="alert">Проверьте введённые данные и ссылку из письма.</p>}
-      {failure && <ApiErrorNotice failure={failure} />}
-      <button className={authButtonClass} type="submit" disabled={busy || (!request && !token)}>{busy ? "Подождите…" : request ? "Отправить письмо" : mode === "verify" ? "Подтвердить email" : "Сохранить пароль"}</button>
-    </form>}
-    {!request && <Link href={mode === "verify" ? "/auth/request-verification" : "/auth/forgot-password"} className="block text-ig-link underline">Запросить новое письмо</Link>}
-    <Link href="/auth/login" className="block text-ig-link underline">Войти в аккаунт</Link>
-  </div>;
+  return (
+    <div className="space-y-5">
+      <h1 className="text-2xl font-semibold">{titles[mode]}</h1>
+      {request && recoveryEnabled !== true ? (
+        <>
+          <p role="status">
+            {recoveryEnabled === false
+              ? "Восстановление пароля по почте пока не настроено. Регистрация и вход доступны."
+              : "Проверяем доступность восстановления…"}
+          </p>
+          {failure && <ApiErrorNotice failure={failure} />}
+        </>
+      ) : done ? (
+        <>
+          <p role="status">
+            Если для этого адреса доступно действие, письмо будет отправлено.
+            Проверьте входящие и папку «Спам». Повторная отправка доступна не
+            чаще раза в минуту.
+          </p>
+        </>
+      ) : (
+        <form
+          onSubmit={submit}
+          noValidate
+          className="space-y-5"
+          aria-busy={busy}
+        >
+          {request && (
+            <div>
+              <label htmlFor="request-email">Email</label>
+              <input
+                id="request-email"
+                className={inputClass}
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                disabled={busy}
+              />
+            </div>
+          )}
+          {!request && token === undefined && (
+            <p role="status">Проверяем ссылку…</p>
+          )}
+          {!request && token === "" && (
+            <p role="alert">
+              В ссылке нет действительного токена. Запросите новое письмо.
+            </p>
+          )}
+          {mode === "reset-password" && (
+            <div>
+              <label htmlFor="reset-password">Новый пароль</label>
+              <input
+                id="reset-password"
+                className={inputClass}
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                disabled={busy}
+                aria-describedby="reset-help"
+              />
+              <p id="reset-help" className="mt-2 text-sm text-muted-foreground">
+                8–128 символов. Пробелы и Unicode разрешены. После смены пароля
+                потребуется новый вход на всех устройствах.
+              </p>
+            </div>
+          )}
+          {invalid && (
+            <p role="alert">Проверьте введённые данные и ссылку из письма.</p>
+          )}
+          {failure && <ApiErrorNotice failure={failure} />}
+          <button
+            className={authButtonClass}
+            type="submit"
+            disabled={busy || (!request && !token)}
+          >
+            {busy
+              ? "Подождите…"
+              : request
+                ? "Отправить письмо"
+                : "Сохранить пароль"}
+          </button>
+        </form>
+      )}
+      {!request && (
+        <Link
+          href={"/auth/forgot-password"}
+          className="block text-ig-link underline"
+        >
+          Запросить новое письмо
+        </Link>
+      )}
+      <Link href="/auth/login" className="block text-ig-link underline">
+        Войти в аккаунт
+      </Link>
+    </div>
+  );
 }

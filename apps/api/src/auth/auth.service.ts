@@ -12,7 +12,6 @@ import { PasswordHasher } from './password-hasher.js';
 import { AuthError } from './auth.error.js';
 import { MailService } from '../mail/mail.service.js';
 import { AUTH_CONFIG, type AuthConfiguration } from './auth.config.js';
-import type { AuthTokenPurpose } from '../generated/prisma/client.js';
 import { SessionRevocations } from './session-revocations.js';
 
 export const SESSION_TTL_MS = 7 * 24 * 3600_000;
@@ -50,8 +49,7 @@ export class AuthService {
     private readonly revocations: SessionRevocations,
   ) {}
   // Registration signs the new account in atomically: the session is created in
-  // the same transaction as the account and its verification mail. Protected
-  // features stay closed by the verified guard until the email is confirmed.
+  // the same transaction as the account. Email ownership is not verified.
   async register(
     input: AuthRegisterRequest,
   ): Promise<{ user: AuthUser; token: string }> {
@@ -69,12 +67,6 @@ export class AuthService {
           },
           select: { ...publicSelect, credentialVersion: true },
         });
-        await this.issueToken(
-          tx,
-          created.id,
-          created.credentialVersion,
-          'EMAIL_VERIFICATION',
-        );
         await tx.authSession.create({
           data: {
             userId: created.id,
@@ -173,13 +165,13 @@ export class AuthService {
     tx: Prisma.TransactionClient,
     userId: string,
     version: number,
-    purpose: AuthTokenPurpose,
+    purpose: 'PASSWORD_RESET',
   ): Promise<void> {
     const now = new Date();
     // The caller holds the user lock (or just created the row). Serialize quota,
     // token replacement, reset and login against that same row.
     const recent = await tx.authToken.findMany({
-      where: { userId, createdAt: { gt: new Date(now.getTime() - 3600_000) } },
+      where: { userId, purpose, createdAt: { gt: new Date(now.getTime() - 3600_000) } },
       select: { createdAt: true },
     });
     if (
@@ -199,13 +191,10 @@ export class AuthService {
         purpose,
         tokenHash: sessionHash(raw),
         credentialVersion: version,
-        expiresAt: new Date(
-          now.getTime() +
-            (purpose === 'EMAIL_VERIFICATION' ? 24 * 3600_000 : 30 * 60_000),
-        ),
+        expiresAt: new Date(now.getTime() + 30 * 60_000),
       },
     });
-    const path = purpose === 'EMAIL_VERIFICATION' ? 'verify' : 'reset-password';
+    const path = 'reset-password';
     // Fragment tokens do not enter HTTP URLs/access logs or referrer headers.
     await this.mail.enqueue(
       tx,
@@ -214,30 +203,26 @@ export class AuthService {
     );
   }
 
-  async requestEmail(email: string, purpose: AuthTokenPurpose): Promise<void> {
+  async requestEmail(email: string, purpose: 'PASSWORD_RESET'): Promise<void> {
+    this.mail.assertAvailable();
     await this.database.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<
         {
           id: string;
           credentialVersion: number;
-          emailVerifiedAt: Date | null;
         }[]
       >`
-        SELECT id, "credentialVersion", "emailVerifiedAt" FROM auth_users
+        SELECT id, "credentialVersion" FROM auth_users
         WHERE "emailKey" = ${email.toLowerCase()} FOR UPDATE`;
       const account = rows[0];
-      if (
-        !account ||
-        (purpose === 'EMAIL_VERIFICATION' && account.emailVerifiedAt)
-      )
-        return;
+      if (!account) return;
       await this.issueToken(tx, account.id, account.credentialVersion, purpose);
     });
   }
 
   private async consume(
     raw: string,
-    purpose: AuthTokenPurpose,
+    purpose: 'PASSWORD_RESET',
     passwordHash?: string,
   ): Promise<void> {
     const hash = sessionHash(raw);
@@ -268,48 +253,27 @@ export class AuthService {
           where: { id: token.id },
           data: { consumedAt: now },
         });
-        if (purpose === 'EMAIL_VERIFICATION') {
-          await tx.user.update({
-            where: { id: token.userId },
-            data: { emailVerifiedAt: now },
-          });
-          await tx.authToken.updateMany({
-            where: {
-              userId: token.userId,
-              purpose,
-              consumedAt: null,
-              revokedAt: null,
-            },
-            data: { revokedAt: now },
-          });
-          await this.mail.cancel(tx, token.userId, purpose);
-          return false;
-        } else {
-          if (!passwordHash) throw new AuthError('INVALID_REQUEST');
-          await tx.user.update({
-            where: { id: token.userId },
-            data: { passwordHash, credentialVersion: { increment: 1 } },
-          });
-          await tx.authSession.updateMany({
-            where: { userId: token.userId, revokedAt: null },
-            data: { revokedAt: now },
-          });
-          await tx.authToken.updateMany({
-            where: { userId: token.userId, consumedAt: null, revokedAt: null },
-            data: { revokedAt: now },
-          });
-          await this.mail.cancel(tx, token.userId);
-          return true;
-        }
+        if (!passwordHash) throw new AuthError('INVALID_REQUEST');
+        await tx.user.update({
+          where: { id: token.userId },
+          data: { passwordHash, credentialVersion: { increment: 1 } },
+        });
+        await tx.authSession.updateMany({
+          where: { userId: token.userId, revokedAt: null },
+          data: { revokedAt: now },
+        });
+        await tx.authToken.updateMany({
+          where: { userId: token.userId, consumedAt: null, revokedAt: null },
+          data: { revokedAt: now },
+        });
+        await this.mail.cancel(tx, token.userId);
+        return true;
       },
     );
     // A password reset signs out everywhere, including open streams.
     if (revokedSessions) this.revocations.publish({ userId: hint.userId });
   }
 
-  async verifyEmail(token: string): Promise<void> {
-    await this.consume(token, 'EMAIL_VERIFICATION');
-  }
   async resetPassword(token: string, password: string): Promise<void> {
     // Hash outside the transaction/row lock. consume rechecks expiry/version
     // after acquiring the lock, so concurrent reset/login cannot escape.

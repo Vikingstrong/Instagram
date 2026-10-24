@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { login, verifiedAccount, type Fixture } from './helpers/app.mjs';
+import { login, registeredAccount, type Fixture } from './helpers/app.mjs';
 
 // The API's pinned ffmpeg makes a short clip: no binary fixture in Git.
 async function makeClip(): Promise<Buffer> {
@@ -55,9 +55,9 @@ test('publish a video, watch it in the post and in Reels', async ({ page, browse
   const fixtures: Fixture[] = [];
   let viewerContext: BrowserContext | undefined;
   try {
-    const owner = await verifiedAccount();
+    const owner = await registeredAccount();
     fixtures.push(owner);
-    const viewer = await verifiedAccount();
+    const viewer = await registeredAccount();
     fixtures.push(viewer);
     const caption = `Ролик ${randomUUID().slice(0, 8)}`;
 

@@ -28,7 +28,7 @@ import {
 } from '@instagram/contracts';
 import { UsersService } from './users.service.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import { AuthRateLimiter } from '../auth/auth-rate-limiter.js';
@@ -40,7 +40,7 @@ import {
   schema,
 } from '../auth/auth-http.js';
 
-// Every route requires a verified session (P-04: no guest profile access).
+// Every route requires a authenticated session (P-04: no guest profile access).
 function viewer(request: AuthenticatedRequest): string {
   return request.authUser!.id;
 }
@@ -48,7 +48,7 @@ function viewer(request: AuthenticatedRequest): string {
 @ApiTags('Users')
 @ApiSecurity('session')
 @Controller('users')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(401)
 @errorResponse(403)
 @errorResponse(429)
@@ -66,7 +66,7 @@ export class UsersController {
     operationId: 'getUserProfile',
     summary: 'Read a profile summary by username',
     description:
-      'Case-insensitive username. Private profiles return the same summary fields and counters (FR-02); posts are never included here. relationship is self, none, requested or following for the signed-in viewer. Unverified and unknown accounts are 404.',
+      'Case-insensitive username. Private profiles return the same summary fields and counters (FR-02); posts are never included here. relationship is self, none, requested or following for the signed-in viewer. Unknown accounts are 404.',
   })
   @ApiParam({ name: 'username', example: 'demo_user' })
   @ApiResponse({
@@ -91,7 +91,7 @@ export class UsersController {
 @ApiTags('Users')
 @ApiSecurity('session')
 @Controller('me')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(401)
 @errorResponse(403)
 @errorResponse(429)
@@ -151,7 +151,7 @@ export class MeController {
 @ApiTags('Users')
 @ApiSecurity('session')
 @Controller('search')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(400)
 @errorResponse(401)
 @errorResponse(403)

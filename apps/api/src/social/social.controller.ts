@@ -35,7 +35,7 @@ import {
 } from '@instagram/contracts';
 import { SocialService } from './social.service.js';
 import {
-  VerifiedSessionGuard,
+  SessionGuard,
   type AuthenticatedRequest,
 } from '../auth/auth-session.guard.js';
 import {
@@ -65,7 +65,7 @@ function ok(value: Parameters<typeof schema>[0]) {
 @ApiTags('Social')
 @ApiSecurity('session')
 @Controller('users')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(401)
 @errorResponse(403)
 @errorResponse(404)
@@ -176,7 +176,7 @@ export class UsersSocialController {
 @ApiTags('Social')
 @ApiSecurity('session')
 @Controller('me')
-@UseGuards(VerifiedSessionGuard)
+@UseGuards(SessionGuard)
 @errorResponse(401)
 @errorResponse(403)
 @errorResponse(429)
@@ -279,7 +279,7 @@ export class MeSocialController {
     operationId: 'listSuggestions',
     summary: 'Random accounts to follow',
     description:
-      'Random verified accounts the viewer neither follows nor requested, excluding the viewer. Limit 1–20, default 5. An empty list means there is nothing to suggest.',
+      'Random accounts the viewer neither follows nor requested, excluding the viewer. Limit 1–20, default 5. An empty list means there is nothing to suggest.',
   })
   @ok(SuggestionsResponseSchema)
   @errorResponse(400)

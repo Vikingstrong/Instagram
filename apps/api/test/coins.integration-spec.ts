@@ -128,12 +128,12 @@ describe('FR-14 Coins: real PostgreSQL locking, calendar claims and gift transfe
       timeout: 10_000,
     });
 
-  it('requires a verified session and never creates or credits a wallet on reads', async () => {
+  it('requires a session and never creates or credits a wallet on reads', async () => {
     for (const path of ['/api/v1/coins/wallet', '/api/v1/coins/transactions']) {
       await request(app.getHttpServer()).get(path).expect(401);
-      await unverified.client.get(path).expect(403);
+      await unverified.client.get(path).expect(200);
     }
-    await claim(unverified).expect(403);
+    await claim(unverified).expect(200);
     await request(app.getHttpServer())
       .post('/api/v1/coins/daily-claim')
       .send({})

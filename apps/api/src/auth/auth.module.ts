@@ -12,7 +12,7 @@ import {
 } from './auth-security.js';
 import { AuthRateLimiter } from './auth-rate-limiter.js';
 import { AuthErrorFilter } from './auth-error.filter.js';
-import { VerifiedSessionGuard } from './auth-session.guard.js';
+import { SessionGuard } from './auth-session.guard.js';
 import { MailModule } from '../mail/mail.module.js';
 import { SessionRevocations } from './session-revocations.js';
 
@@ -30,7 +30,7 @@ import { SessionRevocations } from './session-revocations.js';
     AuthMutationGuard,
     UploadMutationGuard,
     AuthRateLimiter,
-    VerifiedSessionGuard,
+    SessionGuard,
     SessionRevocations,
     { provide: APP_FILTER, useClass: AuthErrorFilter },
   ],
@@ -40,7 +40,7 @@ import { SessionRevocations } from './session-revocations.js';
     AuthMutationGuard,
     UploadMutationGuard,
     AuthRateLimiter,
-    VerifiedSessionGuard,
+    SessionGuard,
     SessionRevocations,
   ],
 })

@@ -1,10 +1,15 @@
 # Подготовка этапа 2 — Auth и email
 
+> Актуализация 2026-10-24: регистрация без подтверждения, Mailpit удалён,
+> recovery необязательно. Ниже сохранён исходный план/отчёт прежнего среза;
+> его требования verification/SMTP больше не действуют. Текущие правила и
+> инструкция Developer 2: [Auth without verification](auth-without-verification.md).
+
 Первоначальная подготовка контракта (PR #10). Актуальный backend регистрации
 и сессий описан в [Auth API](auth-api.md); формы регистрации/входа и состояние
 сессии — в [Auth web](auth-web.md). Verification/recovery, SMTP и email-формы
 добавлены в [Auth email](auth-email.md). Ниже сохранён план первоначальной подготовки.
-Решения владельца проекта: [PRD FR-01](../product/PRD.md#fr-01--authentication--email-verification),
+Решения владельца проекта: [PRD FR-01](../product/PRD.md#fr-01--authentication--optional-password-recovery),
 P-01/P-02/P-03 и auth-часть P-09. PR #9 объединён в `main`.
 
 ## Что подготовлено

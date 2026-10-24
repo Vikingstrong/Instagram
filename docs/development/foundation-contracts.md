@@ -1,5 +1,10 @@
 # FND-02 — контракт технического среза
 
+> Актуализация 2026-10-24: регистрация без подтверждения, Mailpit удалён,
+> recovery необязательно. Ниже сохранён исходный план/отчёт прежнего среза;
+> его требования verification/SMTP больше не действуют. Текущие правила и
+> инструкция Developer 2: [Auth without verification](auth-without-verification.md).
+
 Основание: [roadmap FND-02](../roadmap.md#5-foundation-предлагаемые-github-issues),
 [Architecture §12](../architecture/overview.md#12-shared-api-contracts).
 

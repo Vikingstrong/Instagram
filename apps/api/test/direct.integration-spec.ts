@@ -140,7 +140,7 @@ describe('Direct over REST with real PostgreSQL', () => {
   const errorCode = (body: unknown) =>
     AuthApiErrorResponseSchema.parse(body).error.code;
 
-  it('requires a verified session and Origin/CSRF', async () => {
+  it('requires a session and Origin/CSRF', async () => {
     const anonymous = request.agent(app.getHttpServer());
     expect(
       (await anonymous.get(directEndpoints.conversations.path)).status,
@@ -150,8 +150,7 @@ describe('Direct over REST with real PostgreSQL', () => {
     const denied = await post(unverified, directEndpoints.open.path, {
       userId: peer.id,
     });
-    expect(denied.status).toBe(403);
-    expect(errorCode(denied.body)).toBe('EMAIL_VERIFICATION_REQUIRED');
+    expect(denied.status).toBe(200);
     const sender = await account();
     const noCsrf = await sender.client
       .post(directEndpoints.open.path)
@@ -170,7 +169,6 @@ describe('Direct over REST with real PostgreSQL', () => {
     expect(errorCode(self.body)).toBe('CANNOT_MESSAGE_SELF');
     for (const userId of [
       randomUUID(),
-      (await account({ verified: false })).id,
     ]) {
       const missing = await post(first, directEndpoints.open.path, { userId });
       expect(missing.status).toBe(404);
@@ -609,7 +607,7 @@ describe('Direct over REST with real PostgreSQL', () => {
     expect(
       (await upload(unverified, conversation.id, 'image', await photo()))
         .status,
-    ).toBe(403);
+    ).toBe(404);
     await alice.client
       .post(`${messagesUrl(conversation.id)}/image`)
       .attach('file', await photo(), 'photo.jpg')

@@ -22,6 +22,7 @@ export function StoryViewer({ byUser = false }: { byUser?: boolean }) {
 function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
   const user = useHomeIdentity();
   const router = useRouter();
+  const userId = user?.id;
   const [story, setStory] = useState<Story>();
   const [siblings, setSiblings] = useState<Story[]>([]);
   const [error, setError] = useState<string>();
@@ -56,7 +57,7 @@ function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
     siblings.length === 0;
 
   useEffect(() => {
-    if (!user?.emailVerified) return;
+    if (!userId) return;
     const controller = new AbortController();
     const api = createStoriesClient();
     async function load() {
@@ -93,7 +94,7 @@ function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
     }
     void load();
     return () => controller.abort();
-  }, [id, byUser, user?.id, user?.emailVerified, router]);
+  }, [id, byUser, userId, router]);
 
   const next = useCallback(
     async (direction = 1) => {
@@ -267,7 +268,7 @@ function Viewer({ id, byUser }: { id: string; byUser: boolean }) {
   }
   const shell =
     "fixed inset-0 z-80 flex flex-col items-center justify-center bg-black text-white";
-  if (!user?.emailVerified)
+  if (!user)
     return (
       <section className={shell}>
         <p>Войдите, чтобы смотреть истории.</p>

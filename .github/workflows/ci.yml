@@ -42,8 +42,8 @@ jobs:
       - name: Prepare isolated CI databases
         run: node scripts/ci/prepare-env.mjs
 
-      - name: Start PostgreSQL and Mailpit
-        run: docker compose up -d --wait --wait-timeout 90 postgres mailpit
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait --wait-timeout 90 postgres
 
       - name: Validate Prisma schema
         run: pnpm --filter @instagram/api db:validate
