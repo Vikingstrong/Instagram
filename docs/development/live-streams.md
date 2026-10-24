@@ -107,3 +107,18 @@ Developer 2 (Claude Code), backend и frontend. Решения P-15 принят
   можно завершить и начать новый.
 - Маршрут `/live` занимает имя пользователя `live` так же, как `/reels` и
   `/direct` — общий вопрос зарезервированных имён.
+
+## Исправление CI — 2026-10-24
+
+В PR #39 production build падал на динамических маршрутах `/stories/[id]`
+и `/[username]`: глобальный LiveAlerts читает usePathname, а fallback params
+неизвестны при prerender с Cache Components. В root layout только LiveAlerts
+обёрнут в Suspense с fallback=null; страницы и CallsProvider остаются вне
+этой границы. Ошибка проверяется штатным production build, без отключения
+prerender или Cache Components.
+
+PR #40 отдельно убирает email verification. Git не показывает текстовых
+конфликтов с текущей веткой, но совместная сборка требует адаптации нового
+LivesModule и live browser fixtures к SessionGuard/registeredAccount и удаления
+emailVerifiedAt-фильтров в эфирах. До такой адаптации две ветки нельзя считать
+совместимыми только на основании зелёной кнопки Merge.

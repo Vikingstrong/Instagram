@@ -1,6 +1,7 @@
 import { CallsProvider } from "@/features/calls/calls-provider";
 import { LiveAlerts } from "@/features/live/live-alerts";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -37,7 +38,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="ru"
       className={`${geistSans.variable} ${geistMono.variable} ${grandHotel.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><CallsProvider>{children}<LiveAlerts /></CallsProvider></body>
+      <body className="min-h-full flex flex-col">
+        <CallsProvider>
+          {children}
+          <Suspense fallback={null}>
+            <LiveAlerts />
+          </Suspense>
+        </CallsProvider>
+      </body>
     </html>
   );
 }
