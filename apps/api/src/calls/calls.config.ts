@@ -4,13 +4,24 @@ export const CALLS_CONFIG = Symbol('CALLS_CONFIG');
 export function readCallsConfig(env: NodeJS.ProcessEnv) {
   const stun = (env.CALLS_STUN_URLS ?? '').split(',').filter(Boolean);
   const turn = (env.CALLS_TURN_URLS ?? '').split(',').filter(Boolean);
+  const username = env.CALLS_TURN_USERNAME;
+  const credential = env.CALLS_TURN_CREDENTIAL;
+  const staticCredentials = Boolean(username || credential);
   if (
     stun.some((url) => !/^stun:[^\s]+$/.test(url)) ||
     turn.some((url) => !/^turns?:[^\s]+$/.test(url))
   )
     throw new Error('Invalid calls ICE URLs.');
   if (
+    staticCredentials &&
+    (!username || !credential || !turn.length || env.CALLS_TURN_SECRET)
+  )
+    throw new Error(
+      'CALLS_TURN_USERNAME and CALLS_TURN_CREDENTIAL require TURN URLs and cannot be combined with CALLS_TURN_SECRET.',
+    );
+  if (
     turn.length &&
+    !staticCredentials &&
     (!env.CALLS_TURN_SECRET || env.CALLS_TURN_SECRET.length < 32)
   )
     throw new Error('CALLS_TURN_SECRET requires at least 32 characters.');
@@ -18,6 +29,8 @@ export function readCallsConfig(env: NodeJS.ProcessEnv) {
     stun,
     turn,
     secret: env.CALLS_TURN_SECRET,
+    username,
+    credential,
     production: env.NODE_ENV === 'production',
   };
 }
@@ -32,6 +45,14 @@ export function iceConfiguration(config: CallsConfig, userId: string) {
   }[] = [];
   if (config.stun.length) iceServers.push({ urls: config.stun });
   if (config.turn.length) {
+    if (config.username && config.credential) {
+      iceServers.push({
+        urls: config.turn,
+        username: config.username,
+        credential: config.credential,
+      });
+      return { iceServers };
+    }
     const username = `${Math.floor(Date.now() / 1000) + 3600}:${userId}`;
     iceServers.push({
       urls: config.turn,
