@@ -106,8 +106,10 @@
 }
 
 /* Auth: split editorial cover on desktop, focused form on mobile. */
-.auth-layout { position: relative; isolation: isolate; overflow: hidden; display: grid; min-height: 100dvh; grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.85fr); background: #0c1014; color: #f5f5f5; }
-.auth-layout > :not(.auth-page-glow) { position: relative; z-index: 1; }
+.auth-layout { position: relative; isolation: isolate; overflow: hidden; display: grid; min-height: 100dvh; grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.85fr); background: var(--background); color: var(--foreground); }
+.auth-layout > :not(.auth-page-glow, .auth-theme-toggle) { position: relative; z-index: 1; }
+.auth-theme-toggle { position: absolute; top: 20px; right: 20px; z-index: 5; display: grid; width: 40px; height: 40px; place-items: center; border-radius: 999px; transition: background-color .2s; }
+.auth-theme-toggle:hover { background: var(--secondary); }
 .auth-page-glow { position: absolute; z-index: 0; width: 520px; height: 520px; border-radius: 50%; filter: blur(140px); opacity: 0.38; pointer-events: none; animation: auth-glow 12s ease-in-out infinite alternate; }
 .auth-page-glow-tl { left: -220px; top: -220px; background: #833ab4; }
 .auth-page-glow-tr { right: -220px; top: -220px; background: #e1306c; animation-delay: -4s; }
@@ -148,7 +150,15 @@
 .auth-sticker-star svg { width: 22px; height: 22px; }
 .auth-sticker-star .auth-sticker-check { width: 14px; height: 14px; }
 .auth-sticker-avatar { position: absolute; right: -2px; top: 236px; z-index: 4; display: block; width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(45deg, #feda75, #fa7e1e, #d62976, #962fbf); padding: 3px; }
-.auth-sticker-avatar img { width: 100%; height: 100%; border: 3px solid #0c1014; border-radius: 50%; object-fit: cover; }
+.auth-sticker-avatar img { width: 100%; height: 100%; border: 3px solid var(--background); border-radius: 50%; object-fit: cover; }
+/* Light theme for the auth pages; the story-card artwork stays dark. */
+:root:not(.dark) .auth-page-glow { opacity: 0.22; }
+:root:not(.dark) .auth-story { background: radial-gradient(ellipse at 35% 65%, #f6c8e255, transparent 60%); }
+:root:not(.dark) .auth-eyebrow { color: #7b6aa8; }
+:root:not(.dark) .auth-story h2 span { background-image: linear-gradient(110deg, #f77737, #d62976, #6a4cff); }
+:root:not(.dark) .auth-story-footnote, :root:not(.dark) .auth-footer { color: #737373; }
+:root:not(.dark) .auth-panel { border-left-color: #0000000f; background: radial-gradient(circle at 0% 0%, #833ab41f, transparent 38%), radial-gradient(circle at 100% 0%, #e1306c1f, transparent 38%), radial-gradient(circle at 0% 100%, #fcaf451f, transparent 38%), radial-gradient(circle at 100% 100%, #f560401f, transparent 38%), #ffffffc7; }
+:root:not(.dark) .auth-card { box-shadow: 0 24px 50px #0003; }
 @media (min-width: 1600px) { .auth-form-container { max-width: 480px; } .auth-art { margin-top: 60px; transform: scale(1.1); margin-bottom: 25px; } }
 @media (max-width: 899px) {
   .auth-layout { display: flex; flex-direction: column; }
