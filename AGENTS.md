@@ -111,6 +111,11 @@ images use plain <img> via components/ui-ig/media-image.tsx, never next/image.
 Stage 5 (FR-05/06): GET /api/v1/feed, likes and comments live in PostsModule
 (interactions.service/controller); web feed, like and comments are in
 apps/web/features/posts; see docs/development/feed-api.md.
+Interaction notifications for post likes, comments, replies and comment likes
+are in PostsModule with an additive notification journal, `/api/v1/me/notifications`,
+the existing Direct SSE stream and web `/notifications`; see
+docs/development/interaction-notifications.md. Apply the migration before the
+new API on deployment.
 Comment photo/GIF attachments use MediaKind.COMMENT and multipart
 /posts/{id}/comments/image; Sharp preserves GIF animation as WebP. Access follows
 the owning post and orphan files are cleaned by MediaService; see

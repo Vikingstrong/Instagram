@@ -44,8 +44,7 @@ export function FollowRequests() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-150 flex-col gap-4 px-4 py-8">
-      <h1 className="text-2xl font-bold">Уведомления</h1>
+    <section aria-label="Запросы на подписку" className="flex flex-col gap-4">
       <h2 className="text-base font-semibold">Запросы на подписку</h2>
       {actionError && (
         <p role="alert" className="text-sm text-destructive">
@@ -55,7 +54,11 @@ export function FollowRequests() {
       <ul className="flex flex-col">
         {list.items.map((item) => (
           <li key={item.user.id} className="flex items-center gap-3 py-2">
-            <Avatar name={item.user.username} src={item.user.avatarUrl} size={44} />
+            <Avatar
+              name={item.user.username}
+              src={item.user.avatarUrl}
+              size={44}
+            />
             <div className="min-w-0 flex-1 leading-tight">
               <Link
                 href={`/${item.user.username}`}
@@ -110,6 +113,6 @@ export function FollowRequests() {
           Показать ещё
         </button>
       )}
-    </div>
+    </section>
   );
 }

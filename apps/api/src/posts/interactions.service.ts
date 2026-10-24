@@ -4,6 +4,8 @@ import {
   type Comment,
   type LikeResponse,
   type PageQuery,
+  NotificationListResponseSchema,
+  type Notification,
 } from '@instagram/contracts';
 import { DatabaseService } from '../infrastructure/database/database.service.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -16,6 +18,7 @@ import {
 } from '../users/user-summary.js';
 import { MediaService, mediaUrl } from '../media/media.service.js';
 import { visiblePost } from './post-policy.js';
+import { DirectEvents } from '../direct/direct-events.js';
 
 const commentSelect = (viewerId: string) =>
   ({
@@ -73,14 +76,16 @@ export class InteractionsService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(MediaService) private readonly media: MediaService,
+    @Inject(DirectEvents) private readonly events: DirectEvents,
   ) {}
 
   private async requireVisible(viewerId: string, postId: string) {
     const post = await this.database.prisma.post.findFirst({
       where: { id: postId, ...visiblePost(viewerId) },
-      select: { id: true },
+      select: { id: true, authorId: true },
     });
     if (!post) throw new AuthError('POST_NOT_FOUND');
+    return post;
   }
 
   private async likeState(
@@ -98,12 +103,27 @@ export class InteractionsService {
 
   // Idempotent: the primary key keeps one like per user, repeats are no-ops.
   async like(viewerId: string, postId: string): Promise<LikeResponse> {
-    await this.requireVisible(viewerId, postId);
+    const post = await this.requireVisible(viewerId, postId);
     try {
-      await this.database.prisma.postLike.createMany({
-        data: { postId, userId: viewerId },
-        skipDuplicates: true,
+      const created = await this.database.prisma.$transaction(async (tx) => {
+        const result = await tx.postLike.createMany({
+          data: { postId, userId: viewerId },
+          skipDuplicates: true,
+        });
+        if (result.count && post.authorId !== viewerId)
+          await tx.notification.create({
+            data: {
+              key: `post-like:${postId}:${viewerId}`,
+              kind: 'POST_LIKE',
+              recipientId: post.authorId,
+              actorId: viewerId,
+              postId,
+            },
+          });
+        return result.count > 0;
       });
+      if (created && post.authorId !== viewerId)
+        this.events.notifyNotification(post.authorId);
     } catch (error) {
       if (missingPost(error)) throw new AuthError('POST_NOT_FOUND');
       throw error;
@@ -112,10 +132,15 @@ export class InteractionsService {
   }
 
   async unlike(viewerId: string, postId: string): Promise<LikeResponse> {
-    await this.requireVisible(viewerId, postId);
-    await this.database.prisma.postLike.deleteMany({
-      where: { postId, userId: viewerId },
+    const post = await this.requireVisible(viewerId, postId);
+    const removed = await this.database.prisma.$transaction(async (tx) => {
+      await tx.postLike.deleteMany({ where: { postId, userId: viewerId } });
+      return tx.notification.deleteMany({
+        where: { key: `post-like:${postId}:${viewerId}` },
+      });
     });
+    if (removed.count && post.authorId !== viewerId)
+      this.events.notifyNotification(post.authorId);
     return this.likeState(viewerId, postId);
   }
 
@@ -173,9 +198,9 @@ export class InteractionsService {
       ? await this.media.store(viewerId, 'COMMENT', image)
       : undefined;
     try {
-      const row = await this.database.prisma.$transaction(async (tx) => {
+      const result = await this.database.prisma.$transaction(async (tx) => {
         if (stored) await this.media.activate(tx, stored);
-        return tx.comment.create({
+        const row = await tx.comment.create({
           data: {
             postId,
             mediaId: stored?.id,
@@ -186,8 +211,23 @@ export class InteractionsService {
           },
           select: commentSelect(viewerId),
         });
+        const recipientId = target?.authorId ?? row.post.authorId;
+        if (recipientId !== viewerId)
+          await tx.notification.create({
+            data: {
+              key: `comment:${row.id}`,
+              kind: target ? 'REPLY' : 'COMMENT',
+              recipientId,
+              actorId: viewerId,
+              postId,
+              commentId: row.id,
+            },
+          });
+        return { row, recipientId };
       });
-      return toComment(viewerId, row);
+      if (result.recipientId !== viewerId)
+        this.events.notifyNotification(result.recipientId);
+      return toComment(viewerId, result.row);
     } catch (error) {
       if (stored) await this.media.discard(stored.id);
       if (missingPost(error))
@@ -201,7 +241,7 @@ export class InteractionsService {
   private async visibleComment(viewerId: string, id: string) {
     const comment = await this.database.prisma.comment.findFirst({
       where: { id, post: visiblePost(viewerId) },
-      select: { id: true, postId: true, parentId: true },
+      select: { id: true, postId: true, parentId: true, authorId: true },
     });
     if (!comment) throw new AuthError('COMMENT_NOT_FOUND');
     return comment;
@@ -218,17 +258,37 @@ export class InteractionsService {
     id: string,
     liked: boolean,
   ): Promise<LikeResponse> {
-    await this.visibleComment(viewerId, id);
+    const comment = await this.visibleComment(viewerId, id);
     try {
-      if (liked)
-        await this.database.prisma.commentLike.createMany({
-          data: { commentId: id, userId: viewerId },
-          skipDuplicates: true,
-        });
-      else
-        await this.database.prisma.commentLike.deleteMany({
+      const changed = await this.database.prisma.$transaction(async (tx) => {
+        if (liked) {
+          const result = await tx.commentLike.createMany({
+            data: { commentId: id, userId: viewerId },
+            skipDuplicates: true,
+          });
+          if (result.count && comment.authorId !== viewerId)
+            await tx.notification.create({
+              data: {
+                key: `comment-like:${id}:${viewerId}`,
+                kind: 'COMMENT_LIKE',
+                recipientId: comment.authorId,
+                actorId: viewerId,
+                postId: comment.postId,
+                commentId: id,
+              },
+            });
+          return result.count > 0;
+        }
+        await tx.commentLike.deleteMany({
           where: { commentId: id, userId: viewerId },
         });
+        const removed = await tx.notification.deleteMany({
+          where: { key: `comment-like:${id}:${viewerId}` },
+        });
+        return removed.count > 0;
+      });
+      if (changed && comment.authorId !== viewerId)
+        this.events.notifyNotification(comment.authorId);
     } catch (error) {
       if (missingPost(error)) throw new AuthError('COMMENT_NOT_FOUND');
       throw error;
@@ -240,6 +300,47 @@ export class InteractionsService {
       }),
     ]);
     return { liked: own > 0, likeCount };
+  }
+
+  async notifications(
+    viewerId: string,
+    page: PageQuery,
+  ): Promise<{
+    items: Notification[];
+    nextCursor: string | null;
+  }> {
+    const after = decodeCursor(page.cursor, 'date');
+    const rows = await this.database.prisma.notification.findMany({
+      where: {
+        recipientId: viewerId,
+        post: visiblePost(viewerId),
+        ...(after && {
+          OR: [
+            { createdAt: { lt: after.date } },
+            { createdAt: after.date, id: { lt: after.id } },
+          ],
+        }),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: page.limit + 1,
+      include: { actor: { select: summarySelect } },
+    });
+    const items = rows.slice(0, page.limit);
+    const last = items.at(-1);
+    return NotificationListResponseSchema.parse({
+      items: items.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        actor: userSummary(row.actor),
+        postId: row.postId,
+        commentId: row.commentId,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      nextCursor:
+        rows.length > page.limit && last
+          ? encodeCursor(last.createdAt.toISOString(), last.id)
+          : null,
+    });
   }
 
   // P-10: one's own comment can be deleted even after losing access to the

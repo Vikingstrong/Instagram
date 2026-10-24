@@ -74,6 +74,8 @@ model User {
   commentLikes      CommentLike[]
   addressedReplies  Comment[]       @relation("replyRecipient")
   comments          Comment[]
+  notificationsReceived Notification[] @relation("notificationRecipient")
+  notificationsActed Notification[] @relation("notificationActor")
   conversationsA    Conversation[]  @relation("participantA")
   conversationsB    Conversation[]  @relation("participantB")
   conversationsMade Conversation[]  @relation("creator")
@@ -249,6 +251,7 @@ model Post {
   media     Media      @relation(fields: [mediaId], references: [id], onDelete: NoAction, onUpdate: Restrict)
   likes     PostLike[]
   comments  Comment[]
+  notifications Notification[]
 
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
   // Feed keyset over many authors.
@@ -286,6 +289,7 @@ model Comment {
   replies       Comment[]     @relation("commentReplies")
   replyTo       User?         @relation("replyRecipient", fields: [replyToUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   likes         CommentLike[]
+  notifications Notification[]
 
   @@unique([id, postId])
   @@index([parentId, createdAt, id])
@@ -354,6 +358,35 @@ model CommentLike {
   @@id([commentId, userId])
   @@index([userId])
   @@map("comment_likes")
+}
+
+enum NotificationKind {
+  POST_LIKE
+  COMMENT
+  REPLY
+  COMMENT_LIKE
+}
+
+// A journal of interaction notifications. The unique key makes repeated likes
+// idempotent; source deletion cascades away notifications with stale links.
+model Notification {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String           @unique @db.VarChar(120)
+  kind        NotificationKind
+  recipientId String           @db.Uuid
+  actorId     String           @db.Uuid
+  postId      String           @db.Uuid
+  commentId   String?          @db.Uuid
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+  recipient   User             @relation("notificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  actor       User             @relation("notificationActor", fields: [actorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  post        Post             @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  comment     Comment?         @relation(fields: [commentId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([recipientId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([postId])
+  @@index([commentId])
+  @@map("notifications")
 }
 
 enum CallStatus {

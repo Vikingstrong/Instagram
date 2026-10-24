@@ -114,6 +114,12 @@ export class DirectEvents implements OnModuleInit, OnModuleDestroy {
         this.write(stream, frame);
   }
 
+  // An interaction changed; clients reload authorized notification rows.
+  notifyNotification(userId: string): void {
+    for (const stream of this.streams.get(userId) ?? [])
+      this.write(stream, 'event: notification\ndata: {}\n\n');
+  }
+
   count(userId?: string): number {
     if (userId) return this.streams.get(userId)?.size ?? 0;
     let total = 0;

@@ -16,6 +16,8 @@ import {
   LikeResponseSchema,
   PostListResponseSchema,
   PostResponseSchema,
+  NotificationListResponseSchema,
+  notificationsEndpoints,
   authEndpoints,
   postsEndpoints,
   type Post,
@@ -738,5 +740,72 @@ describe('Feed, likes and comments with real PostgreSQL', () => {
         where: { ownerId: reader.id, kind: 'COMMENT' },
       }),
     ).toBe(0);
+  });
+
+  it('notifies post and comment owners once, pages safely, and removes stale interactions', async () => {
+    const owner = await account(true);
+    const fan = await account();
+    const outsider = await account();
+    await follow(fan, owner);
+    const publication = await post(owner, 'notification test');
+    const postLike = path(postsEndpoints.like.path, { id: publication.id });
+    const list = async (who: Account, cursor?: string, limit = 20) =>
+      NotificationListResponseSchema.parse(
+        (
+          await who.client
+            .get(
+              `${notificationsEndpoints.list.path}?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`,
+            )
+            .expect(200)
+        ).body,
+      );
+
+    await send(fan, 'put', postLike);
+    await send(fan, 'put', postLike);
+    expect((await list(owner)).items.map((item) => item.kind)).toEqual([
+      'POST_LIKE',
+    ]);
+    const root = CommentResponseSchema.parse(
+      (await send(fan, 'post', commentsUrl(publication.id), { text: 'hello' }))
+        .body,
+    ).comment;
+    const reply = CommentResponseSchema.parse(
+      (
+        await send(owner, 'post', commentsUrl(publication.id), {
+          text: 'answer',
+          replyToCommentId: root.id,
+        })
+      ).body,
+    ).comment;
+    await send(
+      fan,
+      'put',
+      path(postsEndpoints.likeComment.path, { id: reply.id }),
+    );
+    const first = await list(owner, undefined, 2);
+    const second = await list(owner, first.nextCursor!, 2);
+    expect(first.items.map((item) => item.kind).sort()).toEqual([
+      'COMMENT',
+      'COMMENT_LIKE',
+    ]);
+    expect(second.items.map((item) => item.kind)).toEqual(['POST_LIKE']);
+    expect(
+      new Set([...first.items, ...second.items].map((item) => item.id)).size,
+    ).toBe(3);
+    expect((await list(fan)).items.map((item) => item.kind)).toEqual(['REPLY']);
+    expect((await list(outsider)).items).toEqual([]);
+    await request(app.getHttpServer())
+      .get(notificationsEndpoints.list.path)
+      .expect(401);
+
+    await send(fan, 'delete', postLike);
+    expect((await list(owner)).items.map((item) => item.kind).sort()).toEqual([
+      'COMMENT',
+      'COMMENT_LIKE',
+    ]);
+    await unfollow(fan, owner);
+    expect((await list(fan)).items).toEqual([]);
+    await send(fan, 'delete', commentUrl(root.id));
+    expect((await list(owner)).items).toEqual([]);
   });
 });
