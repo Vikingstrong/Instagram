@@ -102,6 +102,21 @@ coturn в соответствующей конфигурации). API выда
 чтобы не обещать связь без relay. Выбор провайдера, HTTPS и реальные
 NAT/TURN проверки — отдельная приёмка перед deployment.
 
+Для внешнего TURN-провайдера, выдающего фиксированные username/password (например,
+Metered), backend поддерживает другой режим:
+
+```dotenv
+CALLS_TURN_URLS=turn:relay.example.test:80,turn:relay.example.test:80?transport=tcp,turn:relay.example.test:443,turns:relay.example.test:443?transport=tcp
+CALLS_TURN_USERNAME=REPLACE_WITH_PROVIDER_USERNAME
+CALLS_TURN_CREDENTIAL=REPLACE_WITH_PROVIDER_CREDENTIAL
+```
+
+Все три значения задаются только на API. `CALLS_TURN_SECRET` в этом режиме не
+задаётся. Calls и Live используют один ICE config. Credential поступает только
+авторизованному клиенту через `/calls/config` или `/lives/config`, как требуется
+WebRTC, поэтому для публичного сервиса нужно ограничить квоту у провайдера и
+периодически менять credential. Изменение конфигурации требует нового деплоя.
+
 ## Проверки
 
 - calls.integration-spec.ts: сессия/CSRF/Origin, посторонний, привязка
