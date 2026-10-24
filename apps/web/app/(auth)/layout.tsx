@@ -8,6 +8,11 @@ export const metadata: Metadata = { referrer: "no-referrer", robots: { index: fa
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <main className="auth-layout">
+      {/* Page corners glow in the Instagram logo colours, under both columns. */}
+      <span aria-hidden="true" className="auth-page-glow auth-page-glow-tl" />
+      <span aria-hidden="true" className="auth-page-glow auth-page-glow-tr" />
+      <span aria-hidden="true" className="auth-page-glow auth-page-glow-bl" />
+      <span aria-hidden="true" className="auth-page-glow auth-page-glow-br" />
       <div className="auth-story">
         <Link href="/auth/login" className="auth-brand-link"><AuthBrand /></Link>
         <div className="auth-story-content">
